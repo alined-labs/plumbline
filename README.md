@@ -36,7 +36,7 @@ Details, contracts and ownership: [`docs/architecture.md`](docs/architecture.md)
 
 ## Quickstart
 
-Needs Docker, [uv](https://docs.astral.sh/uv/), Node 22 and pnpm (through Corepack).
+Needs Docker, [uv](https://docs.astral.sh/uv/), Node 22 and [pnpm](https://pnpm.io/) (pnpm can install Node itself: `pnpm runtime set node 22 -g`).
 
 ```bash
 make setup        # git hooks, Python and JavaScript dependencies, Chromium for the e2e tests
