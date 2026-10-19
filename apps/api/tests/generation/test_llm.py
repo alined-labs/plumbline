@@ -7,22 +7,26 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+import anthropic
 import httpx
 import pytest
 from google.genai import types as genai_types
 from hypothesis import given
 from hypothesis import strategies as st
+from openai.types.chat import ChatCompletion
 
 from plumbline.cache import CacheMiss, Json, ResponseCache
 from plumbline.core.types import CacheMode
 from plumbline.generation.llm import (
     JUDGE_MODEL,
     PRICES,
+    AnthropicClient,
     BaseClient,
     Done,
     GeminiClient,
     LLMRequest,
     Message,
+    OpenAICompatibleClient,
     Price,
     Rate,
     RetryPolicy,
@@ -236,3 +240,67 @@ def test_gemini_payload_and_usage(tmp_path: Path) -> None:
     assert fake.seen["contents"][0]["role"] == "user"
     assert result.usage == Usage(input_tokens=400, cache_read_tokens=600, output_tokens=70)
     assert (result.text, result.stop_reason) == ("{}", "STOP")
+
+
+def test_anthropic_payload_and_usage(tmp_path: Path) -> None:
+    message = anthropic.types.Message.model_validate(
+        {
+            "id": "msg_1",
+            "type": "message",
+            "role": "assistant",
+            "model": JUDGE_MODEL,
+            "content": [
+                {"type": "thinking", "thinking": "Weigh it.", "signature": "s"},
+                {"type": "text", "text": "PASS"},
+            ],
+            "stop_reason": "end_turn",
+            "usage": {
+                "input_tokens": 100,
+                "cache_read_input_tokens": 900,
+                "cache_creation_input_tokens": 0,
+                "output_tokens": 30,
+            },
+        }
+    )
+    fake = sdk("messages.create", message)
+    result = asyncio.run(live(AnthropicClient, fake, tmp_path).complete(REQUEST))
+    assert "temperature" not in fake.seen
+    assert fake.seen["system"] == [
+        {"type": "text", "text": "Answer from the statute.", "cache_control": {"type": "ephemeral"}}
+    ]
+    assert fake.seen["output_config"] == {
+        "format": {"type": "json_schema", "schema": {"type": "object"}}
+    }
+    assert result.text == "PASS"
+    assert result.usage == Usage(input_tokens=100, cache_read_tokens=900, output_tokens=30)
+
+
+def test_openai_compatible_payload_usage_and_key(tmp_path: Path) -> None:
+    completion = ChatCompletion.model_validate(
+        {
+            "id": "c1",
+            "object": "chat.completion",
+            "created": 0,
+            "model": "local-model",
+            "choices": [
+                {
+                    "index": 0,
+                    "finish_reason": "stop",
+                    "message": {"role": "assistant", "content": "{}"},
+                }
+            ],
+            "usage": {
+                "prompt_tokens": 300,
+                "completion_tokens": 20,
+                "total_tokens": 320,
+                "prompt_tokens_details": {"cached_tokens": 256},
+            },
+        }
+    )
+    fake = sdk("chat.completions.create", completion)
+    client = live(OpenAICompatibleClient, fake, tmp_path, base_url="http://llm.lan/v1")
+    result = asyncio.run(client.complete(REQUEST))
+    assert fake.seen["messages"][0] == {"role": "system", "content": "Answer from the statute."}
+    assert fake.seen["response_format"]["json_schema"]["strict"] is True
+    assert result.usage == Usage(input_tokens=44, cache_read_tokens=256, output_tokens=20)
+    assert client.cache_request({"model": "m"})["base_url"] == "http://llm.lan/v1"
