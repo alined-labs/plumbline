@@ -1,6 +1,7 @@
 # Local services. One stack per machine: every clone and worktree shares the project name
 # "plumbline", so the lanes on one machine share one database (tests use throwaway
-# databases inside it). Frozen. Lane D pins every image by digest in D1.
+# databases inside it). Frozen. Every image is pinned by tag and by its multi-platform
+# index digest (docker buildx imagetools inspect <image:tag>), so a moved tag changes nothing.
 #
 #   make up          db and redis
 #   make up-models   embed and rerank (TEI); MODELS_BIND=0.0.0.0 in .env serves them to the LAN
@@ -9,7 +10,7 @@ name: plumbline
 
 services:
   db:
-    image: paradedb/paradedb:v0.26.2-pg18
+    image: paradedb/paradedb:v0.26.2-pg18@sha256:c552094b6b68dcb0a4e7a3969963d801eaec02490db4d2dd032dcb096bc86cf8
     environment:
       POSTGRES_USER: plumbline
       POSTGRES_PASSWORD: plumbline
@@ -24,7 +25,7 @@ services:
       retries: 30
 
   redis:
-    image: redis:8-alpine
+    image: redis:8.10.2-alpine@sha256:3811787313eba226a2ef38658c6ccb91cd5e110edc89c37767de373120a0e5a0
     ports: ["127.0.0.1:6380:6379"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -32,23 +33,30 @@ services:
       timeout: 3s
       retries: 30
 
+  # On CPU, TEI warms up with one sequence of --max-batch-tokens tokens. At the default of
+  # 16,384, Qwen3's attention needs about 17 GB and the server is killed; 4,096 needs about
+  # 1 GB per server and also caps each input at 4,096 tokens, far above a law passage.
   embed:
     profiles: [models]
-    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9.4
-    command: ["--model-id", "Qwen/Qwen3-Embedding-0.6B", "--port", "80", "--auto-truncate"]
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9.4@sha256:2538ea1c9640d3763b15af668039d24172d063b42337b0c27796fc2be180c78d
+    command: ["--model-id", "Qwen/Qwen3-Embedding-0.6B", "--port", "80", "--auto-truncate",
+              "--max-batch-tokens", "4096"]
+    restart: unless-stopped
     ports: ["${MODELS_BIND:-127.0.0.1}:8081:80"]
     volumes: [models:/data]
 
   rerank:
     profiles: [models]
-    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9.4
-    command: ["--model-id", "BAAI/bge-reranker-v2-m3", "--port", "80", "--auto-truncate"]
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9.4@sha256:2538ea1c9640d3763b15af668039d24172d063b42337b0c27796fc2be180c78d
+    command: ["--model-id", "BAAI/bge-reranker-v2-m3", "--port", "80", "--auto-truncate",
+              "--max-batch-tokens", "4096"]
+    restart: unless-stopped
     ports: ["${MODELS_BIND:-127.0.0.1}:8082:80"]
     volumes: [models:/data]
 
   docling:
     profiles: [ingest]
-    image: ghcr.io/docling-project/docling-serve-cpu:v1.37.0
+    image: ghcr.io/docling-project/docling-serve-cpu:v1.37.0@sha256:6eda9c524992147c1b0b06a1a9be4894bd68b1f43c86d92c32f996c4c60d18a3
     ports: ["${MODELS_BIND:-127.0.0.1}:5001:5001"]
 
 volumes:
