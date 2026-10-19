@@ -1,0 +1,17 @@
+# The API image's build context is the repository root; this allowlist (Docker reads it
+# instead of a root .dockerignore because it sits beside deploy/api/Dockerfile) sends only
+# what the Dockerfile copies, so .env, data/, cache/ and node_modules never reach the builder.
+*
+!pyproject.toml
+!uv.lock
+!apps/api/pyproject.toml
+!apps/api/alembic.ini
+!apps/api/src/
+!apps/api/migrations/
+!packages/rag-eval/pyproject.toml
+!packages/rag-eval/README.md
+!packages/rag-eval/LICENSE
+!packages/rag-eval/src/
+!evals/configs/
+**/__pycache__/
+**/*.py[cod]

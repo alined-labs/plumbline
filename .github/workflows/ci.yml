@@ -90,9 +90,56 @@ jobs:
           tar -xzf "$RUNNER_TEMP/gitleaks.tgz" -C "$RUNNER_TEMP" gitleaks
           "$RUNNER_TEMP/gitleaks" git --redact --no-banner --exit-code 1 .
 
+  # The production image: it builds from the lock, migrates a fresh database, and serves
+  # /api/health as uid 10001 on a read-only filesystem with every capability dropped.
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      db:
+        image: paradedb/paradedb:v0.26.2-pg18
+        env:
+          POSTGRES_USER: plumbline
+          POSTGRES_PASSWORD: plumbline
+          POSTGRES_DB: plumbline
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U plumbline -d plumbline"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      DATABASE_URL: postgresql+psycopg://plumbline:plumbline@localhost:5433/plumbline
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Lint the Dockerfile
+        run: docker run --rm -i hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d hadolint - < deploy/api/Dockerfile
+      - name: Build the API image
+        run: |
+          docker build -f deploy/api/Dockerfile -t plumbline-api:ci .
+          docker image ls plumbline-api:ci --format 'image size: {{.Size}}'
+      - name: Migrate a fresh database with the image
+        run: >-
+          docker run --rm --network host --read-only --cap-drop ALL
+          --security-opt no-new-privileges -e DATABASE_URL
+          plumbline-api:ci alembic -c apps/api/alembic.ini upgrade head
+      - name: Serve until the image's own healthcheck passes
+        run: |
+          docker run -d --name api --network host --read-only --tmpfs /tmp --cap-drop ALL \
+            --security-opt no-new-privileges -e DATABASE_URL plumbline-api:ci
+          for _ in $(seq 60); do
+            [ "$(docker inspect --format '{{.State.Health.Status}}' api)" = healthy ] && break
+            sleep 1
+          done
+          test "$(docker inspect --format '{{.State.Health.Status}}' api)" = healthy
+          curl -fsS http://127.0.0.1:8000/api/health
+          test "$(docker exec api id -u)" = 10001
+      - if: failure()
+        run: docker logs api || true
+
   ci:
     if: always()
-    needs: [python, web, secrets]
+    needs: [python, web, secrets, image]
     runs-on: ubuntu-24.04
     steps:
       - name: Every job passed
@@ -100,3 +147,4 @@ jobs:
           test "${{ needs.python.result }}" = success
           test "${{ needs.web.result }}" = success
           test "${{ needs.secrets.result }}" = success
+          test "${{ needs.image.result }}" = success

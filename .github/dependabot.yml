@@ -1,5 +1,7 @@
-# Security alerts cover every ecosystem; version updates only for the pinned actions (the
-# Python and JavaScript locks follow the 7-day release-age policy instead).
+# Security alerts cover every ecosystem; version updates only for the pinned actions and
+# the API image's pinned base images (the Python and JavaScript locks follow the 7-day
+# release-age policy instead, and the images wait out the same 7 days where the registry
+# reports a publication date).
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -8,4 +10,14 @@ updates:
       interval: monthly
     commit-message:
       prefix: ci
+      include: scope
+
+  - package-ecosystem: docker
+    directory: /deploy/api
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: build
       include: scope
