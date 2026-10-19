@@ -21,7 +21,7 @@ dependencies = [
   "pypdfium2>=5.14",
   "pyyaml>=6.0.2",
   "redis>=8.1",
-  "sqlalchemy>=2.1.4",
+  "sqlalchemy[asyncio]>=2.1.4",
   "uvicorn[standard]>=0.54",
 ]
 
