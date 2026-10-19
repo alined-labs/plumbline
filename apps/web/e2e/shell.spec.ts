@@ -29,6 +29,17 @@ for (const { path, heading, current } of pages) {
   });
 }
 
+test("the footer dates the law for each jurisdiction, in order", async ({ page }) => {
+  await page.goto("/about/");
+  const dates = page.getByRole("region", { name: "Statutes indexed" });
+  await expect(dates.getByRole("term")).toHaveText([
+    "Dubai AE-DU",
+    "Spain ES",
+    "Colombia CO",
+    "Florida US-FL",
+  ]);
+});
+
 test("the skip link moves focus to the page", async ({ page }) => {
   await page.goto("/about/");
   await page.keyboard.press("Tab");

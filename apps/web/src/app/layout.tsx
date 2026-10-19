@@ -3,7 +3,8 @@ import type { ReactNode } from "react";
 
 import { MobileBar } from "@/components/shell/mobile-bar";
 import { SidebarContent } from "@/components/shell/sidebar";
-import { DISCLAIMER, PRODUCT_LINE } from "@/lib/copy";
+import { SiteFooter } from "@/components/shell/site-footer";
+import { PRODUCT_LINE } from "@/lib/copy";
 import { fontVariables } from "@/lib/fonts";
 
 import { colorOf, type Tokens } from "../../design/tokens";
@@ -54,9 +55,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <main id="main" tabIndex={-1} className="flex-1 px-4 py-8 md:px-8">
                 <div className="mx-auto w-full max-w-content">{children}</div>
               </main>
-              <footer className="border-t border-border px-4 py-4 md:px-8">
-                <p className="mx-auto max-w-content text-small text-fg-muted">{DISCLAIMER}</p>
-              </footer>
+              <SiteFooter />
             </div>
           </div>
         </Providers>
