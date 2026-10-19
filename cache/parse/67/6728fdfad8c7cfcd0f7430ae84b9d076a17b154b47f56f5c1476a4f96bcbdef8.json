@@ -1,0 +1,33 @@
+{
+ "cost_usd": 0.0,
+ "input_tokens": 0,
+ "key": "6728fdfad8c7cfcd0f7430ae84b9d076a17b154b47f56f5c1476a4f96bcbdef8",
+ "kind": "parse",
+ "latency_ms": 2004,
+ "model": "docling-serve 1.37.0",
+ "output_tokens": 0,
+ "recorded_at": "2026-10-19T23:46:57Z",
+ "request": {
+  "model": "docling-serve 1.37.0",
+  "options": {
+   "abort_on_error": true,
+   "do_ocr": false,
+   "do_table_structure": true,
+   "from_formats": [
+    "pdf"
+   ],
+   "image_export_mode": "placeholder",
+   "include_images": false,
+   "table_mode": "accurate",
+   "to_formats": [
+    "md"
+   ]
+  },
+  "page": 3,
+  "sha256": "ca902644dbb23a8ba2d4c2d7b5b037033396445325659b73bfd84e7500774314"
+ },
+ "response": {
+  "md_content": "Artículo 2. Plazo mínimo. La duración del arrendamiento será libremente pactada por las partes."
+ },
+ "stop_reason": null
+}

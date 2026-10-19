@@ -1,0 +1,33 @@
+{
+ "cost_usd": 0.0,
+ "input_tokens": 0,
+ "key": "9c0930ab98d4aa9062b5366349948d72b58fe24cf1ee07e0a81865ab24bca90f",
+ "kind": "parse",
+ "latency_ms": 2005,
+ "model": "docling-serve 1.37.0",
+ "output_tokens": 0,
+ "recorded_at": "2026-10-19T23:46:55Z",
+ "request": {
+  "model": "docling-serve 1.37.0",
+  "options": {
+   "abort_on_error": true,
+   "do_ocr": false,
+   "do_table_structure": true,
+   "from_formats": [
+    "pdf"
+   ],
+   "image_export_mode": "placeholder",
+   "include_images": false,
+   "table_mode": "accurate",
+   "to_formats": [
+    "md"
+   ]
+  },
+  "page": 1,
+  "sha256": "ca902644dbb23a8ba2d4c2d7b5b037033396445325659b73bfd84e7500774314"
+ },
+ "response": {
+  "md_content": "Artículo 1. Objeto.\n\n1. La presente ley regula el arrendamiento de fincas urbanas.\n2. Se aplica en todo el territorio del Estado."
+ },
+ "stop_reason": null
+}
