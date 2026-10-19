@@ -1,0 +1,3 @@
+# The sources are kept byte for byte: their sha256 is pinned in ../manifest.json, so git
+# must never convert their line endings. They are written by plumbline.corpus.fetch.
+* -text linguist-generated=true

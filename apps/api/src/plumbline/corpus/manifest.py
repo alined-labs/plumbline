@@ -71,3 +71,10 @@ class Manifest(BaseModel):
 
 def load_manifest(path: Path = MANIFEST) -> Manifest:
     return Manifest.model_validate(json.loads(path.read_text(encoding="utf-8")))
+
+
+def save_manifest(manifest: Manifest, path: Path = MANIFEST) -> None:
+    """Write the manifest as the fetch script keeps it: two-space JSON, rows in the order
+    they are declared, every field present."""
+    text = json.dumps(manifest.model_dump(mode="json"), indent=2, ensure_ascii=False)
+    path.write_text(f"{text}\n", encoding="utf-8")
