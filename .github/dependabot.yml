@@ -18,6 +18,11 @@ updates:
       interval: monthly
     cooldown:
       default-days: 7
+    # The package requires Python >=3.12,<3.13 and the image never downloads one, so the
+    # base image takes 3.12 patch releases and digest refreshes only.
+    ignore:
+      - dependency-name: python
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
     commit-message:
       prefix: build
       include: scope
