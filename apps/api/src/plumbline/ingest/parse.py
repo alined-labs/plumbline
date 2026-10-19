@@ -7,8 +7,8 @@ running the parser.
   with a text layer goes to docling-serve, one page per request: docling's page-break
   marker skips empty pages, so splitting a whole-document conversion on it would misnumber
   every page after a blank one. A blank page (nothing drawn on it) is kept as an empty page.
-  A page with content but no text layer, a scan, needs the vision fallback (task D2b);
-  until it lands, such a page is an error rather than a silently empty page.
+  A page with content but no text layer, a scan, is transcribed by a vision model
+  (plumbline.ingest.vision); without one, such a page is an error, never an empty page.
 - docling labels some lines as page furniture (running headers and footers) and leaves
   them out of its Markdown. On a statute page a misjudged line is lost law, so each page's
   Markdown is checked against the words of its text layer; below MIN_COVERAGE the page
@@ -16,8 +16,8 @@ running the parser.
   pages ("Law No. (26) of 2007 ... Page 2 of 10") are furniture docling is right to drop,
   so they are left out of that check: on a short last page they alone are over a tenth.
 
-Every docling call goes through the cache (kind "parse"), keyed by the file's sha256, the
-page and the options, so tests and other lanes replay it without docling.
+Every docling and vision call goes through the cache (kind "parse"), keyed by the file's
+sha256, the page and the options, so tests and other lanes replay them without either.
 """
 
 from __future__ import annotations
@@ -37,6 +37,7 @@ from plumbline.cache import Fresh, ResponseCache
 from plumbline.core.types import ParsedDocument, ParsedPage, ParseMethod
 from plumbline.corpus.manifest import Source
 from plumbline.ingest import html
+from plumbline.ingest.vision import VisionReader
 
 log = logging.getLogger(__name__)
 
@@ -147,7 +148,9 @@ class DoclingClient:
         return markdown
 
 
-def parse_source(source: Source, data: bytes, docling: DoclingClient) -> ParsedDocument:
+def parse_source(
+    source: Source, data: bytes, docling: DoclingClient, vision: VisionReader | None = None
+) -> ParsedDocument:
     """The source's file, parsed. `data` must be the file the manifest hashed."""
     sha256 = hashlib.sha256(data).hexdigest()
     if sha256 != source.sha256:
@@ -161,7 +164,9 @@ def parse_source(source: Source, data: bytes, docling: DoclingClient) -> ParsedD
     elif source.format == "pdf":
         pdf_pages = read_pdf(data)
         repeated = furniture(pdf_pages)
-        pages = [_pdf_page(source.id, data, sha256, page, repeated, docling) for page in pdf_pages]
+        pages = [
+            _pdf_page(source, data, sha256, page, repeated, docling, vision) for page in pdf_pages
+        ]
         parser = DOCLING
     else:
         raise ParseError(f"{source.id}: no reader for {source.format} sources")
@@ -178,22 +183,24 @@ def parse_source(source: Source, data: bytes, docling: DoclingClient) -> ParsedD
 
 
 def _pdf_page(
-    source_id: str,
+    source: Source,
     data: bytes,
     sha256: str,
     page: PdfPage,
     repeated: frozenset[str],
     docling: DoclingClient,
+    vision: VisionReader | None,
 ) -> ParsedPage:
-    number, layer = page.number, page.text
+    source_id, number, layer = source.id, page.number, page.text
     if page.blank:
         log.info("%s page %d: blank", source_id, number)
         return ParsedPage(number=number, method=ParseMethod.TEXT_LAYER, markdown="")
     if not has_text_layer(layer):
-        raise ParseError(
-            f"{source_id}: page {number} has no text layer, and the vision fallback (D2b) "
-            "is not built yet"
-        )
+        if vision is None:
+            raise ParseError(f"{source_id}: page {number} has no text layer and no vision reader")
+        markdown = vision.page_markdown(data, sha256, number, source.language)
+        log.info("%s page %d: %s", source_id, number, ParseMethod.VISION.value)
+        return ParsedPage(number=number, method=ParseMethod.VISION, markdown=markdown)
     markdown = _clean(docling.page_markdown(data, sha256, number))
     body = "\n".join(line for line in layer.splitlines() if _mask(line) not in repeated)
     kept = coverage(body, markdown)

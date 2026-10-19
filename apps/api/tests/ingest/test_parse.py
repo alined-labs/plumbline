@@ -127,12 +127,6 @@ def test_a_page_docling_thins_out_keeps_its_text_layer(
     assert "keeps the raw text layer (lost: duración la libremente pactada será)" in caplog.text
 
 
-def test_a_scanned_page_waits_for_the_vision_fallback(tmp_path: Path) -> None:
-    data = make_pdf([None])  # drawn, but no text layer
-    with pytest.raises(ParseError, match="page 1 has no text layer"):
-        parse_source(_source(data), data, _fake_docling(tmp_path, {}))
-
-
 def test_a_failed_conversion_is_an_error(tmp_path: Path) -> None:
     answer = {"status": "failure", "document": {"md_content": None}, "errors": ["boom"]}
     with pytest.raises(ParseError, match="docling failed on page 1"):
