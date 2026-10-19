@@ -1,0 +1,5 @@
+name: R1
+description: The Cohere Rerank API on the best configuration. Seeded on A4; Lane A rebases it on the winner before running it.
+chunker: {kind: article, merge_parent: true}
+retrieval: {mode: hybrid, rrf_k: 60, candidates: 50, top_k: 8, rerank: cohere, rerank_candidates: 20, headers: deterministic}
+generation: {route: fast}

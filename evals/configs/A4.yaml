@@ -1,0 +1,5 @@
+name: A4
+description: A3 plus the deterministic context header [Jurisdiction | Law | Article | Heading] in the indexed text.
+chunker: {kind: article, merge_parent: true}
+retrieval: {mode: hybrid, rrf_k: 60, candidates: 50, top_k: 8, rerank: local, rerank_candidates: 20, headers: deterministic}
+generation: {route: fast}

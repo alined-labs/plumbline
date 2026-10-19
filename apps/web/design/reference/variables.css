@@ -1,0 +1,240 @@
+/* The Alined DS tokens as the reference previews use them (light, then dark). */
+:root, [data-theme="light"] {
+  --gray-0: #FFFFFF;
+  --gray-25: #F9F9FB;
+  --gray-50: #F4F4F6;
+  --gray-100: #ECECEF;
+  --gray-150: #E3E3E7;
+  --gray-200: #D7D7DB;
+  --gray-300: #B7B7BC;
+  --gray-400: #848489;
+  --gray-350: #97989D;
+  --gray-500: #67676C;
+  --gray-600: #56565B;
+  --gray-700: #404145;
+  --gray-750: #353539;
+  --gray-800: #2B2B2E;
+  --gray-850: #222226;
+  --gray-900: #1C1C1E;
+  --gray-925: #161618;
+  --gray-950: #111113;
+  --gray-975: #0D0D0F;
+  --gray-1000: #070708;
+  --indigo-50: #F5F5FE;
+  --indigo-100: #EEEDFC;
+  --indigo-200: #DADAFF;
+  --indigo-300: #BEBCFF;
+  --indigo-400: #A49CFF;
+  --indigo-500: #6B69F6;
+  --indigo-600: #4A3FD6;
+  --indigo-700: #4032B4;
+  --indigo-800: #332891;
+  --indigo-900: #252067;
+  --indigo-950: #1D1B45;
+  --yellow-100: #FFF7DA;
+  --yellow-200: #FFEFB0;
+  --yellow-300: #FFE27A;
+  --yellow-600: #9A7200;
+  --yellow-700: #6E5200;
+  --yellow-800: #4A3F14;
+  --yellow-900: #3A3211;
+  --yellow-d-edge: #E2B93B;
+  --yellow-d-strong: #5E4F14;
+  --bg: var(--gray-0);
+  --bg-subtle: var(--gray-25);
+  --surface: var(--gray-0);
+  --surface-raised: var(--gray-0);
+  --surface-sunken: var(--gray-50);
+  --bg-hover: var(--gray-100);
+  --bg-active: var(--gray-150);
+  --inverse: var(--gray-950);
+  --overlay: #0F0F1466;
+  --border-subtle: var(--gray-100);
+  --border: var(--gray-150);
+  --border-strong: var(--gray-200);
+  --border-control: var(--gray-400);
+  --fg: var(--gray-1000);
+  --fg-muted: var(--gray-600);
+  --fg-subtle: var(--gray-500);
+  --fg-disabled: var(--gray-300);
+  --fg-inverse: var(--gray-25);
+  --accent: var(--indigo-600);
+  --accent-hover: var(--indigo-700);
+  --accent-active: var(--indigo-800);
+  --accent-fg: var(--gray-0);
+  --accent-subtle: var(--indigo-100);
+  --accent-subtle-hover: var(--indigo-200);
+  --accent-border: var(--indigo-200);
+  --accent-text: var(--indigo-700);
+  --focus: var(--indigo-600);
+  --focus-inverse: var(--indigo-300);
+  --highlight: var(--yellow-200);
+  --highlight-strong: var(--yellow-300);
+  --highlight-edge: var(--yellow-600);
+  --success: #00745C;
+  --success-bg: #E8F6F1;
+  --success-border: #A6DCCA;
+  --warning: #946000;
+  --warning-bg: #FFF5E1;
+  --warning-border: #EFD08F;
+  --danger-hover: #8F1526;
+  --danger: #AD1A2E;
+  --danger-bg: #FDEEF0;
+  --danger-border: #F2B6BF;
+  --on-status: var(--gray-0);
+  --neutral: var(--gray-600);
+  --neutral-bg: var(--gray-50);
+  --neutral-border: var(--gray-200);
+  --paper: var(--gray-0);
+  --paper-highlight: var(--yellow-200);
+  --paper-highlight-edge: var(--yellow-600);
+  --brand: var(--indigo-600);
+  --brand-facet: var(--indigo-300);
+  --brand-fg: var(--gray-0);
+  --chart-1: #4A3FD6;
+  --chart-2: #C25E00;
+  --chart-3: #1A7DB8;
+  --chart-4: #A43C94;
+  --chart-5: #67676C;
+  --chart-grid: var(--gray-100);
+  --chart-axis: var(--gray-400);
+  --syntax-string: #0E6E8C;
+  --syntax-number: #9A4A00;
+  --syntax-literal: #8E2F86;
+  --shadow-1: 0 1px 2px #0F0F1414;
+  --shadow-2: 0 4px 12px #0F0F1414, 0 1px 3px #0F0F140F;
+  --shadow-3: 0 16px 40px #0F0F141F, 0 2px 8px #0F0F1414;
+}
+[data-theme="dark"] {
+  --bg: var(--gray-975);
+  --bg-subtle: var(--gray-950);
+  --surface: var(--gray-950);
+  --surface-raised: var(--gray-900);
+  --surface-sunken: var(--gray-1000);
+  --bg-hover: var(--gray-850);
+  --bg-active: var(--gray-800);
+  --inverse: var(--gray-100);
+  --overlay: #00000099;
+  --border-subtle: var(--gray-925);
+  --border: var(--gray-850);
+  --border-strong: var(--gray-800);
+  --border-control: var(--gray-500);
+  --fg: var(--gray-100);
+  --fg-muted: var(--gray-300);
+  --fg-subtle: var(--gray-350);
+  --fg-disabled: var(--gray-750);
+  --fg-inverse: var(--gray-1000);
+  --accent: var(--indigo-400);
+  --accent-hover: var(--indigo-300);
+  --accent-active: var(--indigo-200);
+  --accent-fg: var(--gray-1000);
+  --accent-subtle: var(--indigo-950);
+  --accent-subtle-hover: var(--indigo-900);
+  --accent-border: var(--indigo-800);
+  --accent-text: var(--indigo-300);
+  --focus: var(--indigo-400);
+  --focus-inverse: var(--indigo-700);
+  --highlight: var(--yellow-800);
+  --highlight-strong: var(--yellow-d-strong);
+  --highlight-edge: var(--yellow-d-edge);
+  --success: #4FD1A8;
+  --success-bg: #0C2620;
+  --success-border: #1B4C3E;
+  --warning: #F2B54B;
+  --warning-bg: #2B1F08;
+  --warning-border: #5C4512;
+  --danger-hover: #FF9AA8;
+  --danger: #FF7A8C;
+  --danger-bg: #2E1118;
+  --danger-border: #652434;
+  --on-status: var(--gray-1000);
+  --neutral: var(--gray-300);
+  --neutral-bg: var(--gray-925);
+  --neutral-border: var(--gray-800);
+  --paper: var(--gray-0);
+  --paper-highlight: var(--yellow-200);
+  --paper-highlight-edge: var(--yellow-600);
+  --brand: var(--indigo-600);
+  --brand-facet: var(--indigo-300);
+  --brand-fg: var(--gray-0);
+  --chart-1: #A49CFF;
+  --chart-2: #F29B4C;
+  --chart-3: #A3DBF7;
+  --chart-4: #D86FC6;
+  --chart-5: #848489;
+  --chart-grid: var(--gray-900);
+  --chart-axis: var(--gray-500);
+  --syntax-string: #6CC8E6;
+  --syntax-number: #F0A060;
+  --syntax-literal: #E08AD2;
+  --shadow-1: 0 1px 2px #00000066;
+  --shadow-2: 0 4px 16px #00000080, 0 0 0 1px #FFFFFF0F;
+  --shadow-3: 0 16px 48px #000000A6, 0 0 0 1px #FFFFFF14;
+}
+:root {
+  --space-0\.5: 2px;
+  --space-1: 4px;
+  --space-1\.5: 6px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-24: 96px;
+  --radius-xs: 3px;
+  --radius-sm: 5px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+  --sidebar-width: 248px;
+  --sidebar-rail: 56px;
+  --content-max: 720px;
+  --panel-width: 440px;
+  --topbar-height: 52px;
+  --control-sm: 28px;
+  --control-md: 36px;
+  --control-lg: 44px;
+  --z-sticky: 10;
+  --z-panel: 30;
+  --z-overlay: 40;
+  --z-dialog: 50;
+  --z-toast: 60;
+  --z-tooltip: 70;
+  --duration-instant: 80ms;
+  --duration-fast: 140ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0, 0, 0.2, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --font-sans: "Atkinson Hyperlegible Next", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  --font-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-mono: "Atkinson Hyperlegible Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+.display { font-family: "Atkinson Hyperlegible Next", ui-sans-serif, system-ui, "Segoe UI", sans-serif; font-size: 44px; line-height: 48px; font-weight: 700; letter-spacing: -0.025em; }
+.heading-1 { font-family: "Atkinson Hyperlegible Next", ui-sans-serif, system-ui, "Segoe UI", sans-serif; font-size: 28px; line-height: 34px; font-weight: 650; letter-spacing: -0.018em; }
+.heading-2 { font-family: "Atkinson Hyperlegible Next", ui-sans-serif, system-ui, "Segoe UI", sans-serif; font-size: 21px; line-height: 28px; font-weight: 600; letter-spacing: -0.012em; }
+.heading-3 { font-family: "Atkinson Hyperlegible Next", ui-sans-serif, system-ui, "Segoe UI", sans-serif; font-size: 17px; line-height: 24px; font-weight: 600; letter-spacing: -0.006em; }
+.kpi { font-family: "Atkinson Hyperlegible Next", ui-sans-serif, system-ui, "Segoe UI", sans-serif; font-size: 32px; line-height: 36px; font-weight: 600; letter-spacing: -0.02em; }
+.body-lg { font-family: "Atkinson Hyperlegible Next", ui-sans-serif, system-ui, "Segoe UI", sans-serif; font-size: 17px; line-height: 28px; font-weight: 400; letter-spacing: 0em; }
+.body { font-family: "Atkinson Hyperlegible Next", ui-sans-serif, system-ui, "Segoe UI", sans-serif; font-size: 15px; line-height: 24px; font-weight: 400; letter-spacing: 0em; }
+.input { font-family: "Atkinson Hyperlegible Next", ui-sans-serif, system-ui, "Segoe UI", sans-serif; font-size: 16px; line-height: 24px; font-weight: 400; letter-spacing: 0em; }
+.ui { font-family: "Atkinson Hyperlegible Next", ui-sans-serif, system-ui, "Segoe UI", sans-serif; font-size: 14px; line-height: 20px; font-weight: 400; letter-spacing: 0em; }
+.ui-strong { font-family: "Atkinson Hyperlegible Next", ui-sans-serif, system-ui, "Segoe UI", sans-serif; font-size: 14px; line-height: 20px; font-weight: 600; letter-spacing: 0em; }
+.small { font-family: "Atkinson Hyperlegible Next", ui-sans-serif, system-ui, "Segoe UI", sans-serif; font-size: 13px; line-height: 18px; font-weight: 400; letter-spacing: 0em; }
+.micro { font-family: "Atkinson Hyperlegible Next", ui-sans-serif, system-ui, "Segoe UI", sans-serif; font-size: 12px; line-height: 16px; font-weight: 500; letter-spacing: 0.01em; }
+.quote { font-family: "Source Serif 4", Georgia, "Times New Roman", serif; font-size: 17px; line-height: 28px; font-weight: 400; letter-spacing: 0em; }
+.quote-sm { font-family: "Source Serif 4", Georgia, "Times New Roman", serif; font-size: 15px; line-height: 24px; font-weight: 400; letter-spacing: 0em; }
+.eyebrow { font-family: "Atkinson Hyperlegible Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 11px; line-height: 16px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
+.code { font-family: "Atkinson Hyperlegible Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; line-height: 20px; font-weight: 400; letter-spacing: 0em; }
+.code-sm { font-family: "Atkinson Hyperlegible Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; line-height: 16px; font-weight: 500; letter-spacing: 0.02em; }
+@font-face { font-family: "Atkinson Hyperlegible Next"; src: url("../../src/fonts/AtkinsonHyperlegibleNext-Variable.woff2") format("woff2"); font-weight: 200 800; font-style: normal; font-display: swap; }
+@font-face { font-family: "Atkinson Hyperlegible Next"; src: url("../../src/fonts/AtkinsonHyperlegibleNext-Italic-Variable.woff2") format("woff2"); font-weight: 200 800; font-style: italic; font-display: swap; }
+@font-face { font-family: "Source Serif 4"; src: url("../../src/fonts/SourceSerif4-Variable.woff2") format("woff2"); font-weight: 300 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Source Serif 4"; src: url("../../src/fonts/SourceSerif4-Italic-Variable.woff2") format("woff2"); font-weight: 300 700; font-style: italic; font-display: swap; }
+@font-face { font-family: "Atkinson Hyperlegible Mono"; src: url("../../src/fonts/AtkinsonHyperlegibleMono-Variable.woff2") format("woff2"); font-weight: 200 800; font-style: normal; font-display: swap; }

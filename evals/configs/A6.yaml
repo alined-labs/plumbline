@@ -1,0 +1,5 @@
+name: A6
+description: A5 plus the cross-lingual rewrite. English questions are rewritten into Spanish for the BM25 search over the Spain and Colombia statutes.
+chunker: {kind: article, merge_parent: true}
+retrieval: {mode: hybrid, rrf_k: 60, candidates: 50, top_k: 8, rerank: local, rerank_candidates: 20, headers: both, cross_lingual_rewrite: true}
+generation: {route: fast}

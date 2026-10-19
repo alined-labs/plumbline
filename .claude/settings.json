@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "attribution": { "commit": "", "pr": "" },
+  "disableBundledSkills": true,
+  "disableWorkflows": true,
+  "disableAgentView": true,
+  "env": { "CACHE_MODE": "replay" },
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Bash(brain start *)", "Bash(brain done *)", "Bash(brain note *)", "Bash(brain block *)",
+      "Bash(brain context*)", "Bash(brain recent*)", "Bash(brain show *)", "Bash(brain status*)",
+      "Bash(brain sync*)", "Bash(brain push*)", "Bash(brain inbox*)", "Bash(brain prompt*)", "Bash(brain doctor*)",
+      "Bash(make *)",
+      "Bash(uv run *)", "Bash(uv sync*)", "Bash(uv lock --check*)", "Bash(uv tree*)", "Bash(uv export*)",
+      "Bash(pnpm install*)", "Bash(pnpm run *)", "Bash(pnpm exec *)", "Bash(pnpm --filter *)",
+      "Bash(pnpm list*)", "Bash(pnpm why *)", "Bash(pnpm peers*)", "Bash(pnpm audit*)",
+      "Bash(git status*)", "Bash(git diff*)", "Bash(git log*)", "Bash(git show*)", "Bash(git add *)",
+      "Bash(git commit *)", "Bash(git fetch*)", "Bash(git switch *)", "Bash(git checkout *)",
+      "Bash(git rebase *)", "Bash(git restore *)", "Bash(git stash*)", "Bash(git branch*)",
+      "Bash(git rev-parse*)", "Bash(git merge-base*)", "Bash(git ls-files*)", "Bash(git reset *)",
+      "Bash(git push -u origin HEAD*)", "Bash(git push --force-with-lease origin HEAD*)",
+      "Bash(docker compose *)", "Bash(docker ps*)", "Bash(docker logs *)", "Bash(docker stats --no-stream*)",
+      "Bash(ls*)", "Bash(mkdir *)", "Bash(cp *)", "Bash(mv *)", "Bash(rm *)", "Bash(touch *)",
+      "Bash(chmod *)", "Bash(cat *)", "Bash(head *)", "Bash(tail *)", "Bash(wc *)", "Bash(sort *)",
+      "Bash(diff *)", "Bash(file *)", "Bash(du *)", "Bash(find *)", "Bash(grep *)", "Bash(rg *)",
+      "Bash(jq *)", "Bash(sed *)", "Bash(awk *)", "Bash(tr *)", "Bash(xargs *)", "Bash(sha256sum *)",
+      "Bash(unzip *)", "Bash(tar *)", "Bash(curl *)", "Bash(sleep *)", "Bash(timeout *)",
+      "Bash(kill *)", "Bash(lsof *)", "Bash(which *)", "Bash(echo *)", "Bash(printf *)",
+      "WebFetch", "WebSearch",
+      "mcp__context7", "mcp__chrome-devtools"
+    ],
+    "deny": [
+      "Agent", "Workflow", "Skill", "SendMessage", "CronCreate", "ScheduleWakeup", "RemoteTrigger",
+      "EnterWorktree", "Artifact",
+      "Bash(npm *)", "Bash(npx *)", "Bash(yarn *)",
+      "Bash(git push origin main*)", "Bash(git push origin HEAD:main*)", "Bash(git push -u origin main*)",
+      "Bash(git push --force *)", "Bash(git push -f *)", "Bash(git push --force-with-lease origin main*)",
+      "Bash(git commit --no-verify*)", "Bash(git commit -n *)", "Bash(git config *)",
+      "Bash(uv add *)", "Bash(uv remove *)", "Bash(uv lock --upgrade*)",
+      "Bash(brain answer *)", "Bash(brain decision *)", "Bash(brain publish *)", "Bash(hub *)",
+      "Bash(cat .env*)", "Bash(cat ./.env*)", "Bash(source .env*)", "Bash(. .env*)", "Bash(env)", "Bash(printenv*)",
+      "Read(./.env)", "Read(./.env.local)", "Read(./.env.production)", "Read(**/.env)", "Read(**/.env.*.local)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [{ "hooks": [{ "type": "command", "command": "\"$HOME/.local/bin/brain\" hook session-start", "timeout": 60 }] }],
+    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "\"$HOME/.local/bin/brain\" hook prompt", "timeout": 20 }] }],
+    "Stop": [{ "hooks": [{ "type": "command", "command": "\"$HOME/.local/bin/brain\" hook stop", "timeout": 30 }] }]
+  }
+}

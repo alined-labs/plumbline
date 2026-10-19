@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# pre-commit: refuses .env files, oversized files and anything shaped like a secret. It
+# prints only file names, never the matching text. When gitleaks is installed it also
+# scans the staged changes with it (CI runs it over the whole history).
+set -euo pipefail
+staged() { git diff --cached --name-only --diff-filter=ACMR; }
+if staged | grep -E '(^|/)\.env(\.|$)' | grep -vqE '\.env\.example$'; then
+  echo "pre-commit: refusing to commit a .env file"; exit 1
+fi
+SECRET='((^|[^A-Za-z0-9])sk-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|xox[abprs]-[A-Za-z0-9-]{10,}|npg_[A-Za-z0-9]{12,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|AccountKey=[^;[:space:]]{20,}|postgres(ql)?(\+psycopg)?://[^[:space:]@/:]+:[^[:space:]@/]+@|(API_KEY|TOKEN|SECRET|PASSWORD)[A-Z_]*=[[:space:]]*"?[A-Za-z0-9+/_.-]{12,})'
+LOCAL='postgres(ql)?(\+psycopg)?://plumbline:plumbline@(localhost|127\.0\.0\.1|db)[:/]'
+MAX_KB=2048
+bad=()
+big=()
+while IFS= read -r file; do
+  [ -n "$file" ] || continue
+  if git diff --cached -U0 --no-color -- "$file" | grep -E '^\+' | grep -vE '^\+\+\+' \
+      | grep -vE -- "$LOCAL" | grep -qE -- "$SECRET"; then
+    bad+=("$file")
+  fi
+  if [ "$(git cat-file -s ":$file" 2>/dev/null || echo 0)" -gt $((MAX_KB * 1024)) ]; then
+    big+=("$file")
+  fi
+done < <(staged)
+if [ ${#bad[@]} -gt 0 ]; then
+  echo "pre-commit: something shaped like a secret is staged in: ${bad[*]}"
+  echo "Remove it (keys live only in .env), then commit again."
+  exit 1
+fi
+if [ ${#big[@]} -gt 0 ]; then
+  echo "pre-commit: over ${MAX_KB} KB: ${big[*]}. Large sources are fetched by script with a hash."
+  exit 1
+fi
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks git --pre-commit --staged --redact --no-banner --exit-code 1 . >/dev/null \
+    || { echo "pre-commit: gitleaks found a secret in the staged changes (run: gitleaks git --pre-commit --staged --redact .)"; exit 1; }
+fi

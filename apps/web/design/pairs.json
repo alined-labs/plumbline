@@ -1,0 +1,234 @@
+{
+  "$description": "Checked by src/styles/tokens.test.ts in both themes. pairs: each foreground on each of its grounds; min is the WCAG 2.2 minimum, 4.5 for text and 3 for marks, control edges and focus rings. distinct: colours that must be told apart; every pair keeps at least min CIEDE2000 with normal vision and under simulated protanopia, deuteranopia and tritanopia.",
+  "pairs": [
+    {
+      "fg": "fg",
+      "grounds": [
+        "bg",
+        "bg-subtle",
+        "surface",
+        "surface-raised",
+        "surface-sunken",
+        "bg-hover",
+        "bg-active",
+        "highlight",
+        "highlight-strong",
+        "accent-subtle"
+      ],
+      "min": 4.5,
+      "kind": "text"
+    },
+    {
+      "fg": "fg-muted",
+      "grounds": [
+        "bg",
+        "bg-subtle",
+        "surface",
+        "surface-raised",
+        "surface-sunken",
+        "bg-hover",
+        "bg-active",
+        "highlight",
+        "accent-subtle"
+      ],
+      "min": 4.5,
+      "kind": "text"
+    },
+    {
+      "fg": "fg-subtle",
+      "grounds": ["bg", "bg-subtle", "surface", "surface-raised", "surface-sunken"],
+      "min": 4.5,
+      "kind": "text"
+    },
+    {
+      "fg": "fg-inverse",
+      "grounds": ["inverse"],
+      "min": 4.5,
+      "kind": "text"
+    },
+    {
+      "fg": "accent",
+      "grounds": ["bg", "bg-subtle", "surface", "surface-raised"],
+      "min": 4.5,
+      "kind": "text (links)"
+    },
+    {
+      "fg": "accent-text",
+      "grounds": ["bg", "bg-subtle", "surface", "accent-subtle", "accent-subtle-hover"],
+      "min": 4.5,
+      "kind": "text"
+    },
+    {
+      "fg": "accent-fg",
+      "grounds": ["accent", "accent-hover", "accent-active"],
+      "min": 4.5,
+      "kind": "text"
+    },
+    {
+      "fg": "focus",
+      "grounds": [
+        "bg",
+        "bg-subtle",
+        "surface",
+        "surface-raised",
+        "surface-sunken",
+        "bg-hover",
+        "bg-active",
+        "accent-subtle"
+      ],
+      "min": 3.0,
+      "kind": "focus ring"
+    },
+    {
+      "fg": "focus-inverse",
+      "grounds": ["inverse"],
+      "min": 3.0,
+      "kind": "focus ring"
+    },
+    {
+      "fg": "border-control",
+      "grounds": ["bg", "bg-subtle", "surface", "surface-raised"],
+      "min": 3.0,
+      "kind": "control edge"
+    },
+    {
+      "fg": "highlight-edge",
+      "grounds": ["bg", "surface", "highlight"],
+      "min": 3.0,
+      "kind": "mark"
+    },
+    {
+      "fg": "success",
+      "grounds": ["bg", "bg-subtle", "surface", "success-bg"],
+      "min": 4.5,
+      "kind": "text"
+    },
+    {
+      "fg": "warning",
+      "grounds": ["bg", "bg-subtle", "surface", "warning-bg"],
+      "min": 4.5,
+      "kind": "text"
+    },
+    {
+      "fg": "danger",
+      "grounds": ["bg", "bg-subtle", "surface", "danger-bg"],
+      "min": 4.5,
+      "kind": "text"
+    },
+    {
+      "fg": "neutral",
+      "grounds": ["bg", "surface", "neutral-bg"],
+      "min": 4.5,
+      "kind": "text"
+    },
+    {
+      "fg": "fg",
+      "grounds": ["success-bg", "warning-bg", "danger-bg", "neutral-bg"],
+      "min": 4.5,
+      "kind": "text on callouts"
+    },
+    {
+      "fg": "fg-muted",
+      "grounds": ["success-bg", "warning-bg", "danger-bg", "neutral-bg"],
+      "min": 4.5,
+      "kind": "text on callouts"
+    },
+    {
+      "fg": "fg-subtle",
+      "grounds": ["bg-hover"],
+      "min": 4.5,
+      "kind": "text"
+    },
+    {
+      "fg": "accent-text",
+      "grounds": ["bg-hover", "surface-raised"],
+      "min": 4.5,
+      "kind": "text"
+    },
+    {
+      "fg": "on-status",
+      "grounds": ["success", "warning", "danger", "danger-hover"],
+      "min": 4.5,
+      "kind": "text"
+    },
+    {
+      "fg": "paper-highlight-edge",
+      "grounds": ["paper", "paper-highlight"],
+      "min": 3.0,
+      "kind": "mark"
+    },
+    {
+      "fg": "brand-fg",
+      "grounds": ["brand"],
+      "min": 3.0,
+      "kind": "mark"
+    },
+    {
+      "fg": "brand-facet",
+      "grounds": ["brand"],
+      "min": 3.0,
+      "kind": "mark"
+    },
+    {
+      "fg": "chart-1",
+      "grounds": ["bg", "surface"],
+      "min": 3.0,
+      "kind": "mark"
+    },
+    {
+      "fg": "chart-2",
+      "grounds": ["bg", "surface"],
+      "min": 3.0,
+      "kind": "mark"
+    },
+    {
+      "fg": "chart-3",
+      "grounds": ["bg", "surface"],
+      "min": 3.0,
+      "kind": "mark"
+    },
+    {
+      "fg": "chart-4",
+      "grounds": ["bg", "surface"],
+      "min": 3.0,
+      "kind": "mark"
+    },
+    {
+      "fg": "chart-5",
+      "grounds": ["bg", "surface"],
+      "min": 3.0,
+      "kind": "mark"
+    },
+    {
+      "fg": "chart-axis",
+      "grounds": ["bg", "surface"],
+      "min": 3.0,
+      "kind": "mark"
+    },
+    {
+      "fg": "syntax-string",
+      "grounds": ["surface-sunken", "surface"],
+      "min": 4.5,
+      "kind": "text"
+    },
+    {
+      "fg": "syntax-number",
+      "grounds": ["surface-sunken", "surface"],
+      "min": 4.5,
+      "kind": "text"
+    },
+    {
+      "fg": "syntax-literal",
+      "grounds": ["surface-sunken", "surface"],
+      "min": 4.5,
+      "kind": "text"
+    }
+  ],
+  "distinct": {
+    "min": 7,
+    "groups": [
+      ["success", "warning", "danger"],
+      ["chart-1", "chart-2", "chart-3", "chart-4", "chart-5"]
+    ]
+  }
+}

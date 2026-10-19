@@ -1,0 +1,11 @@
+* text=auto eol=lf
+*.pdf binary
+*.png binary
+*.jpg binary
+# Generated files: collapsed in GitHub's diffs (their content is still scanned by the hub).
+cache/** linguist-generated=true
+packages/ts-client/openapi.json linguist-generated=true
+packages/ts-client/src/schema.d.ts linguist-generated=true
+packages/ts-client/fixtures/** linguist-generated=true
+uv.lock linguist-generated=true
+pnpm-lock.yaml linguist-generated=true

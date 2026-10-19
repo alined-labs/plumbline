@@ -1,0 +1,62 @@
+# The uv workspace: the API and pipeline (apps/api, package "plumbline") and the evaluation
+# harness (packages/rag-eval, published as "rag-eval"). Frozen: change it after a brain block.
+
+[tool.uv.workspace]
+members = ["apps/api", "packages/rag-eval"]
+
+[tool.uv]
+# Supply-chain guard: nothing published in the week before the lock was cut.
+exclude-newer = "2026-10-12T00:00:00Z"
+required-version = ">=0.9"
+
+[dependency-groups]
+dev = [
+  "hypothesis>=6.169",
+  "mypy>=2.4",
+  "pytest>=9.1",
+  "ruff>=0.17",
+  "types-pyyaml>=6.0.12",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["apps/web", "packages/ts-client", "cache", "data", "node_modules"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "C4", "RUF", "PT", "N", "S", "ASYNC", "PERF"]
+ignore = ["E501", "N818", "RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**" = ["S101", "S105", "S106", "S311"]
+"apps/api/migrations/**" = ["N999"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["plumbline", "rag_eval"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+plugins = ["pydantic.mypy"]
+mypy_path = ["apps/api/src", "packages/rag-eval/src"]
+packages = ["plumbline", "rag_eval"]
+warn_unreachable = true
+
+[[tool.mypy.overrides]]
+module = ["pgvector.*", "langfuse.*", "deepeval.*", "pypdfium2.*"]
+ignore_missing_imports = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+[tool.pytest.ini_options]
+testpaths = ["apps/api/tests", "packages/rag-eval/tests"]
+addopts = ["-q", "--import-mode=importlib", "-m", "not live", "--strict-markers"]
+markers = [
+  "db: needs the local Postgres; skipped when unreachable unless PLUMBLINE_REQUIRE_DB=1",
+  "live: calls a real model API; never part of make check",
+  "slow: takes more than a few seconds",
+]
+filterwarnings = ["error::DeprecationWarning:plumbline.*", "error::DeprecationWarning:rag_eval.*"]

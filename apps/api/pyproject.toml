@@ -1,0 +1,37 @@
+[project]
+name = "plumbline"
+version = "0.1.0"
+description = "A tenancy-law copilot over Dubai, Spain, Colombia and Florida law: hybrid retrieval, verified citations and calibrated abstention."
+requires-python = ">=3.12,<3.13"
+license = "Apache-2.0"
+authors = [{ name = "Daniel M.C." }]
+dependencies = [
+  "rag-eval",
+  "alembic>=1.20",
+  "anthropic>=1.13",
+  "fastapi>=0.143",
+  "google-genai>=2.29",
+  "httpx>=0.28",
+  "langfuse>=4.17",
+  "openai>=3.29",
+  "pgvector>=0.5",
+  "psycopg[binary]>=3.3",
+  "pydantic>=2.14",
+  "pydantic-settings>=2.15",
+  "pypdfium2>=5.14",
+  "pyyaml>=6.0.2",
+  "redis>=8.1",
+  "sqlalchemy>=2.1.4",
+  "uvicorn[standard]>=0.54",
+]
+
+[project.optional-dependencies]
+# The judged evaluation (Lane C's DeepEval runner); never imported by the service.
+eval = ["deepeval>=4.2"]
+
+[tool.uv.sources]
+rag-eval = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.9,<0.12"]
+build-backend = "uv_build"

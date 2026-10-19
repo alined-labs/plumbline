@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# commit-msg: strips AI attribution lines, then enforces Conventional Commits with a
+# bullet body. `commit-msg --check FILE` only checks and never edits (the hub uses it).
+set -euo pipefail
+mode=fix
+if [ "${1:-}" = "--check" ]; then mode=check; shift; fi
+f="${1:?usage: commit-msg [--check] FILE}"
+ATTR='^[[:space:]]*(co-authored-by:.*(claude|anthropic)|claude-session:|(🤖[[:space:]]*)?generated (with|by) \[?claude|https://claude\.ai/code/session)'
+if grep -qiE "$ATTR" "$f"; then
+  if [ "$mode" = check ]; then echo "AI attribution line in the message (amend without it)"; exit 1; fi
+  grep -viE "$ATTR" "$f" > "$f.tmp" || true
+  mv "$f.tmp" "$f"
+fi
+msg="$(grep -v '^#' "$f" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}')"
+subject="$(printf '%s\n' "$msg" | head -n 1)"
+types='feat|fix|test|refactor|perf|docs|build|ci|chore|revert|style'
+if ! printf '%s' "$subject" | grep -qE "^($types)(\([a-z0-9][a-z0-9/-]*\))?!?: [^ ]"; then
+  echo "commit-msg: the subject must be Conventional Commits, for example 'feat(retrieval): fuse dense and BM25 with RRF'"; exit 1
+fi
+if [ "$(printf '%s' "$subject" | LC_ALL=C.UTF-8 wc -m)" -gt 72 ]; then
+  echo "commit-msg: the subject is over 72 characters"; exit 1
+fi
+if [ -n "$(printf '%s\n' "$msg" | sed -n '2p')" ]; then
+  echo "commit-msg: leave a blank line after the subject"; exit 1
+fi
+if ! printf '%s\n' "$msg" | tail -n +3 | grep -qE '^- [^ ]'; then
+  echo "commit-msg: add a body with one '- ' bullet per change (what changed and why)"; exit 1
+fi

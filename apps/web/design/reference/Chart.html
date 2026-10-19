@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="variables.css">
+<link rel="stylesheet" href="components.css">
+<title>Chart</title>
+</head>
+<body>
+<div class="al-pad">
+  <figure style="margin:0;max-width:640px">
+    <figcaption class="ui-strong" style="margin-bottom:4px">Citation precision by jurisdiction</figcaption>
+    <div class="small al-muted" style="margin-bottom:12px">Only Florida sits clearly above main (dashed); Dubai has the widest interval.</div>
+    <svg class="al-chart" viewBox="0 0 640 220" width="100%" role="img" aria-label="Citation precision by jurisdiction with 95% intervals: Dubai 0.89, Spain 0.95, Colombia 0.92, Florida 0.96; main 0.93">
+      <line class="grid" x1="56" x2="630" y1="20" y2="20"/><line class="grid" x1="56" x2="630" y1="70" y2="70"/><line class="grid" x1="56" x2="630" y1="120" y2="120"/><line class="grid" x1="56" x2="630" y1="170" y2="170"/>
+      <text x="44" y="24" text-anchor="end">1.00</text><text x="44" y="74" text-anchor="end">0.95</text><text x="44" y="124" text-anchor="end">0.90</text><text x="44" y="174" text-anchor="end">0.85</text>
+      <line class="axis" x1="56" x2="56" y1="12" y2="186"/>
+      <line class="ref" x1="56" x2="630" y1="90" y2="90"/><text x="630" y="84" text-anchor="end">main 0.93</text>
+      <line class="whisker" x1="130" x2="130" y1="90" y2="180"/><line class="whisker" x1="124" x2="136" y1="90" y2="90"/><line class="whisker" x1="124" x2="136" y1="180" y2="180"/><circle class="s1" cx="130" cy="130" r="7"/>
+      <line class="whisker" x1="270" x2="270" y1="50" y2="92"/><line class="whisker" x1="264" x2="276" y1="50" y2="50"/><line class="whisker" x1="264" x2="276" y1="92" y2="92"/><circle class="s2" cx="270" cy="70" r="7"/>
+      <line class="whisker" x1="410" x2="410" y1="76" y2="126"/><line class="whisker" x1="404" x2="416" y1="76" y2="76"/><line class="whisker" x1="404" x2="416" y1="126" y2="126"/><circle class="s3" cx="410" cy="100" r="7"/>
+      <line class="whisker" x1="550" x2="550" y1="42" y2="80"/><line class="whisker" x1="544" x2="556" y1="42" y2="42"/><line class="whisker" x1="544" x2="556" y1="80" y2="80"/><circle class="s4" cx="550" cy="60" r="7"/>
+      <text class="label" x="130" y="210" text-anchor="middle">AE-DU 0.89</text><text class="label" x="270" y="210" text-anchor="middle">ES 0.95</text><text class="label" x="410" y="210" text-anchor="middle">CO 0.92</text><text class="label" x="550" y="210" text-anchor="middle">US-FL 0.96</text>
+    </svg>
+  </figure>
+</div>
+</body>
+</html>

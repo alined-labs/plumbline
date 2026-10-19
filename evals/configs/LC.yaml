@@ -1,0 +1,6 @@
+name: LC
+description: Long-context baseline. No retrieval; the whole relevant law goes to the model in one call.
+chunker: {kind: article, merge_parent: true}
+retrieval: {mode: none, jurisdiction_filter: true}
+generation: {route: strong, long_context: true, max_output_tokens: 1024}
+judged: true

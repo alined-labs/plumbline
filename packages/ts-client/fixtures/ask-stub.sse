@@ -1,0 +1,74 @@
+data: {"type": "start", "messageId": "msg_fixture"}
+
+data: {"type": "start-step"}
+
+data: {"type": "data-status", "data": {"stage": "detecting", "detail": null}, "transient": true}
+
+data: {"type": "data-status", "data": {"stage": "retrieving", "detail": null}, "transient": true}
+
+data: {"type": "data-status", "data": {"stage": "generating", "detail": null}, "transient": true}
+
+data: {"type": "text-start", "id": "answer-text"}
+
+data: {"type": "text-delta", "id": "answer-text", "delta": "This "}
+
+data: {"type": "text-delta", "id": "answer-text", "delta": "is "}
+
+data: {"type": "text-delta", "id": "answer-text", "delta": "a "}
+
+data: {"type": "text-delta", "id": "answer-text", "delta": "stub "}
+
+data: {"type": "text-delta", "id": "answer-text", "delta": "answer "}
+
+data: {"type": "text-delta", "id": "answer-text", "delta": "from "}
+
+data: {"type": "text-delta", "id": "answer-text", "delta": "the "}
+
+data: {"type": "text-delta", "id": "answer-text", "delta": "Plumbline "}
+
+data: {"type": "text-delta", "id": "answer-text", "delta": "seed "}
+
+data: {"type": "text-delta", "id": "answer-text", "delta": "[1]. "}
+
+data: {"type": "text-delta", "id": "answer-text", "delta": "Retrieval "}
+
+data: {"type": "text-delta", "id": "answer-text", "delta": "and "}
+
+data: {"type": "text-delta", "id": "answer-text", "delta": "generation "}
+
+data: {"type": "text-delta", "id": "answer-text", "delta": "are "}
+
+data: {"type": "text-delta", "id": "answer-text", "delta": "not "}
+
+data: {"type": "text-delta", "id": "answer-text", "delta": "connected "}
+
+data: {"type": "text-delta", "id": "answer-text", "delta": "yet, "}
+
+data: {"type": "text-delta", "id": "answer-text", "delta": "so "}
+
+data: {"type": "text-delta", "id": "answer-text", "delta": "nothing "}
+
+data: {"type": "text-delta", "id": "answer-text", "delta": "here "}
+
+data: {"type": "text-delta", "id": "answer-text", "delta": "is "}
+
+data: {"type": "text-delta", "id": "answer-text", "delta": "legal "}
+
+data: {"type": "text-delta", "id": "answer-text", "delta": "information. "}
+
+data: {"type": "data-status", "data": {"stage": "verifying", "detail": null}, "transient": true}
+
+data: {"type": "data-citation", "data": {"n": 1, "chunk_id": "stub-act-1", "ref": {"jurisdiction": "florida", "law": "stub-act", "article": "1", "paragraph": null, "edition": "seed"}, "label": "Stub Act, s. 1", "quote": "This section exists only to exercise the interface.", "gloss": null, "language": "en", "verified": true, "page": null}, "id": "citation-1"}
+
+data: {"type": "data-answer", "data": {"status": "answered", "jurisdictions": ["florida"], "as_of": null, "confidence": null, "abstain_reason": null, "invalid_citations": 0, "disclaimer": "Legal information, not legal advice. No lawyer has reviewed Plumbline's answers: read the cited article, and consult a qualified professional before acting."}, "id": "answer"}
+
+data: {"type": "data-trace", "data": {"request_id": "req_fixture", "config_name": "stub", "config_hash": "0000000000000000000000000000000000000000000000000000000000000000", "route": "stub", "model": "stub", "tier": "full", "timings_ms": {"generate": 0.0}, "input_tokens": 0, "output_tokens": 0, "cost_usd": 0.0, "cached": true, "trace_url": null}, "id": "trace"}
+
+data: {"type": "text-end", "id": "answer-text"}
+
+data: {"type": "finish-step"}
+
+data: {"type": "finish", "finishReason": "stop"}
+
+data: [DONE]
+

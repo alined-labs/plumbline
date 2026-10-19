@@ -1,0 +1,22 @@
+{
+  "name": "@plumbline/ts-client",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Types and a typed fetch client generated from Plumbline's OpenAPI schema, including the answer stream's data parts.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "generate": "openapi-typescript openapi.json --output src/schema.d.ts",
+    "check": "openapi-typescript openapi.json --output src/schema.d.ts --check"
+  },
+  "dependencies": {
+    "openapi-fetch": "^0.17.0"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.13.0",
+    "typescript": "~6.0.3"
+  }
+}

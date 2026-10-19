@@ -1,0 +1,5 @@
+name: A1
+description: Article-aware chunks (parent article, numbered paragraphs as children), dense retrieval.
+chunker: {kind: article, merge_parent: true}
+retrieval: {mode: dense, top_k: 8, rerank: none, headers: none}
+generation: {route: fast}

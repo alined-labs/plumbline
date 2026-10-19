@@ -1,0 +1,23 @@
+[project]
+name = "rag-eval"
+version = "0.1.0.dev0"
+description = "A benchmark harness for retrieval-augmented generation over tenancy law: the golden-set schema, retrieval and citation metrics, paired statistics and reports."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+authors = [{ name = "Daniel M.C." }]
+keywords = ["rag", "evaluation", "benchmark", "retrieval", "legal"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = ["pydantic>=2.14"]
+
+[project.scripts]
+rag-eval = "rag_eval.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.9,<0.12"]
+build-backend = "uv_build"

@@ -1,0 +1,10 @@
+.next
+out
+playwright-report
+test-results
+.lighthouseci
+next-env.d.ts
+src/styles/tokens.css
+src/styles/theme.css
+design/contrast-report.md
+design/reference

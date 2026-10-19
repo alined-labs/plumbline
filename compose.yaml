@@ -1,0 +1,56 @@
+# Local services. One stack per machine: every clone and worktree shares the project name
+# "plumbline", so the lanes on one machine share one database (tests use throwaway
+# databases inside it). Frozen. Lane D pins every image by digest in D1.
+#
+#   make up          db and redis
+#   make up-models   embed and rerank (TEI); MODELS_BIND=0.0.0.0 in .env serves them to the LAN
+#   make up-ingest   docling (docling-serve)
+name: plumbline
+
+services:
+  db:
+    image: paradedb/paradedb:v0.26.2-pg18
+    environment:
+      POSTGRES_USER: plumbline
+      POSTGRES_PASSWORD: plumbline
+      POSTGRES_DB: plumbline
+    ports: ["127.0.0.1:5433:5432"]
+    # Postgres 18 images keep their data under /var/lib/postgresql/18/; mount the parent.
+    volumes: [pgdata:/var/lib/postgresql]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U plumbline -d plumbline"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:8-alpine
+    ports: ["127.0.0.1:6380:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  embed:
+    profiles: [models]
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9.4
+    command: ["--model-id", "Qwen/Qwen3-Embedding-0.6B", "--port", "80", "--auto-truncate"]
+    ports: ["${MODELS_BIND:-127.0.0.1}:8081:80"]
+    volumes: [models:/data]
+
+  rerank:
+    profiles: [models]
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9.4
+    command: ["--model-id", "BAAI/bge-reranker-v2-m3", "--port", "80", "--auto-truncate"]
+    ports: ["${MODELS_BIND:-127.0.0.1}:8082:80"]
+    volumes: [models:/data]
+
+  docling:
+    profiles: [ingest]
+    image: ghcr.io/docling-project/docling-serve-cpu:v1.37.0
+    ports: ["${MODELS_BIND:-127.0.0.1}:5001:5001"]
+
+volumes:
+  pgdata:
+  models:

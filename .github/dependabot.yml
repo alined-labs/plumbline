@@ -1,0 +1,11 @@
+# Security alerts cover every ecosystem; version updates only for the pinned actions (the
+# Python and JavaScript locks follow the 7-day release-age policy instead).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: ci
+      include: scope

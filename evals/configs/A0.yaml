@@ -1,0 +1,6 @@
+name: A0
+description: Naive RAG baseline. Fixed 800-token chunks, dense retrieval only, no reranker, no headers.
+chunker: {kind: fixed, max_tokens: 800, overlap_tokens: 0, merge_parent: false}
+retrieval: {mode: dense, top_k: 8, rerank: none, headers: none}
+generation: {route: fast}
+judged: true

@@ -1,0 +1,6 @@
+name: A2
+description: A1 plus hybrid retrieval, dense and BM25 fused with Reciprocal Rank Fusion (k = 60).
+chunker: {kind: article, merge_parent: true}
+retrieval: {mode: hybrid, rrf_k: 60, candidates: 50, top_k: 8, rerank: none, headers: none}
+generation: {route: fast}
+judged: true

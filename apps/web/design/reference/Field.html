@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="variables.css">
+<link rel="stylesheet" href="components.css">
+<title>Field</title>
+</head>
+<body>
+<div class="al-pad" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;max-width:760px">
+  <div class="al-field"><label class="al-label" for="city">Property city</label><input class="al-input" id="city" value="Bogotá"><span class="al-help">Used to pick the jurisdiction.</span></div>
+  <div class="al-field"><label class="al-label" for="jur">Jurisdiction</label><span class="al-select"><select id="jur"><option>Colombia (CO)</option><option>Dubai (AE-DU)</option><option>Spain (ES)</option><option>Florida (US-FL)</option></select><svg class="al-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></div>
+  <div class="al-field"><label class="al-label" for="rent">Monthly rent</label><input class="al-input" id="rent" placeholder="e.g. 2,400,000" aria-invalid="true" aria-describedby="rent-err"><span class="al-error" id="rent-err"><svg class="al-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/> <line x1="12" x2="12" y1="8" y2="12"/> <line x1="12" x2="12.01" y1="16" y2="16"/></svg>Enter the rent as a number, without the currency.</span></div>
+  <div class="al-stack" style="gap:10px">
+    <span class="al-label">Answer length</span>
+    <label class="al-choice"><input type="radio" name="len" checked>Short</label>
+    <label class="al-choice"><input type="radio" name="len">Detailed</label>
+  </div>
+  <div class="al-stack" style="gap:10px">
+    <label class="al-choice"><input type="checkbox" checked>Remember my jurisdiction</label>
+    <label class="al-choice"><input type="checkbox">Email me the findings</label>
+    <label class="al-choice"><input class="al-switch" type="checkbox" role="switch" checked>Show trace</label>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,5 @@
+name: A5
+description: A4 plus LLM-written contextual headers (Anthropic-style contextual retrieval), batched about ten chunks per call, kept beside the deterministic header.
+chunker: {kind: article, merge_parent: true}
+retrieval: {mode: hybrid, rrf_k: 60, candidates: 50, top_k: 8, rerank: local, rerank_candidates: 20, headers: both}
+generation: {route: fast}

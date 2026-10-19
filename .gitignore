@@ -1,0 +1,37 @@
+# Frozen: change it only after a brain block.
+
+# Secrets: only the example is committed.
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.hypothesis/
+.coverage
+htmlcov/
+dist/
+build/
+
+# JavaScript
+node_modules/
+apps/web/.next/
+apps/web/out/
+apps/web/next-env.d.ts
+apps/web/playwright-report/
+apps/web/test-results/
+apps/web/.lighthouseci/
+*.tsbuildinfo
+
+# Sources fetched at build time, never committed (their hashes are in the manifest)
+data/corpus/fetched/
+
+# Local clutter
+.DS_Store
+*.log
+*.tmp

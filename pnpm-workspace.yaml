@@ -1,0 +1,18 @@
+# pnpm only: never npm, npx or yarn. One lockfile, at the repo root. Frozen.
+packages:
+  - apps/web
+  - packages/ts-client
+
+# Supply-chain guard: refuse versions published in the last 7 days (in minutes).
+minimumReleaseAge: 10080
+
+# Lifecycle scripts: none run unless listed true here. unrs-resolver's postinstall only
+# fetches a binary pnpm already installed from its optional dependencies.
+allowBuilds:
+  unrs-resolver: false
+
+# openapi-typescript declares typescript ^5 but generates correctly with 6.0 (the drift
+# test regenerates and compares on every check).
+peerDependencyRules:
+  allowedVersions:
+    openapi-typescript>typescript: "6"

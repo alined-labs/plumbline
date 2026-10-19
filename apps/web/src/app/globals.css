@@ -1,0 +1,22 @@
+@import "tailwindcss";
+@import "../styles/tokens.css";
+@import "../styles/theme.css";
+
+/* The alined design system: tokens.css holds the values (light and dark), theme.css maps the
+   Tailwind utilities onto them. Both are generated from design/tokens.json; see DESIGN.md.
+   The base layer sits under the utilities, so a class can still restyle focus or type. */
+
+@layer base {
+  body {
+    background: var(--pl-color-bg);
+    color: var(--pl-color-fg);
+    font-family: var(--pl-font-sans);
+    font-size: var(--pl-text-body);
+    line-height: var(--pl-text-body--line-height);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--pl-color-focus);
+    outline-offset: 2px;
+  }
+}
