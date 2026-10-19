@@ -90,9 +90,10 @@ jobs:
           tar -xzf "$RUNNER_TEMP/gitleaks.tgz" -C "$RUNNER_TEMP" gitleaks
           "$RUNNER_TEMP/gitleaks" git --redact --no-banner --exit-code 1 .
 
-  # The production image: it builds from the lock, migrates a fresh database, and serves
-  # /api/health as uid 10001 on a read-only filesystem with every capability dropped.
-  image:
+  # The deploy/ files on a clean runner. The production image builds from the lock,
+  # migrates a fresh database, and serves /api/health as uid 10001 on a read-only
+  # filesystem with every capability dropped; the server preflight runs every check.
+  deploy:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     services:
@@ -114,6 +115,11 @@ jobs:
           persist-credentials: false
       - name: Lint the Dockerfile
         run: docker run --rm -i hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d hadolint - < deploy/api/Dockerfile
+      - name: Lint the shell scripts
+        run: |
+          git ls-files -z 'deploy/*.sh' | xargs -0 -r docker run --rm -v "$PWD:/mnt:ro" -w /mnt \
+            koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d \
+            --severity=style
       - name: Build the API image
         run: |
           docker build -f deploy/api/Dockerfile -t plumbline-api:ci .
@@ -134,12 +140,21 @@ jobs:
           test "$(docker inspect --format '{{.State.Health.Status}}' api)" = healthy
           curl -fsS http://127.0.0.1:8000/api/health
           test "$(docker exec api id -u)" = 10001
+      # The runner is no server, but the database service above publishes 5433 on every
+      # interface, which the preflight must report as a failure.
+      - name: Preflight on the runner
+        run: |
+          status=0
+          bash deploy/preflight.sh > "$RUNNER_TEMP/preflight.txt" || status=$?
+          cat "$RUNNER_TEMP/preflight.txt"
+          test "$status" -eq 1
+          grep -qE '^FAIL  container .* publishes .*:5433->' "$RUNNER_TEMP/preflight.txt"
       - if: failure()
         run: docker logs api || true
 
   ci:
     if: always()
-    needs: [python, web, secrets, image]
+    needs: [python, web, secrets, deploy]
     runs-on: ubuntu-24.04
     steps:
       - name: Every job passed
@@ -147,4 +162,4 @@ jobs:
           test "${{ needs.python.result }}" = success
           test "${{ needs.web.result }}" = success
           test "${{ needs.secrets.result }}" = success
-          test "${{ needs.image.result }}" = success
+          test "${{ needs.deploy.result }}" = success
