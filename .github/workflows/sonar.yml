@@ -1,0 +1,89 @@
+# SonarQube Cloud on every pull request and on main (Lane P owns it). CI-based analysis
+# (automatic analysis is off in the project), with Python coverage from the same tests
+# `make check-py` runs, and the scanner waits for the quality gate so this job fails
+# when the gate does. Until the SONAR_TOKEN secret exists (and on Dependabot's pull
+# requests, which never see it) the job passes with a warning instead of scanning.
+name: Sonar
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sonar-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CACHE_MODE: replay
+  PLUMBLINE_REQUIRE_DB: "1"
+
+jobs:
+  sonar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      db:
+        image: paradedb/paradedb:v0.26.2-pg18
+        env:
+          POSTGRES_USER: plumbline
+          POSTGRES_PASSWORD: plumbline
+          POSTGRES_DB: plumbline
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U plumbline -d plumbline"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+    steps:
+      # Only this step and the scan see the token; the tests never do.
+      - name: Is SonarQube Cloud configured?
+        id: token
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          if [ -n "$SONAR_TOKEN" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::SONAR_TOKEN is not set for this run; skipping the SonarQube Cloud analysis."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.token.outputs.configured == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history: Sonar needs blame to tell new code from old.
+          fetch-depth: 0
+          persist-credentials: false
+      - if: steps.token.outputs.configured == 'true'
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          enable-cache: true
+      # coverage is a CI-only tool, like pip-audit in ci.yml: pinned here, kept out of the lock.
+      - name: Python tests with coverage
+        if: steps.token.outputs.configured == 'true'
+        run: |
+          uv sync --locked --all-extras --quiet
+          uv run --locked --with 'coverage[toml]==7.16.2' coverage run --source=apps/api/src,packages/rag-eval/src -m pytest
+          uv run --locked --with 'coverage[toml]==7.16.2' coverage xml -o coverage.xml
+      - name: SonarQube Cloud scan and quality gate
+        if: steps.token.outputs.configured == 'true'
+        uses: SonarSource/sonarqube-scan-action@d209202bc7d53ff1cc128f7f907dac145c9d6ae9 # v8.3.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        # The front end has no coverage report yet, so its files are left out of the
+        # coverage measure rather than counted as uncovered.
+        with:
+          args: >
+            -Dsonar.organization=alined-labs
+            -Dsonar.projectKey=alined-labs_plumbline
+            -Dsonar.sources=apps/api/src,packages/rag-eval/src,apps/web/src,packages/ts-client/src
+            -Dsonar.tests=apps/api/tests,packages/rag-eval/tests,apps/web/src,apps/web/e2e
+            -Dsonar.exclusions=**/*.test.ts,**/*.test.tsx,packages/ts-client/src/schema.d.ts
+            -Dsonar.test.inclusions=apps/api/tests/**,packages/rag-eval/tests/**,**/*.test.ts,**/*.test.tsx,apps/web/e2e/**
+            -Dsonar.coverage.exclusions=apps/web/**,packages/ts-client/**
+            -Dsonar.python.version=3.12
+            -Dsonar.python.coverage.reportPaths=coverage.xml
+            -Dsonar.qualitygate.wait=true
+            -Dsonar.qualitygate.timeout=300
