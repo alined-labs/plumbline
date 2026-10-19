@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+
+import { expectNoAxeViolations } from "./axe";
 
 // The exact bytes the API's stub streams (written by `make openapi`), so this test breaks
 // when the stream contract changes on either side.
@@ -18,13 +19,6 @@ async function answerWithStub(page: Page) {
       body: stubStream,
     }),
   );
-}
-
-async function expectNoAxeViolations(page: Page) {
-  const results = await new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
-    .analyze();
-  expect(results.violations).toEqual([]);
 }
 
 test("the home page is accessible", async ({ page }) => {

@@ -10,6 +10,9 @@ const config: NextConfig = {
   poweredByHeader: false,
   typedRoutes: true,
   transpilePackages: ["@plumbline/ts-client"],
+  // `next dev` would otherwise write its own AGENTS.md here; the repository's agent rules
+  // live in the root AGENTS.md alone.
+  agentRules: false,
 };
 
 export default config;

@@ -1,13 +1,15 @@
 import type { Metadata, Viewport } from "next";
-import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { Logo } from "@/components/brand/logo";
+import { MobileBar } from "@/components/shell/mobile-bar";
+import { SidebarContent } from "@/components/shell/sidebar";
 import { DISCLAIMER, PRODUCT_LINE } from "@/lib/copy";
 import { fontVariables } from "@/lib/fonts";
 
 import { colorOf, type Tokens } from "../../design/tokens";
 import tokens from "../../design/tokens.json";
+
+import { Providers } from "./providers";
 
 import "./globals.css";
 
@@ -36,28 +38,28 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body className="min-h-dvh bg-bg text-fg antialiased">
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:rounded-md focus:bg-surface focus:px-3 focus:py-2"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-(--pl-z-tooltip) focus:rounded-md focus:bg-surface focus:px-3 focus:py-2"
         >
           Skip to content
         </a>
-        <header className="border-b border-border">
-          <div className="mx-auto flex max-w-content items-center justify-between px-4 py-1">
-            <Link
-              href="/"
-              aria-label="Plumbline home"
-              className="inline-flex min-h-11 items-center rounded-sm"
-            >
-              <Logo className="h-5.5 w-auto" />
-            </Link>
-            <p className="text-small text-fg-muted">Legal information, not legal advice</p>
+        <Providers>
+          {/* AppShell: the sidebar (rail from 768px, drawer below), then the page column.
+              The source panel joins as a third pane in E3. */}
+          <div className="flex min-h-dvh">
+            <div className="sticky top-0 hidden h-dvh w-(--pl-sidebar-rail) shrink-0 flex-col border-r border-border bg-bg-subtle px-2.5 py-3 md:flex lg:w-(--pl-sidebar-width)">
+              <SidebarContent mode="aside" />
+            </div>
+            <div className="flex min-w-0 flex-1 flex-col">
+              <MobileBar />
+              <main id="main" tabIndex={-1} className="flex-1 px-4 py-8 md:px-8">
+                <div className="mx-auto w-full max-w-content">{children}</div>
+              </main>
+              <footer className="border-t border-border px-4 py-4 md:px-8">
+                <p className="mx-auto max-w-content text-small text-fg-muted">{DISCLAIMER}</p>
+              </footer>
+            </div>
           </div>
-        </header>
-        <main id="main" className="mx-auto max-w-content px-4 py-8">
-          {children}
-        </main>
-        <footer className="border-t border-border">
-          <p className="mx-auto max-w-content px-4 py-4 text-small text-fg-muted">{DISCLAIMER}</p>
-        </footer>
+        </Providers>
       </body>
     </html>
   );
