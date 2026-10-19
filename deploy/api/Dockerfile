@@ -14,7 +14,7 @@
 
 FROM ghcr.io/astral-sh/uv:0.13.1@sha256:4a1f3666816dafadd20ceb71eac9a7d56d7ef30279f7d64048519ab901ada336 AS uv
 
-FROM python:3.12.15-slim-trixie@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1 AS build
+FROM python:3.14.8-slim-trixie@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170 AS build
 COPY --from=uv /uv /bin/uv
 # Bytecode is compiled here because the runtime filesystem is read-only; files are copied
 # out of the cache mount rather than linked; only the base image's Python is used.
@@ -38,7 +38,7 @@ COPY packages/rag-eval packages/rag-eval
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-dev --no-editable --package plumbline
 
-FROM python:3.12.15-slim-trixie@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1
+FROM python:3.14.8-slim-trixie@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170
 LABEL org.opencontainers.image.title="plumbline-api" \
       org.opencontainers.image.source="https://github.com/alined-labs/plumbline" \
       org.opencontainers.image.licenses="Apache-2.0"
