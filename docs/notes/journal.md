@@ -2,6 +2,14 @@
 
 Dated working notes: what was tried, what was learned, what changed course. Newest first. Decisions that last go into an ADR; this is the trail that led to them.
 
+## 2026-10-19: where CI's time goes
+
+- Over the twelve latest successful CI runs (pull requests and `main`, 23:37 to 23:52 UTC), the `web` job sets the wall time: 102 s on average, from 65 to 134 s, rising as the app shell added pages and tests. `python` takes 74 s, the image job 43 s and gitleaks 6 s. With the hub's own local check in front, a branch reaches `main` a few minutes after its push.
+- Inside `make check-web` (91 s on E1b's run), Lighthouse takes 50 s for four pages, about 12 s a page; the e2e suite 14 s for 18 tests; the static build 12.5 s; format, lint, types and unit tests 12 s together. Lighthouse grows with every page it audits: ten pages would take it about two minutes.
+- Installing Playwright's Chromium costs 22 s a run: 12 s of apt packages and 8.5 s of downloads. A browser cache could save only the downloads, less its own restore time, so CI goes without one.
+- In the `python` job, starting the ParadeDB service takes 17 to 24 s, `make check-py` 23 to 34 s and pip-audit 15 to 20 s. Service containers start before any step runs, so their images cannot come from the Actions cache.
+- On MX3, the e2e suites of Lane E's checkout, the hub's worktree and Lane P's all serve on port 3100, and Playwright reuses whatever server it finds there outside CI. The hub's check of PB2 failed that way at 23:45 UTC: every e2e test was refused once the other checkout's server stopped, while `main` was green on GitHub. One port per checkout would fix it; the file is Lane E's.
+
 ## 2026-10-19: the design system, before the build
 
 - The Alined design system went into the seed before any lane started, so the front end is built on it from the first task and the placeholder token layer and Phase DS are gone.
