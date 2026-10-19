@@ -1,6 +1,6 @@
-"""One real call per pinned Gemini model, plain and streamed. Marked live: never part of
-make check. Run with `uv run pytest -m live apps/api/tests/generation`; the keys come from
-.env through plumbline.settings, and nothing is recorded (a live-mode cache in a temp dir)."""
+"""One real call per pinned model, plain and streamed. Marked live: never part of make
+check. Run with `uv run pytest -m live apps/api/tests/generation`; the keys come from .env
+through plumbline.settings, and nothing is recorded (a live-mode cache in a temp dir)."""
 
 import asyncio
 from pathlib import Path
@@ -11,6 +11,8 @@ from plumbline.cache import ResponseCache
 from plumbline.core.types import CacheMode
 from plumbline.generation.llm import (
     FAST_MODEL,
+    JUDGE_MODEL,
+    PREMIUM_MODEL,
     STRONG_MODEL,
     LLMRequest,
     LLMResult,
@@ -22,10 +24,11 @@ from plumbline.settings import Settings
 pytestmark = pytest.mark.live
 
 
-@pytest.mark.parametrize("model", [FAST_MODEL, STRONG_MODEL])
+@pytest.mark.parametrize("model", [FAST_MODEL, STRONG_MODEL, PREMIUM_MODEL, JUDGE_MODEL])
 def test_a_pinned_model_answers_plain_and_streamed(model: str, tmp_path: Path) -> None:
     settings = Settings()
-    if settings.gemini_api_key is None:
+    key = settings.gemini_api_key if model.startswith("gemini-") else settings.anthropic_api_key
+    if key is None:
         pytest.skip(f"no key for {model}")
     client = client_for(model, cache=ResponseCache(CacheMode.LIVE, tmp_path), settings=settings)
     request = LLMRequest(

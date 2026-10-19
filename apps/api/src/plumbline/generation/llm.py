@@ -1,4 +1,4 @@
-"""LLM clients: one protocol for every provider, and the Gemini client behind the routes.
+"""LLM clients: one protocol over Gemini, Anthropic and any OpenAI-compatible endpoint.
 
 Every call goes through plumbline.cache (kind "llm"). The cache request is the payload sent
 to the provider plus the provider's name, so it fully determines the response and never
@@ -24,7 +24,9 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime
 from typing import Any, Final, Literal, Protocol
 
+import anthropic
 import httpx
+import openai
 from google import genai
 from google.genai import errors as genai_errors
 from google.genai import types as genai_types
@@ -401,8 +403,163 @@ def _gemini_stop(response: genai_types.GenerateContentResponse | None) -> str | 
     return str(response.candidates[0].finish_reason.value)
 
 
+class AnthropicClient(BaseClient):
+    """Claude takes no sampling parameters, so `temperature` is not sent; the system prompt
+    is marked as a 5-minute cache breakpoint (a no-op under the model's minimum length)."""
+
+    provider = "anthropic"
+
+    def __init__(self, *, sdk: anthropic.AsyncAnthropic | None = None, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._sdk = sdk
+
+    def payload(self, request: LLMRequest) -> dict[str, Json]:
+        body: dict[str, Json] = {
+            "model": request.model,
+            "max_tokens": request.max_output_tokens,
+            "messages": [m.model_dump() for m in request.messages],
+        }
+        if request.system:
+            block: dict[str, Json] = {"type": "text", "text": request.system}
+            if request.cache_system:
+                block["cache_control"] = {"type": "ephemeral"}
+            body["system"] = [block]
+        if request.json_schema is not None:
+            body["output_config"] = {
+                "format": {"type": "json_schema", "schema": request.json_schema}
+            }
+        return body
+
+    def _client(self) -> anthropic.AsyncAnthropic:
+        if self._sdk is None:
+            key = self._key(self.settings.anthropic_api_key, "ANTHROPIC_API_KEY")
+            self._sdk = anthropic.AsyncAnthropic(
+                api_key=key, max_retries=0, timeout=self.retry.timeout_s
+            )
+        return self._sdk
+
+    async def _create(self, payload: dict[str, Json]) -> tuple[str, Done]:
+        message = await self._client().messages.create(**payload)
+        return _anthropic_text(message), _anthropic_done(message)
+
+    async def _stream(self, payload: dict[str, Json]) -> AsyncGenerator[str | Done]:
+        async with self._client().messages.stream(**payload) as stream:
+            async for text in stream.text_stream:
+                yield text
+            message = await stream.get_final_message()
+        yield _anthropic_done(message)
+
+    def _retryable(self, exc: Exception) -> bool:
+        if isinstance(exc, anthropic.APIConnectionError):
+            return True
+        return isinstance(exc, anthropic.APIStatusError) and _http_retryable(exc.status_code)
+
+
+def _anthropic_text(message: anthropic.types.Message) -> str:
+    # Thinking blocks are skipped: the answer is the text blocks alone.
+    return "".join(b.text for b in message.content if isinstance(b, anthropic.types.TextBlock))
+
+
+def _anthropic_done(message: anthropic.types.Message) -> Done:
+    u = message.usage
+    usage = Usage(
+        input_tokens=u.input_tokens,
+        cache_read_tokens=u.cache_read_input_tokens or 0,
+        cache_write_tokens=u.cache_creation_input_tokens or 0,
+        output_tokens=u.output_tokens,
+    )
+    return Done(usage, message.stop_reason)
+
+
+class OpenAICompatibleClient(BaseClient):
+    """Chat Completions on any compatible endpoint. The endpoint is part of the recording's
+    key, since the same model name can mean different models on different servers. OpenAI
+    caches long prefixes on its own and reports the tokens it read."""
+
+    provider = "openai-compatible"
+
+    def __init__(
+        self,
+        *,
+        base_url: str = "https://api.openai.com/v1",
+        api_key: SecretStr | None = None,  # default: OPENAI_API_KEY
+        sdk: openai.AsyncOpenAI | None = None,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(**kwargs)
+        self.base_url = base_url
+        self._api_key = api_key
+        self._sdk = sdk
+
+    def cache_request(self, payload: dict[str, Json]) -> dict[str, Json]:
+        return {"provider": self.provider, "base_url": self.base_url, **payload}
+
+    def payload(self, request: LLMRequest) -> dict[str, Json]:
+        system = [{"role": "system", "content": request.system}] if request.system else []
+        body: dict[str, Json] = {
+            "model": request.model,
+            "messages": system + [m.model_dump() for m in request.messages],
+            "max_tokens": request.max_output_tokens,  # the field compatible servers all accept
+        }
+        if request.temperature is not None:
+            body["temperature"] = request.temperature
+        if request.json_schema is not None:
+            schema = {"name": "response", "schema": request.json_schema, "strict": True}
+            body["response_format"] = {"type": "json_schema", "json_schema": schema}
+        return body
+
+    def _client(self) -> openai.AsyncOpenAI:
+        if self._sdk is None:
+            key = self._key(self._api_key or self.settings.openai_api_key, "OPENAI_API_KEY")
+            self._sdk = openai.AsyncOpenAI(
+                api_key=key, base_url=self.base_url, max_retries=0, timeout=self.retry.timeout_s
+            )
+        return self._sdk
+
+    async def _create(self, payload: dict[str, Json]) -> tuple[str, Done]:
+        completion = await self._client().chat.completions.create(**payload)
+        choice = completion.choices[0]
+        return choice.message.content or "", Done(
+            _openai_usage(completion.usage), choice.finish_reason
+        )
+
+    async def _stream(self, payload: dict[str, Json]) -> AsyncGenerator[str | Done]:
+        usage, stop = Usage(), None
+        stream = await self._client().chat.completions.create(
+            **payload, stream=True, stream_options={"include_usage": True}
+        )
+        async with stream:
+            async for chunk in stream:
+                if chunk.choices:
+                    if chunk.choices[0].delta.content:
+                        yield chunk.choices[0].delta.content
+                    stop = chunk.choices[0].finish_reason or stop
+                if chunk.usage is not None:
+                    usage = _openai_usage(chunk.usage)
+        yield Done(usage, stop)
+
+    def _retryable(self, exc: Exception) -> bool:
+        if isinstance(exc, openai.APIConnectionError):
+            return True
+        return isinstance(exc, openai.APIStatusError) and _http_retryable(exc.status_code)
+
+
+def _openai_usage(usage: openai.types.CompletionUsage | None) -> Usage:
+    if usage is None:
+        return Usage()
+    details = usage.prompt_tokens_details
+    cached = (details.cached_tokens if details else None) or 0  # part of prompt_tokens
+    return Usage(
+        input_tokens=usage.prompt_tokens - cached,
+        cache_read_tokens=cached,
+        output_tokens=usage.completion_tokens,
+    )
+
+
 def client_for(model: str, **kwargs: Any) -> LLMClient:
-    """The client for a pinned model."""
+    """The client for a pinned model; other endpoints build an OpenAICompatibleClient."""
     if model.startswith("gemini-"):
         return GeminiClient(**kwargs)
-    raise ValueError(f"no client for {model}")
+    if model.startswith("claude-"):
+        return AnthropicClient(**kwargs)
+    raise ValueError(f"no client for {model}: use OpenAICompatibleClient with its base_url")
