@@ -9,7 +9,7 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from redis.exceptions import ConnectionError as RedisConnectionError
 
 from plumbline.api.app import create_app
@@ -172,3 +172,66 @@ async def test_the_usage_is_the_larger_of_the_visitors_and_the_addresss() -> Non
 async def test_the_usage_reads_zero_when_nothing_can_count() -> None:
     async with _client(_app(Broken())) as client:
         assert (await client.get("/api/usage")).json()["used"] == 0
+
+
+def _probe(app: FastAPI) -> FastAPI:
+    """Routes that use the quota the way the lease routes do."""
+
+    @app.post("/api/test-lease")
+    async def lease(request: Request, count: bool = True) -> dict[str, str]:
+        return {"visitor": (await request.app.state.quota.admit(request, "lease", count=count)).id}
+
+    @app.get("/api/test-owner")
+    async def owner(request: Request) -> dict[str, str | None]:
+        return {"owner": await request.app.state.quota.owner(request)}
+
+    return app
+
+
+async def test_lease_checks_are_allowed_a_tenth_of_the_questions() -> None:
+    async with _client(_probe(_app(MemoryCounter(), limit=20))) as client:
+        assert [(await client.post("/api/test-lease")).status_code for _ in range(2)] == [200, 200]
+        refused = await client.post("/api/test-lease")
+    body = refused.json()
+    assert (refused.status_code, body["code"]) == (429, "quota_reached")
+    assert (
+        body["detail"] == "Today's 2 lease checks are used up; checking opens again at 00:00 UTC."
+    )
+    assert 0 < int(refused.headers["retry-after"]) <= 24 * 3600
+
+
+async def test_there_is_always_one_lease_check_a_day() -> None:
+    async with _client(_probe(_app(MemoryCounter(), limit=5))) as client:
+        assert (await client.post("/api/test-lease")).status_code == 200
+        assert (await client.post("/api/test-lease")).status_code == 429
+
+
+async def test_lease_checks_and_questions_are_counted_apart() -> None:
+    async with _client(_probe(_app(MemoryCounter(), limit=10))) as client:
+        assert (await client.post("/api/test-lease")).status_code == 200
+        assert (await client.post("/api/test-lease")).status_code == 429  # the one is used
+        for _ in range(10):  # and all ten questions are still there
+            assert (await client.post("/api/ask", json=BODY)).status_code == 200
+        assert (await client.post("/api/ask", json=BODY)).status_code == 429
+
+
+async def test_a_look_at_the_quota_counts_nothing() -> None:
+    async with _client(_probe(_app(MemoryCounter(), limit=10))) as client:
+        for _ in range(5):
+            assert (
+                await client.post("/api/test-lease", params={"count": "false"})
+            ).status_code == 200
+        assert (await client.post("/api/test-lease")).status_code == 200  # the one is still there
+        refused = await client.post("/api/test-lease", params={"count": "false"})
+    assert refused.status_code == 429  # a look, now, finds none left
+
+
+async def test_a_request_is_owned_by_the_visitor_whose_signed_cookie_it_carries() -> None:
+    app = _probe(_app(MemoryCounter()))
+    async with _client(app) as client, _client(app) as stranger:
+        assert (await client.get("/api/test-owner")).json() == {"owner": None}  # no cookie yet
+        await client.post("/api/ask", json=BODY)  # which sets one
+        cookie = client.cookies[COOKIE]
+        assert (await client.get("/api/test-owner")).json() == {"owner": cookie.rsplit(".", 1)[0]}
+        forged = await stranger.get("/api/test-owner", headers={"cookie": f"{COOKIE}=someone.0000"})
+        assert forged.json() == {"owner": None}
