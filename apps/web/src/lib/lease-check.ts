@@ -21,10 +21,22 @@ export type LeaseEvent =
   | { type: "finding"; finding: Finding }
   | { type: "done"; findings: number; language: "en" | "es" };
 
+// The API writes a count it does not have as null (LeaseStageEvent: done and total are
+// `int | None`), so null is read as no count, the same as a missing field.
 const stageSchema = z.object({
   stage: z.enum(LEASE_STAGES),
-  done: z.number().int().min(0).optional(),
-  total: z.number().int().min(0).optional(),
+  done: z
+    .number()
+    .int()
+    .min(0)
+    .nullish()
+    .transform((count) => count ?? undefined),
+  total: z
+    .number()
+    .int()
+    .min(0)
+    .nullish()
+    .transform((count) => count ?? undefined),
 });
 const doneSchema = z.object({ findings: z.number().int().min(0), language: z.enum(["en", "es"]) });
 const failedSchema = z.object({ code: z.string().min(1), message: z.string() });
