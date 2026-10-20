@@ -1,0 +1,8 @@
+{
+  "thresholds": {
+    "recall@5": 0.6,
+    "citation_precision": 0.7,
+    "abstention_accuracy": 0.6
+  },
+  "justification": "Fixture."
+}

@@ -1,0 +1,482 @@
+{
+  "schema_version": 1,
+  "run_id": "lc-dev-fixture",
+  "config_name": "LC",
+  "config_hash": "0000000000000000000000000000000000000000000000000000000000000001",
+  "git_sha": "5627233",
+  "golden_file": "data/golden/golden_v1.jsonl",
+  "golden_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "split": "dev",
+  "created_at": "2026-10-21T09:00:00Z",
+  "judged": true,
+  "n_items": 24,
+  "results": [
+    {
+      "item_id": "du-0001",
+      "retrieved": [],
+      "status": "answered",
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "false_abstention": 0.0,
+        "citation_validity": 1.0,
+        "citation_precision": 0.72,
+        "faithfulness": 1.0,
+        "correctness": 0.0
+      },
+      "latency_ms": 6711,
+      "cost_usd": 0.03299,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "du-0002",
+      "retrieved": [],
+      "status": "answered",
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "false_abstention": 0.0,
+        "citation_validity": 1.0,
+        "citation_precision": 0.82,
+        "faithfulness": 1.0,
+        "correctness": 1.0
+      },
+      "latency_ms": 7630,
+      "cost_usd": 0.03459,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "du-0003",
+      "retrieved": [],
+      "status": "answered",
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "false_abstention": 0.0,
+        "citation_validity": 1.0,
+        "citation_precision": 0.83,
+        "faithfulness": 0.0,
+        "correctness": 1.0
+      },
+      "latency_ms": 9814,
+      "cost_usd": 0.03654,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "du-0004",
+      "retrieved": [],
+      "status": "answered",
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "false_abstention": 0.0,
+        "citation_validity": 1.0,
+        "citation_precision": 0.61,
+        "faithfulness": 1.0,
+        "correctness": 1.0
+      },
+      "latency_ms": 14748,
+      "cost_usd": 0.0348,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "es-0001",
+      "retrieved": [],
+      "status": "answered",
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "false_abstention": 0.0,
+        "citation_validity": 1.0,
+        "citation_precision": 0.84,
+        "faithfulness": 0.0,
+        "correctness": 1.0
+      },
+      "latency_ms": 9314,
+      "cost_usd": 0.0316,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "es-0002",
+      "retrieved": [],
+      "status": "answered",
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "false_abstention": 0.0,
+        "citation_validity": 1.0,
+        "citation_precision": 0.55,
+        "faithfulness": 0.0,
+        "correctness": 1.0
+      },
+      "latency_ms": 11040,
+      "cost_usd": 0.03638,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "es-0003",
+      "retrieved": [],
+      "status": "answered",
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "false_abstention": 0.0,
+        "citation_validity": 1.0,
+        "citation_precision": 0.86,
+        "faithfulness": 1.0,
+        "correctness": 1.0
+      },
+      "latency_ms": 8348,
+      "cost_usd": 0.02843,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "es-0004",
+      "retrieved": [],
+      "status": "answered",
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "false_abstention": 0.0,
+        "citation_validity": 1.0,
+        "citation_precision": 0.76,
+        "faithfulness": 1.0,
+        "correctness": 1.0
+      },
+      "latency_ms": 7165,
+      "cost_usd": 0.03608,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "co-0001",
+      "retrieved": [],
+      "status": "answered",
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "false_abstention": 0.0,
+        "citation_validity": 1.0,
+        "citation_precision": 0.71,
+        "faithfulness": 1.0,
+        "correctness": 0.0
+      },
+      "latency_ms": 10002,
+      "cost_usd": 0.03618,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "co-0002",
+      "retrieved": [],
+      "status": "answered",
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "false_abstention": 0.0,
+        "citation_validity": 1.0,
+        "citation_precision": 0.74,
+        "faithfulness": 1.0,
+        "correctness": 1.0
+      },
+      "latency_ms": 10193,
+      "cost_usd": 0.02707,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "co-0003",
+      "retrieved": [],
+      "status": "answered",
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "false_abstention": 1.0,
+        "citation_validity": 1.0,
+        "citation_precision": 0.83,
+        "faithfulness": 1.0,
+        "correctness": 1.0
+      },
+      "latency_ms": 12987,
+      "cost_usd": 0.0317,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "co-0004",
+      "retrieved": [],
+      "status": "answered",
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "false_abstention": 0.0,
+        "citation_validity": 1.0,
+        "citation_precision": 0.73,
+        "faithfulness": 1.0,
+        "correctness": 0.0
+      },
+      "latency_ms": 6920,
+      "cost_usd": 0.03175,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "fl-0001",
+      "retrieved": [],
+      "status": "answered",
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "false_abstention": 0.0,
+        "citation_validity": 1.0,
+        "citation_precision": 0.65,
+        "faithfulness": 1.0,
+        "correctness": 1.0
+      },
+      "latency_ms": 11385,
+      "cost_usd": 0.03422,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "fl-0002",
+      "retrieved": [],
+      "status": "answered",
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "false_abstention": 0.0,
+        "citation_validity": 1.0,
+        "citation_precision": 0.71,
+        "faithfulness": 1.0,
+        "correctness": 1.0
+      },
+      "latency_ms": 10899,
+      "cost_usd": 0.03339,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "fl-0003",
+      "retrieved": [],
+      "status": "answered",
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "false_abstention": 0.0,
+        "citation_validity": 1.0,
+        "citation_precision": 0.74,
+        "faithfulness": 1.0,
+        "correctness": 0.0
+      },
+      "latency_ms": 12732,
+      "cost_usd": 0.03567,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "fl-0004",
+      "retrieved": [],
+      "status": "answered",
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "false_abstention": 0.0,
+        "citation_validity": 1.0,
+        "citation_precision": 0.64,
+        "faithfulness": 1.0,
+        "correctness": 0.0
+      },
+      "latency_ms": 14112,
+      "cost_usd": 0.0265,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "xj-0001",
+      "retrieved": [],
+      "status": "answered",
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "false_abstention": 0.0,
+        "citation_validity": 1.0,
+        "citation_precision": 0.7,
+        "faithfulness": 1.0,
+        "correctness": 1.0
+      },
+      "latency_ms": 6597,
+      "cost_usd": 0.0331,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "xj-0002",
+      "retrieved": [],
+      "status": "answered",
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "false_abstention": 0.0,
+        "citation_validity": 1.0,
+        "citation_precision": 0.86,
+        "faithfulness": 1.0,
+        "correctness": 1.0
+      },
+      "latency_ms": 12351,
+      "cost_usd": 0.02657,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "xj-0003",
+      "retrieved": [],
+      "status": "answered",
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "false_abstention": 0.0,
+        "citation_validity": 1.0,
+        "citation_precision": 0.89,
+        "faithfulness": 1.0,
+        "correctness": 0.0
+      },
+      "latency_ms": 9783,
+      "cost_usd": 0.03084,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "xj-0004",
+      "retrieved": [],
+      "status": "answered",
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "false_abstention": 0.0,
+        "citation_validity": 1.0,
+        "citation_precision": 0.84,
+        "faithfulness": 1.0,
+        "correctness": 1.0
+      },
+      "latency_ms": 10933,
+      "cost_usd": 0.02901,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "oos-0001",
+      "retrieved": [],
+      "status": "answered",
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "abstention_accuracy": 1.0
+      },
+      "latency_ms": 9002,
+      "cost_usd": 0.03375,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "oos-0002",
+      "retrieved": [],
+      "status": "answered",
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "abstention_accuracy": 1.0
+      },
+      "latency_ms": 11310,
+      "cost_usd": 0.03026,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "oos-0003",
+      "retrieved": [],
+      "status": "answered",
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "abstention_accuracy": 1.0
+      },
+      "latency_ms": 9129,
+      "cost_usd": 0.03254,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "oos-0004",
+      "retrieved": [],
+      "status": "answered",
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "abstention_accuracy": 1.0
+      },
+      "latency_ms": 6510,
+      "cost_usd": 0.03702,
+      "trace_id": null,
+      "error": null
+    }
+  ],
+  "summary": {
+    "abstention_accuracy.n": 4.0,
+    "abstention_accuracy": 1.0,
+    "abstention_accuracy.low": 0.5101,
+    "abstention_accuracy.high": 1,
+    "citation_precision.n": 20.0,
+    "citation_precision": 0.7515,
+    "citation_precision.low": 0.6315,
+    "citation_precision.high": 0.8515,
+    "citation_validity.n": 20.0,
+    "citation_validity": 1.0,
+    "citation_validity.low": 0.88,
+    "citation_validity.high": 1,
+    "correctness.n": 20.0,
+    "correctness": 0.7,
+    "correctness.low": 0.481,
+    "correctness.high": 0.8545,
+    "faithfulness.n": 20.0,
+    "faithfulness": 0.85,
+    "faithfulness.low": 0.6396,
+    "faithfulness.high": 0.9476,
+    "false_abstention.n": 20.0,
+    "false_abstention": 0.05,
+    "false_abstention.low": 0.0089,
+    "false_abstention.high": 0.2361
+  },
+  "notes": "Fixture for the web app's tests, not a measurement."
+}

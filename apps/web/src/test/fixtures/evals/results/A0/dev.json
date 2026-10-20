@@ -1,0 +1,470 @@
+{
+  "schema_version": 1,
+  "run_id": "a0-dev-fixture",
+  "config_name": "A0",
+  "config_hash": "0000000000000000000000000000000000000000000000000000000000000001",
+  "git_sha": "5627233",
+  "golden_file": "data/golden/golden_v1.jsonl",
+  "golden_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "split": "dev",
+  "created_at": "2026-10-21T09:00:00Z",
+  "judged": false,
+  "n_items": 24,
+  "results": [
+    {
+      "item_id": "du-0001",
+      "retrieved": [],
+      "status": null,
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "recall@5": 0.41,
+        "recall@20": 0.51,
+        "mrr": 0.328,
+        "ndcg@10": 0.348,
+        "jurisdiction@5": 1.0
+      },
+      "latency_ms": 135,
+      "cost_usd": 0.0,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "du-0002",
+      "retrieved": [],
+      "status": null,
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "recall@5": 0.58,
+        "recall@20": 0.68,
+        "mrr": 0.464,
+        "ndcg@10": 0.493,
+        "jurisdiction@5": 1.0
+      },
+      "latency_ms": 121,
+      "cost_usd": 0.0,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "du-0003",
+      "retrieved": [],
+      "status": null,
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "recall@5": 0.52,
+        "recall@20": 0.62,
+        "mrr": 0.416,
+        "ndcg@10": 0.442,
+        "jurisdiction@5": 1.0
+      },
+      "latency_ms": 174,
+      "cost_usd": 0.0,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "du-0004",
+      "retrieved": [],
+      "status": null,
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "recall@5": 0.28,
+        "recall@20": 0.38,
+        "mrr": 0.224,
+        "ndcg@10": 0.238,
+        "jurisdiction@5": 1.0
+      },
+      "latency_ms": 199,
+      "cost_usd": 0.0,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "es-0001",
+      "retrieved": [],
+      "status": null,
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "recall@5": 0.27,
+        "recall@20": 0.37,
+        "mrr": 0.216,
+        "ndcg@10": 0.23,
+        "jurisdiction@5": 1.0
+      },
+      "latency_ms": 186,
+      "cost_usd": 0.0,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "es-0002",
+      "retrieved": [],
+      "status": null,
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "recall@5": 0.28,
+        "recall@20": 0.38,
+        "mrr": 0.224,
+        "ndcg@10": 0.238,
+        "jurisdiction@5": 1.0
+      },
+      "latency_ms": 124,
+      "cost_usd": 0.0,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "es-0003",
+      "retrieved": [],
+      "status": null,
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "recall@5": 0.46,
+        "recall@20": 0.56,
+        "mrr": 0.368,
+        "ndcg@10": 0.391,
+        "jurisdiction@5": 1.0
+      },
+      "latency_ms": 257,
+      "cost_usd": 0.0,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "es-0004",
+      "retrieved": [],
+      "status": null,
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "recall@5": 0.31,
+        "recall@20": 0.41,
+        "mrr": 0.248,
+        "ndcg@10": 0.264,
+        "jurisdiction@5": 1.0
+      },
+      "latency_ms": 148,
+      "cost_usd": 0.0,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "co-0001",
+      "retrieved": [],
+      "status": null,
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "recall@5": 0.56,
+        "recall@20": 0.66,
+        "mrr": 0.448,
+        "ndcg@10": 0.476,
+        "jurisdiction@5": 1.0
+      },
+      "latency_ms": 279,
+      "cost_usd": 0.0,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "co-0002",
+      "retrieved": [],
+      "status": null,
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "recall@5": 0.54,
+        "recall@20": 0.64,
+        "mrr": 0.432,
+        "ndcg@10": 0.459,
+        "jurisdiction@5": 1.0
+      },
+      "latency_ms": 179,
+      "cost_usd": 0.0,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "co-0003",
+      "retrieved": [],
+      "status": null,
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "recall@5": 0.74,
+        "recall@20": 0.84,
+        "mrr": 0.592,
+        "ndcg@10": 0.629,
+        "jurisdiction@5": 1.0
+      },
+      "latency_ms": 116,
+      "cost_usd": 0.0,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "co-0004",
+      "retrieved": [],
+      "status": null,
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "recall@5": 0.68,
+        "recall@20": 0.78,
+        "mrr": 0.544,
+        "ndcg@10": 0.578,
+        "jurisdiction@5": 1.0
+      },
+      "latency_ms": 160,
+      "cost_usd": 0.0,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "fl-0001",
+      "retrieved": [],
+      "status": null,
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "recall@5": 0.32,
+        "recall@20": 0.42,
+        "mrr": 0.256,
+        "ndcg@10": 0.272,
+        "jurisdiction@5": 1.0
+      },
+      "latency_ms": 129,
+      "cost_usd": 0.0,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "fl-0002",
+      "retrieved": [],
+      "status": null,
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "recall@5": 0.4,
+        "recall@20": 0.5,
+        "mrr": 0.32,
+        "ndcg@10": 0.34,
+        "jurisdiction@5": 1.0
+      },
+      "latency_ms": 255,
+      "cost_usd": 0.0,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "fl-0003",
+      "retrieved": [],
+      "status": null,
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "recall@5": 0.34,
+        "recall@20": 0.44,
+        "mrr": 0.272,
+        "ndcg@10": 0.289,
+        "jurisdiction@5": 1.0
+      },
+      "latency_ms": 213,
+      "cost_usd": 0.0,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "fl-0004",
+      "retrieved": [],
+      "status": null,
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "recall@5": 0.57,
+        "recall@20": 0.67,
+        "mrr": 0.456,
+        "ndcg@10": 0.484,
+        "jurisdiction@5": 1.0
+      },
+      "latency_ms": 175,
+      "cost_usd": 0.0,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "xj-0001",
+      "retrieved": [],
+      "status": null,
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "recall@5": 0.52,
+        "recall@20": 0.62,
+        "mrr": 0.416,
+        "ndcg@10": 0.442,
+        "jurisdiction@5": 0.8
+      },
+      "latency_ms": 119,
+      "cost_usd": 0.0,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "xj-0002",
+      "retrieved": [],
+      "status": null,
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "recall@5": 0.28,
+        "recall@20": 0.38,
+        "mrr": 0.224,
+        "ndcg@10": 0.238,
+        "jurisdiction@5": 0.8
+      },
+      "latency_ms": 145,
+      "cost_usd": 0.0,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "xj-0003",
+      "retrieved": [],
+      "status": null,
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "recall@5": 0.59,
+        "recall@20": 0.69,
+        "mrr": 0.472,
+        "ndcg@10": 0.501,
+        "jurisdiction@5": 0.8
+      },
+      "latency_ms": 185,
+      "cost_usd": 0.0,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "xj-0004",
+      "retrieved": [],
+      "status": null,
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {
+        "recall@5": 0.41,
+        "recall@20": 0.51,
+        "mrr": 0.328,
+        "ndcg@10": 0.348,
+        "jurisdiction@5": 0.8
+      },
+      "latency_ms": 213,
+      "cost_usd": 0.0,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "oos-0001",
+      "retrieved": [],
+      "status": null,
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {},
+      "latency_ms": 190,
+      "cost_usd": 0.0,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "oos-0002",
+      "retrieved": [],
+      "status": null,
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {},
+      "latency_ms": 162,
+      "cost_usd": 0.0,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "oos-0003",
+      "retrieved": [],
+      "status": null,
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {},
+      "latency_ms": 251,
+      "cost_usd": 0.0,
+      "trace_id": null,
+      "error": null
+    },
+    {
+      "item_id": "oos-0004",
+      "retrieved": [],
+      "status": null,
+      "answer": null,
+      "cited": [],
+      "invalid_citations": 0,
+      "metrics": {},
+      "latency_ms": 234,
+      "cost_usd": 0.0,
+      "trace_id": null,
+      "error": null
+    }
+  ],
+  "summary": {
+    "jurisdiction@5.n": 20.0,
+    "jurisdiction@5": 0.96,
+    "jurisdiction@5.low": 0.84,
+    "jurisdiction@5.high": 1,
+    "mrr.n": 20.0,
+    "mrr": 0.3624,
+    "mrr.low": 0.2424,
+    "mrr.high": 0.4624,
+    "ndcg@10.n": 20.0,
+    "ndcg@10": 0.385,
+    "ndcg@10.low": 0.265,
+    "ndcg@10.high": 0.485,
+    "recall@20.n": 20.0,
+    "recall@20": 0.553,
+    "recall@20.low": 0.433,
+    "recall@20.high": 0.653,
+    "recall@5.n": 20.0,
+    "recall@5": 0.453,
+    "recall@5.low": 0.333,
+    "recall@5.high": 0.553
+  },
+  "notes": "Fixture for the web app's tests, not a measurement."
+}

@@ -1,0 +1,43 @@
+{
+  "judge_model": "fixture-judge",
+  "created_at": "2026-10-21T09:30:00Z",
+  "bar": 0.8,
+  "sets": [
+    {
+      "labels": "constructed",
+      "description": "50 correct answers and 50 with planted errors, built from dev gold items.",
+      "criteria": [
+        {
+          "criterion": "faithfulness",
+          "tpr": {
+            "hits": 46,
+            "total": 50,
+            "low": 0.8116,
+            "high": 0.9685
+          },
+          "tnr": {
+            "hits": 42,
+            "total": 50,
+            "low": 0.7149,
+            "high": 0.9166
+          }
+        },
+        {
+          "criterion": "correctness",
+          "tpr": {
+            "hits": 44,
+            "total": 50,
+            "low": 0.762,
+            "high": 0.9438
+          },
+          "tnr": {
+            "hits": 38,
+            "total": 50,
+            "low": 0.6259,
+            "high": 0.857
+          }
+        }
+      ]
+    }
+  ]
+}
