@@ -29,6 +29,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Final
+from urllib.parse import quote
 
 import httpx
 
@@ -107,6 +108,21 @@ BOE_RECORD: Final = (
 
 def boe_record(identifier: str) -> str:
     return f"https://www.boe.es/datosabiertos/api/legislacion-consolidada/id/{identifier}"
+
+
+DLP_BASIS: Final = (
+    "Dubai Legislation Portal terms: personal and research use only, no redistribution"
+)
+DLD_BASIS: Final = "Dubai Land Department publication: research use, no redistribution"
+DLP_EDITION: Final = (
+    "The Supreme Legislation Committee's English translation: the Arabic text prevails in "
+    "case of conflict. The edition is the date the portal produced this PDF (its metadata)."
+)
+
+
+def dlp(path: str) -> str:
+    """A file of the Dubai Legislation Portal, from its path under Legislation Reference."""
+    return "https://dlp.dubai.gov.ae/Legislation%20Reference/" + quote(path, safe="/()")
 
 
 SOURCES: Final[tuple[Declared, ...]] = (
@@ -188,6 +204,61 @@ SOURCES: Final[tuple[Declared, ...]] = (
             f"{BOE_RECORD} Reading copy: https://www.boe.es/buscar/act.php?id=BOE-A-1960-10906. "
             "Holds art. 10 and the third additional provision as reworded by Ley 4/2026, in "
             "force from 2026-10-23."
+        ),
+    ),
+    Declared(
+        id="dubai-law-26-2007-dlp-2024-12-20",
+        law="dubai-law-26-2007",
+        title="Law No. (26) of 2007 Regulating the Relationship between Landlords and Tenants "
+        "in the Emirate of Dubai (English translation)",
+        jurisdiction=Jurisdiction.DUBAI,
+        language=Language.EN,
+        url=dlp(
+            "2007/Law No. (26) of 2007 Regarding regulation between the lessor and the lessee.pdf"
+        ),
+        edition="dlp-2024-12-20",
+        format="pdf",
+        license_basis=DLP_BASIS,
+        committed=False,
+        notes=(
+            "The law as enacted: Law No. (33) of 2008 supersedes its arts. 2, 3, 4, 9, 13, 14, "
+            f"15, 25, 26, 29 and 36, so the two are read together. {DLP_EDITION}"
+        ),
+    ),
+    Declared(
+        id="dubai-law-33-2008-dlp-2023-08-07",
+        law="dubai-law-33-2008",
+        title="Law No. (33) of 2008 Amending Law No. (26) of 2007 Regulating the Relationship "
+        "between Landlords and Tenants in the Emirate of Dubai (English translation)",
+        jurisdiction=Jurisdiction.DUBAI,
+        language=Language.EN,
+        url=dlp("2009/Law No. (33) of 2008 Amending Law No. (26) of 2007.pdf"),
+        edition="dlp-2023-08-07",
+        format="pdf",
+        license_basis=DLP_BASIS,
+        committed=False,
+        notes=(
+            "Its art. 1 restates arts. 2, 3, 4, 9, 13, 14, 15, 25, 26, 29 and 36 of Law No. (26) "
+            "of 2007 under their original numbers; art. 2 brings it into force on publication "
+            f"(issued 1 December 2008). {DLP_EDITION}"
+        ),
+    ),
+    Declared(
+        id="dubai-dld-tenancy-guide-2020-02-07",
+        law="dubai-dld-tenancy-guide",
+        title="Dubai Land Department, Tenancy Guide (English)",
+        jurisdiction=Jurisdiction.DUBAI,
+        language=Language.EN,
+        url="https://dubailand.gov.ae/media/051bem5a/tenancyguideen.pdf",
+        edition="dld-2020-02-07",
+        format="pdf",
+        license_basis=DLD_BASIS,
+        committed=False,
+        notes=(
+            "Guidance from the regulator, not legislation: EJARI registration, then the texts of "
+            "the tenancy legislation, including Decree No. (43) of 2013 Determining Rent "
+            "Increases. The DLD lists it as of 25 September 2020; the edition is the PDF's "
+            "own modification date."
         ),
     ),
 )
