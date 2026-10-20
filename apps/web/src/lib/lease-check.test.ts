@@ -151,6 +151,22 @@ describe("leaseEvents", () => {
     expect(headers.has("Last-Event-ID")).toBe(false);
   });
 
+  it("reads the API's own bytes, where a count it does not have is null", async () => {
+    // As Lane D's route writes them (LeaseStageEvent.model_dump_json): every field, null or not.
+    const send = fetchOf(
+      stream(
+        'id: 1\nevent: stage\ndata: {"stage":"uploaded","done":null,"total":null}\n\n' +
+          'id: 2\nevent: stage\ndata: {"stage":"checking","done":0,"total":3}\n\n' +
+          'id: 3\nevent: done\ndata: {"findings":0,"language":"en"}\n\n',
+      ),
+    );
+    expect(await collect(leaseEvents("job-1", { fetch: send }))).toEqual([
+      { type: "stage", stage: "uploaded" },
+      { type: "stage", stage: "checking", done: 0, total: 3 },
+      { type: "done", findings: 0, language: "en" },
+    ]);
+  });
+
   it("ignores events that are not its own", async () => {
     const send = fetchOf(stream(`: keep-alive\n\nevent: ping\ndata: {}\n\n${frames(done)}`));
     expect(await collect(leaseEvents("job-1", { fetch: send }))).toEqual([
