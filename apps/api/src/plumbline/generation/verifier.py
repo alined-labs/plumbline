@@ -4,7 +4,8 @@ Reviewed line by line before merge. It decides what a reader is shown as the law
 words, so it is deliberately strict and deliberately simple: no fuzzy matching, no model.
 
 A quote verifies when, after both sides are normalized, it is a substring of the text of
-the chunk its [n] marker points to. Normalization forgives only what changes no word:
+the chunk its [n] marker points to that starts and ends on word boundaries: "within 3"
+is not in "within 30 days". Normalization forgives only what changes no word:
 Unicode compatibility forms (NFKC), case, runs of whitespace, invisible format characters,
 and the many shapes of quotation marks and dashes. It does not forgive a dropped accent,
 an ellipsis standing for omitted words, or a paraphrase: those fail.
@@ -66,9 +67,27 @@ def normalize(text: str) -> str:
 
 
 def quote_in(quote: str, text: str) -> bool:
-    """Whether `quote` appears in `text`, both normalized, and is long enough to matter."""
-    needle = normalize(quote)
-    return len(needle.split()) >= MIN_QUOTE_WORDS and needle in normalize(text)
+    """Whether `quote` appears in `text`, both normalized, as whole words, and is long
+    enough to matter."""
+    needle, haystack = normalize(quote), normalize(text)
+    if len(needle.split()) < MIN_QUOTE_WORDS:
+        return False
+    start = haystack.find(needle)
+    while start != -1:
+        if _whole(haystack, needle, start):
+            return True
+        start = haystack.find(needle, start + 1)
+    return False
+
+
+def _whole(haystack: str, needle: str, start: int) -> bool:
+    """Whether the match at `start` cuts no word in two. An edge that is not a letter or
+    digit (a comma, a quotation mark) is a boundary of its own, so only a letter or digit
+    on both sides of an edge cuts a word: "no" inside "notificará", "3" inside "30"."""
+    end = start + len(needle)
+    cut_start = start > 0 and haystack[start - 1].isalnum() and needle[0].isalnum()
+    cut_end = end < len(haystack) and haystack[end].isalnum() and needle[-1].isalnum()
+    return not (cut_start or cut_end)
 
 
 def verify(citations: Sequence[CitedSpan], sources: Mapping[int, Chunk]) -> Verification:

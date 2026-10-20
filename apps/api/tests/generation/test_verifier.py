@@ -88,10 +88,23 @@ def test_quotation_marks_dashes_and_invisible_characters() -> None:
         "the landlord has to give the deposit back within 15 days",  # a paraphrase
         "the landlord",  # too short to prove anything
         "   ",
+        "the landlord must, within 3",  # a number cut short: "within 30 days"
+        "en el arrendamiento de vivienda",  # a word cut short: "viviendas"
+        "andlord does not intend",  # a word's start cut off
     ],
 )
 def test_normalization_does_not_forgive_a_changed_word(quote: str) -> None:
     assert not quote_in(quote, FLORIDA + " " + SPAIN)
+
+
+def test_a_quote_matches_whole_words_only() -> None:
+    text = "El arrendador notificará al arrendatario; el arrendador no podrá exigirla."
+    assert not quote_in("el arrendador no", "el arrendador notificará al arrendatario")
+    # The first place the quote occurs cuts a word, a later one does not: it verifies.
+    assert quote_in("el arrendador no", text)
+    # An edge that is punctuation is a boundary of its own.
+    assert quote_in('"the security deposit,', 'return "the security deposit, together')
+    assert quote_in("83.49(3)(a) of the statutes", "s. 83.49(3)(a) of the statutes")
 
 
 def test_verify_keeps_good_citations_and_counts_every_failure() -> None:
