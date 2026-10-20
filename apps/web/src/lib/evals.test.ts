@@ -2,9 +2,11 @@ import a2 from "@/test/fixtures/evals/results/A2/dev.json";
 
 import {
   byConfigOrder,
+  chartPoints,
   estimate,
   headlineRun,
   secondJudge,
+  takeaway,
   evalRunSchema,
   formatInterval,
   formatLatency,
@@ -176,5 +178,40 @@ describe("byConfigOrder", () => {
       "B1",
       "Z9",
     ]);
+  });
+});
+
+describe("chartPoints and takeaway", () => {
+  const point = (label: string, value: number, low: number, high: number) => ({
+    label,
+    value,
+    low,
+    high,
+    n: 20,
+  });
+
+  it("takes each run that measured the metric, in the runs' order", () => {
+    const retrievalOnly = { ...run, config_name: "LC", summary: {} };
+    expect(chartPoints([run, retrievalOnly], "recall@5").map((p) => p.label)).toEqual(["A2"]);
+  });
+
+  it("names the best and says when its interval clears the next one's", () => {
+    expect(takeaway([point("A0", 0.45, 0.33, 0.55), point("A2", 0.8, 0.7, 0.9)], "recall@5")).toBe(
+      "A2 scores highest, 0.80 (95% CI 0.70–0.90). Its interval clears A0's, the next best.",
+    );
+  });
+
+  it("says two overlapping intervals are not measurably apart", () => {
+    expect(
+      takeaway([point("A2", 0.8, 0.7, 0.9), point("LC", 0.75, 0.6, 0.85)], "correctness"),
+    ).toBe(
+      "A2 scores highest, 0.80 (95% CI 0.70–0.90). Its interval overlaps LC's, so the two are not measurably apart.",
+    );
+  });
+
+  it("ranks a metric where lower is better from the bottom", () => {
+    expect(
+      takeaway([point("A2", 0.2, 0.1, 0.3), point("LC", 0.05, 0.01, 0.15)], "false_abstention"),
+    ).toMatch(/^LC scores lowest, 0.05/);
   });
 });

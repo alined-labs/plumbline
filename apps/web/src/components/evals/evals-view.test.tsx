@@ -42,6 +42,18 @@ describe("EvalsView", () => {
     ).toBeInTheDocument();
   });
 
+  it("draws each configuration's score with its interval, says the takeaway and keeps the data", () => {
+    render(<EvalsView data={data} />);
+    const chart = screen.getByRole("figure", { name: /Recall@5 by configuration/ });
+    expect(chart).toHaveTextContent(/A2 scores highest, 0.75/);
+    const table = within(chart).getByRole("table", { hidden: true });
+    expect(
+      within(table)
+        .getAllByRole("rowheader", { hidden: true })
+        .map((r) => r.textContent),
+    ).toEqual(["A0", "A2"]);
+  });
+
   it("says how often a second judge agreed with the first", () => {
     render(<EvalsView data={data} />);
     expect(screen.getByText(/A2: a second judge agreed with the first on/)).toHaveTextContent(
