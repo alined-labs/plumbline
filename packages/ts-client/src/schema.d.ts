@@ -770,6 +770,8 @@ export interface components {
         SearchResult: {
             /** As Of */
             as_of: string | null;
+            /** As Of Filter */
+            as_of_filter: boolean;
             /** Candidates */
             candidates: number;
             /** Config */
@@ -782,6 +784,11 @@ export interface components {
             jurisdictions: components["schemas"]["Jurisdiction"][];
             /** K */
             k: number;
+            /**
+             * Law Date
+             * Format: date
+             */
+            law_date: string;
             /** Query */
             query: string;
             /** Timings Ms */
