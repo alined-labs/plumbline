@@ -105,13 +105,26 @@ class ArticleRef(Frozen):
 
 
 class Verification(Frozen):
-    """How a gold item was checked against the official text."""
+    """How a gold item was checked against the official text.
 
-    quoted_text: NonEmpty  # the article text that supports the answer, in its original language
-    second_source: NonEmpty  # title and URL of a second source: an official FAQ, a bar pamphlet
+    Either text may be absent, but only where nothing truthful can fill it: an item that cites
+    no article (an out-of-scope question) has no statute to quote, and some items have no
+    official secondary source. Exactly one of `second_source` and `no_second_source` is set, so
+    a missing source always has its own stated reason, apart from the cross-check's `notes`; an
+    item that cites an article always fills `quoted_text` (GoldenItem checks that)."""
+
+    quoted_text: NonEmpty | None = None  # the article text that supports the answer, verbatim
+    second_source: NonEmpty | None = None  # title and URL: an official FAQ, a bar pamphlet
+    no_second_source: NonEmpty | None = None  # why there is none: what was searched, or N/A
     checked_on: date
     checked_by: NonEmpty
     notes: str | None = None
+
+    @model_validator(mode="after")
+    def _explained(self) -> Self:
+        if (self.second_source is None) == (self.no_second_source is None):
+            raise ValueError("a verification has exactly one of second_source and no_second_source")
+        return self
 
 
 class GoldenItem(Frozen):
@@ -156,6 +169,8 @@ class GoldenItem(Frozen):
             raise ValueError("a lease_check item needs its lease_id")
         if self.category is Category.CROSS_JURISDICTION and len(set(self.jurisdictions)) < 2:
             raise ValueError("a cross_jurisdiction item names at least two jurisdictions")
+        if self.gold_refs and self.verification and self.verification.quoted_text is None:
+            raise ValueError("a verified item that cites an article quotes it in quoted_text")
         missing = {r.jurisdiction for r in self.gold_refs} - set(self.jurisdictions)
         if missing:
             raise ValueError(f"gold_refs cite jurisdictions not listed: {sorted(missing)}")

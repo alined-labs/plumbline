@@ -13,6 +13,7 @@ from rag_eval.schema import (
     GoldenFileError,
     GoldenItem,
     Jurisdiction,
+    Verification,
     dump_golden,
     load_golden,
 )
@@ -78,6 +79,38 @@ def test_out_of_scope_items_need_no_refs_or_answer() -> None:
             gold_refs=[],
             reference_answer=None,
             jurisdictions=[],
+        )
+    )
+
+
+CHECKED = {"checked_on": "2026-10-21", "checked_by": "a reviewer"}
+
+
+def test_a_verification_has_a_second_source_or_says_why_not() -> None:
+    exactly_one = "exactly one of second_source and no_second_source"
+    with pytest.raises(ValidationError, match=exactly_one):
+        Verification.model_validate({**CHECKED, "quoted_text": "x", "notes": "agreed"})
+    with pytest.raises(ValidationError, match="at least 1 character"):
+        Verification.model_validate({**CHECKED, "quoted_text": "x", "no_second_source": "  "})
+    both = {"second_source": "A pamphlet, https://example.org", "no_second_source": "none found"}
+    with pytest.raises(ValidationError, match=exactly_one):
+        Verification.model_validate({**CHECKED, "quoted_text": "x", **both})
+    reason = "None found: the regulator's FAQ does not cover this provision."
+    assert Verification.model_validate({**CHECKED, "quoted_text": "x", "no_second_source": reason})
+
+
+def test_a_verified_item_that_cites_an_article_quotes_it() -> None:
+    unquoted = {**CHECKED, "second_source": "A pamphlet, https://example.org"}
+    with pytest.raises(ValidationError, match="quotes it in quoted_text"):
+        GoldenItem.model_validate(item(verification=unquoted))
+    GoldenItem.model_validate(
+        item(
+            category="out_of_scope",
+            expected_abstain=True,
+            gold_refs=[],
+            reference_answer=None,
+            jurisdictions=[],
+            verification=unquoted,
         )
     )
 
