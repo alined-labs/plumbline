@@ -9,7 +9,7 @@ from plumbline.core.config import EvalConfig, load_configs
 from plumbline.core.types import ParsedDocument, ParsedPage
 from plumbline.corpus.manifest import Source, load_manifest
 from plumbline.ingest.laws import law_name
-from plumbline.ingest.plan import UnsupportedConfig, leaves, plan_unit, plan_units
+from plumbline.ingest.plan import UnsupportedConfig, leaves, plan_all, plan_unit, plan_units
 from plumbline.ingest.processed import read_processed
 from plumbline.settings import ROOT
 
@@ -86,3 +86,57 @@ def test_a_law_without_a_short_name_is_refused() -> None:
     assert law_name("es-lau") == "LAU"
     with pytest.raises(ValueError, match="no short name for law 'xx-law'"):
         law_name("xx-law")
+
+
+TWICE = """83.50 The same section.—
+
+(1) The identical paragraph.
+
+History.—s. 1, ch. 1.
+
+83.50 The same section.—
+
+(1) The identical paragraph.
+
+History.—s. 1, ch. 1.
+"""
+
+
+def test_a_source_the_chunker_cannot_read_is_reported_and_the_others_planned(
+    florida: tuple[Source, ParsedDocument],
+) -> None:
+    source, document = florida
+    nameless = source.model_copy(update={"id": "xx-source", "law": "xx-law"})
+    documents = {
+        source.id: document,
+        nameless.id: document.model_copy(update={"source_id": "xx-source"}),
+    }
+    units, unplanned = plan_all([nameless, source], documents, _configs("A2"))
+    assert [unit.source.id for unit in units] == [source.id]
+    assert [(u.source.id, u.configs) for u in unplanned] == [("xx-source", ("A2",))]
+    assert "no short name for law 'xx-law'" in unplanned[0].error
+    with pytest.raises(ValueError, match="xx-source: no short name"):  # the strict form
+        plan_units([nameless], documents, _configs("A2"))
+
+
+def test_a_source_that_chunks_in_one_variant_still_gets_that_one(
+    florida: tuple[Source, ParsedDocument],
+) -> None:
+    # The same section twice gives two chunks one id under the article chunker, and is
+    # nothing to the fixed one.
+    source, document = florida
+    twice = document.model_copy(
+        update={"pages": [document.pages[0].model_copy(update={"markdown": TWICE})]}
+    )
+    units, unplanned = plan_all([source], {source.id: twice}, _configs("A0", "A2"))
+    assert [unit.configs for unit in units] == [("A0",)]
+    assert [u.configs for u in unplanned] == [("A2",)]
+    assert "two chunks share an id" in unplanned[0].error
+
+
+def test_a_configuration_that_cannot_be_built_is_still_an_error_not_a_skip(
+    florida: tuple[Source, ParsedDocument],
+) -> None:
+    source, document = florida
+    with pytest.raises(UnsupportedConfig):
+        plan_all([source], {source.id: document}, _configs("A5"))

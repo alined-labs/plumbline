@@ -80,21 +80,52 @@ def plan_unit(
     )
 
 
+@dataclass(frozen=True)
+class Unplanned:
+    """A source the chunker could not read in a variant, and why."""
+
+    source: Source
+    configs: tuple[str, ...]
+    error: str
+
+
+def plan_all(
+    sources: Sequence[Source],
+    documents: Mapping[str, ParsedDocument],
+    configs: Sequence[EvalConfig],
+) -> tuple[list[Unit], list[Unplanned]]:
+    """A unit per parsed source and variant, sources in manifest order, and the ones that
+    could not be planned. One source the chunker cannot read must not stop the others, and
+    a source that chunks in one variant but not another still gets the one that works."""
+    by_variant: dict[str, list[EvalConfig]] = {}
+    for config in configs:
+        by_variant.setdefault(variant_key(config), []).append(config)
+    units: list[Unit] = []
+    unplanned: list[Unplanned] = []
+    for group in by_variant.values():
+        names = [c.name for c in group]
+        for source in sources:
+            if source.id not in documents:
+                continue
+            try:
+                units.append(plan_unit(source, documents[source.id], group[0], names))
+            except UnsupportedConfig:
+                raise  # a configuration the caller asked for that cannot be built yet
+            except ValueError as exc:
+                unplanned.append(Unplanned(source, tuple(names), str(exc)))
+    return units, unplanned
+
+
 def plan_units(
     sources: Sequence[Source],
     documents: Mapping[str, ParsedDocument],
     configs: Sequence[EvalConfig],
 ) -> list[Unit]:
-    """A unit per parsed source and variant, sources in manifest order."""
-    by_variant: dict[str, list[EvalConfig]] = {}
-    for config in configs:
-        by_variant.setdefault(variant_key(config), []).append(config)
-    return [
-        plan_unit(source, documents[source.id], group[0], [c.name for c in group])
-        for group in by_variant.values()
-        for source in sources
-        if source.id in documents
-    ]
+    """plan_all for a caller that wants every unit or an error."""
+    units, unplanned = plan_all(sources, documents, configs)
+    if unplanned:
+        raise ValueError(f"{unplanned[0].source.id}: {unplanned[0].error}")
+    return units
 
 
 def _content_hash(
