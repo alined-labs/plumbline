@@ -10,6 +10,9 @@ static tier stops all spending. Hence the same two steps for each provider with 
   questions still get answers;
 - static, once it has spent its whole cap: no model is called until the next UTC day.
 
+And one step the counters cannot see: when the last answers all ended in an exception
+(a provider refusing every call: a spent key limit, a revoked key), static at once.
+
 Claude's spend on answers and lease checks reaches these counters through the API's
 MeteredClient, and the API also refuses a live answer itself once Anthropic's cap is
 spent, so the cap holds between two checks.
@@ -32,12 +35,14 @@ import argparse
 import asyncio
 import json
 import logging
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 from typing import Final, Protocol
 
 from redis.asyncio import Redis
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from plumbline.core.types import DemoTier
 from plumbline.generation.router import SpendMeter, utc_today
@@ -48,6 +53,15 @@ FREE_AT: Final = 0.8  # share of Gemini's daily cap at which the tier drops to f
 LADDER: Final = (DemoTier.FULL, DemoTier.FREE, DemoTier.STATIC)  # from most to least spend
 MARK_KEY: Final = "killswitch:lowered"
 INTERVAL_S: Final = 30.0
+# A provider that refuses every call (a spent key limit or balance, a revoked key) is not
+# seen by the counters, which grow only on calls that succeed. So the switch also reads
+# the last answers: FAILING of them in a row, within FAILING_WINDOW, all ended by an
+# exception (the query log writes "<Error> in the pipeline"; the API's own refusals, such
+# as the cap or the law budget, carry their own words), and the live chat is broken:
+# static, with its recorded answers, reads better than an error on every question.
+FAILING: Final = 3
+FAILING_WINDOW: Final = timedelta(minutes=10)
+PIPELINE_ERROR: Final = " in the pipeline"
 
 
 class TierSwitch(Protocol):
@@ -56,6 +70,21 @@ class TierSwitch(Protocol):
     async def current(self) -> DemoTier: ...
 
     async def set(self, tier: DemoTier) -> object: ...
+
+
+class AnswerHealth(Protocol):
+    """Whether the live answers are failing as a refusing provider makes them fail."""
+
+    async def failing(self) -> bool: ...
+
+
+def failing(recent: Sequence[str | None]) -> bool:
+    """`recent` is the errors of the latest answers, newest first (None for one that
+    answered): failing when there are FAILING of them and every one was an exception."""
+    latest = list(recent)[:FAILING]
+    return len(latest) == FAILING and all(
+        e is not None and e.endswith(PIPELINE_ERROR) for e in latest
+    )
 
 
 class Marks(Protocol):
@@ -109,14 +138,19 @@ class KillSwitch:
         tiers: TierSwitch,
         marks: Marks,
         today: Callable[[], date] = utc_today,
+        answers: AnswerHealth | None = None,
     ) -> None:
         self.meter, self.caps, self.tiers, self.marks, self.today = meter, caps, tiers, marks, today
+        self.answers = answers
 
     async def check(self) -> DemoTier:
         """One check: lower the tier if today's spend calls for it, or restore yesterday's
         lowering once the counters have reset. Returns the tier it leaves in place."""
         spent = {p: await self.meter.spent_today(p) for p in ("gemini", "anthropic")}
         allowed = ceiling(spent, self.caps)
+        broken = self.answers is not None and await self.answers.failing()
+        if broken:
+            allowed = DemoTier.STATIC
         current = await self.tiers.current()
         raw = await self.marks.get()
         mark = Lowered.load(raw) if raw else None
@@ -141,6 +175,15 @@ class KillSwitch:
             await self.tiers.set(target)
             previous = mark.previous if mark is not None else current
             await self.marks.put(Lowered(previous, target, self.today()).dump())
+            if broken:
+                log.warning(
+                    "kill switch: the last %d answers all failed in the pipeline (a provider"
+                    " refusing every call?), tier %s lowered to %s",
+                    FAILING,
+                    current,
+                    target,
+                )
+                return target
             log.warning(
                 "kill switch: spend today %s against caps %s, tier %s lowered to %s",
                 {p: round(v, 4) for p, v in spent.items()},
@@ -149,6 +192,27 @@ class KillSwitch:
                 target,
             )
         return target
+
+
+class SqlAnswerHealth:
+    """The query log's latest answers on a live tier, within FAILING_WINDOW."""
+
+    def __init__(self, sessions: async_sessionmaker[AsyncSession]) -> None:
+        self.sessions = sessions
+
+    async def failing(self) -> bool:
+        from plumbline.db.models import PUBLIC_TENANT, QueryRow
+        from plumbline.db.session import tenant_session
+
+        since = datetime.now(UTC) - FAILING_WINDOW
+        query = (
+            select(QueryRow.error)
+            .where(QueryRow.created_at >= since, QueryRow.tier != DemoTier.STATIC.value)
+            .order_by(QueryRow.created_at.desc())
+            .limit(FAILING)
+        )
+        async with tenant_session(self.sessions, PUBLIC_TENANT) as session:
+            return failing(list(await session.scalars(query)))
 
 
 class RedisMarks:
@@ -176,6 +240,7 @@ async def run(once: bool, interval: float = INTERVAL_S) -> None:
     settings = get_settings()
     redis = Redis.from_url(settings.redis_url)
     engine = make_engine(settings.database_url)
+    sessions = make_sessionmaker(engine)
     caps = {
         "gemini": settings.gemini_daily_cap_usd,
         "anthropic": settings.anthropic_daily_cap_usd,
@@ -184,8 +249,9 @@ async def run(once: bool, interval: float = INTERVAL_S) -> None:
         RedisSpendMeter(redis),
         caps,
         # A TTL of 0: the switch always reads the tier as it is now.
-        TierStore(make_sessionmaker(engine), settings.demo_tier, clock=_never_cached()),
+        TierStore(sessions, settings.demo_tier, clock=_never_cached()),
         RedisMarks(redis),
+        answers=SqlAnswerHealth(sessions),
     )
     log.info("kill switch: watching the spend counters, caps %s", caps)
     try:

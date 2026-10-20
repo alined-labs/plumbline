@@ -5,16 +5,28 @@ from __future__ import annotations
 
 import asyncio
 import functools
+import uuid
 from collections.abc import AsyncIterator, Callable, Coroutine
 from datetime import date, timedelta
 from typing import Any
 
 import pytest
 
+from plumbline.api.querylog import recorded
+from plumbline.core.stream import Question, StreamEvent
 from plumbline.core.types import DemoTier
+from plumbline.db import make_engine, make_sessionmaker
 from plumbline.generation.llm import LLMRequest, LLMResult, Message, Usage
 from plumbline.generation.router import MemorySpendMeter, MeteredClient
-from plumbline.security.killswitch import FREE_AT, KillSwitch, Lowered, ceiling
+from plumbline.security.killswitch import (
+    FAILING,
+    FREE_AT,
+    KillSwitch,
+    Lowered,
+    SqlAnswerHealth,
+    ceiling,
+    failing,
+)
 
 CAPS = {"gemini": 0.30, "anthropic": 1.00}
 DAY = date(2026, 10, 22)
@@ -56,12 +68,12 @@ class Clock:
         return self.day
 
 
-def sync(test: Callable[[], Coroutine[Any, Any, None]]) -> Callable[[], None]:
-    """Runs an async test body: the suite has no async plugin."""
+def sync(test: Callable[..., Coroutine[Any, Any, None]]) -> Callable[..., None]:
+    """Runs an async test body, fixtures and all: the suite has no async plugin."""
 
     @functools.wraps(test)
-    def run() -> None:
-        asyncio.run(test())
+    def run(*args: Any, **kwargs: Any) -> None:
+        asyncio.run(test(*args, **kwargs))
 
     return run
 
@@ -179,3 +191,79 @@ async def test_claudes_spend_on_answers_reaches_the_switch() -> None:
     await client.complete(request)  # US$1.008: the whole cap
     assert await switch.check() == DemoTier.STATIC
     assert tiers.sets == [DemoTier.FREE, DemoTier.STATIC]
+
+
+ERROR = "BadRequestError in the pipeline"
+
+
+class Answers:
+    def __init__(self, broken: bool = False) -> None:
+        self.broken = broken
+
+    async def failing(self) -> bool:
+        return self.broken
+
+
+@pytest.mark.parametrize(
+    ("recent", "expected"),
+    [
+        ([ERROR, ERROR, ERROR], True),
+        ([ERROR, ERROR, ERROR, None], True),  # only the latest three count
+        ([ERROR, None, ERROR], False),  # one answered: the provider works
+        ([ERROR, ERROR], False),  # too few to say
+        (["Today's live answers are spent.", ERROR, ERROR], False),  # the API's own refusal
+    ],
+)
+def test_the_live_answers_are_failing_only_after_three_exceptions_in_a_row(
+    recent: list[str | None], expected: bool
+) -> None:
+    assert failing(recent) is expected
+
+
+@sync
+async def test_a_provider_refusing_every_call_takes_the_tier_to_static() -> None:
+    clock = Clock(DAY)
+    answers = Answers(broken=True)
+    tiers = Tiers()
+    switch = KillSwitch(MemorySpendMeter(today=clock), CAPS, tiers, Marks(), clock, answers)
+    assert await switch.check() == DemoTier.STATIC  # under every cap: the counters see nothing
+    answers.broken = False  # no live answers on the static tier, so nothing fails any more
+    assert await switch.check() == DemoTier.STATIC  # and it never rises during the day
+    clock.day += timedelta(days=1)
+    assert await switch.check() == DemoTier.FULL  # the next day tries the live chat again
+    assert tiers.sets == [DemoTier.STATIC, DemoTier.FULL]
+
+
+class Refused(Exception):
+    """Stands in for anthropic.BadRequestError: the provider refuses the call."""
+
+
+async def _refused_answer() -> AsyncIterator[StreamEvent]:
+    raise Refused("your API usage limit is reached")
+    yield  # an async generator that raises before its first event
+
+
+@pytest.mark.db
+@sync
+async def test_the_switch_reads_the_failures_the_query_log_writes(database_url: str) -> None:
+    engine = make_engine(database_url)
+    sessions = make_sessionmaker(engine)
+    health = SqlAnswerHealth(sessions)
+    try:
+        for n in range(FAILING):
+            question = Question(text="Deposit?", request_id=f"ks-{uuid.uuid4().hex}-{n}")
+            with pytest.raises(Refused):
+                async for _ in recorded(_refused_answer(), question, sessions):
+                    pass
+        assert await health.failing()
+        answered = Question(text="Deposit?", request_id=f"ks-{uuid.uuid4().hex}")
+        async for _ in recorded(_no_events(), answered, sessions):
+            pass
+        assert not await health.failing()  # the newest answer did not fail
+    finally:
+        await engine.dispose()
+
+
+async def _no_events() -> AsyncIterator[StreamEvent]:
+    return
+    yield
