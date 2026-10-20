@@ -1,0 +1,134 @@
+"""The results tables on synthetic runs: cells with intervals, paired differences that are
+effects or noise, slices, and the files the report writes."""
+
+import json
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+from plumbline.eval.report import Cell, build, cell, difference, main, markdown
+from rag_eval.schema import EvalResult, EvalRun
+
+N = 40
+
+
+def golden(tmp_path: Path) -> Path:
+    path = tmp_path / "golden.jsonl"
+    lines = []
+    for n in range(N):
+        jurisdiction, language = ("florida", "en") if n % 2 else ("spain", "es")
+        lines.append(
+            json.dumps(
+                {
+                    "id": f"it-{n:04d}",
+                    "question": f"Invented question {n}?",
+                    "source_language": language,
+                    "jurisdictions": [jurisdiction],
+                    "category": "single_article",
+                    "difficulty": "easy",
+                    "gold_refs": [
+                        {
+                            "jurisdiction": jurisdiction,
+                            "law": "fl-stat-83" if jurisdiction == "florida" else "es-lau",
+                            "article": "1",
+                            "edition": "2026",
+                        }
+                    ],
+                    "reference_answer": "An invented answer.",
+                    "source_type": "synthetic",
+                    "added_in": "v1",
+                    "split": "dev",
+                }
+            )
+        )
+    path.write_text("\n".join(lines) + "\n")
+    return path
+
+
+def run(name: str, golden_file: Path, correct: int, recall: float) -> EvalRun:
+    """`correct` of the N items judged correct; every item at the same recall@5."""
+    results = [
+        EvalResult(
+            item_id=f"it-{n:04d}",
+            metrics={
+                "correctness": float(n < correct),
+                "abstention_accuracy": float(n < correct),
+                "recall@5": recall,
+            },
+        )
+        for n in range(N)
+    ]
+    return EvalRun(
+        run_id=f"{name.lower()}-dev",
+        config_name=name,
+        config_hash="0" * 64,
+        git_sha="abcdef0",
+        golden_file=str(golden_file),
+        golden_sha256="0" * 64,
+        split="dev",
+        created_at=datetime(2026, 10, 20, tzinfo=UTC),
+        judged=True,
+        n_items=N,
+        results=results,
+    )
+
+
+def test_a_cell_is_a_percentage_with_its_interval(tmp_path: Path) -> None:
+    found = cell(run("A2", golden(tmp_path), 30, 0.8).results, "abstention_accuracy")
+    assert (found.mean, found.n) == (0.75, N)
+    assert found.text() == "75 (60–86)"  # a proportion: Wilson, 30 of 40
+    assert Cell(None, None, None, 0).text() == "—"
+
+
+def test_a_large_paired_gain_is_an_effect_and_a_small_one_noise(tmp_path: Path) -> None:
+    path = golden(tmp_path)
+    base, better, close = (
+        run("A0", path, 15, 0.6),
+        run("A2", path, 35, 0.6),
+        run("A1", path, 16, 0.6),
+    )
+    gain = difference(base, better, "correctness")
+    assert gain is not None
+    assert gain.mean == pytest.approx(0.5)
+    assert gain.effect
+    assert gain.p_value is not None
+    assert gain.p_value < 0.001  # 20 discordant pairs, all one way
+    slight = difference(base, close, "correctness")
+    assert slight is not None
+    assert not slight.effect
+    assert slight.text().endswith("noise")
+    same = difference(base, run("A3", path, 15, 0.6), "recall@5")
+    assert same is not None
+    assert same.p_value is None  # a mean of fractions: no McNemar
+
+
+def test_the_report_has_cells_differences_and_slices(tmp_path: Path) -> None:
+    path = golden(tmp_path)
+    runs = {
+        "A0": run("A0", path, 15, 0.5),
+        "LC": run("LC", path, 25, 0.0),
+        "A2": run("A2", path, 35, 0.9),
+    }
+    report: Any = json.loads(json.dumps(build(runs, default="A2", naive="A0", long_context="LC")))
+    assert set(report["configs"]) == {"A0", "LC", "A2"}
+    assert report["differences"]["A0"]["correctness"]["effect"] is True
+    assert set(report["slices"]) == {"florida", "spain", "en-sources", "es-sources"}
+    assert report["slices"]["florida"]["correctness"]["n"] == N // 2
+    table = markdown(runs, default="A2", naive="A0", long_context="LC", split="dev")
+    cells = [cell(runs[c].results, "correctness").text() for c in ("A0", "LC", "A2")]
+    assert f"| Answer correct (judged) | {' | '.join(cells)} |" in table
+    assert "| A0 | +50 (+" in table
+
+
+def test_main_writes_the_report_and_the_tables(tmp_path: Path) -> None:
+    path = golden(tmp_path)
+    for name, correct in (("A0", 15), ("A2", 35)):
+        folder = tmp_path / "results" / name
+        folder.mkdir(parents=True)
+        (folder / "dev.json").write_text(run(name, path, correct, 0.5).model_dump_json())
+    assert main(["--split", "dev"], results=tmp_path / "results") == 0
+    assert (tmp_path / "results" / "report-dev.json").exists()
+    assert "Generated by" in (tmp_path / "results" / "tables-dev.md").read_text()
+    assert main(["--split", "test"], results=tmp_path / "results") == 2
