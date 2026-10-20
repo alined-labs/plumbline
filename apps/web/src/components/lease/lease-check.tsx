@@ -13,16 +13,20 @@ import type { JobFailure, StartedJob } from "@/lib/lease-job";
 import { announcement } from "@/lib/lease-steps";
 import { markNoticeSeen, noticeSeen } from "@/lib/lease-notice";
 import type { UploadValues } from "@/lib/lease-upload";
+import type { SampleLease } from "@/lib/sample-leases";
 
 import { FileProgress } from "./file-progress";
 import { Findings } from "./findings";
 import { useLeaseJob } from "./lease-job";
+import { SamplePicker } from "./sample-picker";
 import { UploadForm } from "./upload-form";
 
 /** The lease page's working part: the form, then a check moving through its steps with the
  * findings arriving, then the findings; or the way a failure is worded. The redaction notice
- * comes before the first upload of a session. */
-export function LeaseCheck() {
+ * comes before the first upload of a session. With `samples`, real uploads are off and the
+ * reader picks an invented lease instead, which needs no redaction notice: nothing in it is
+ * anyone's. */
+export function LeaseCheck({ samples }: { samples?: SampleLease[] | undefined } = {}) {
   const { job, request, start, retry, reset } = useLeaseJob();
   const [waiting, setWaiting] = useState<UploadValues | null>(null);
   // True once the reader has left a check for the form, which is then where the focus goes: the
@@ -45,20 +49,33 @@ export function LeaseCheck() {
       {onForm ? (
         <>
           {job.status === "failed" && <FormNotice failure={job.failure} />}
-          <UploadForm
-            // A failure that sends the reader back to the form keeps their file and answers.
-            key={job.status === "failed" ? "again" : "first"}
-            onSubmit={submit}
-            initial={job.status === "failed" ? (request ?? undefined) : undefined}
-            focusJurisdiction={
-              job.status === "failed" && job.failure.code === "jurisdiction_unknown"
-            }
-            focusOnMount={returned || job.status === "failed"}
-            disabled={job.status === "failed" && job.failure.code === "lease_checks_paused"}
-          />
+          {samples ? (
+            <SamplePicker
+              key={job.status === "failed" ? "again" : "first"}
+              leases={samples}
+              initial={
+                job.status === "failed" ? request?.file.name.replace(/\.md$/, "") : undefined
+              }
+              onSubmit={start}
+              focusOnMount={returned || job.status === "failed"}
+              disabled={job.status === "failed" && job.failure.code === "lease_checks_paused"}
+            />
+          ) : (
+            <UploadForm
+              // A failure that sends the reader back to the form keeps their file and answers.
+              key={job.status === "failed" ? "again" : "first"}
+              onSubmit={submit}
+              initial={job.status === "failed" ? (request ?? undefined) : undefined}
+              focusJurisdiction={
+                job.status === "failed" && job.failure.code === "jurisdiction_unknown"
+              }
+              focusOnMount={returned || job.status === "failed"}
+              disabled={job.status === "failed" && job.failure.code === "lease_checks_paused"}
+            />
+          )}
         </>
       ) : (
-        <Run job={job} onRetry={retry} onReset={leave} />
+        <Run job={job} onRetry={retry} onReset={leave} picking={samples !== undefined} />
       )}
       <p role="status" className="sr-only">
         {announcement(job)}
@@ -108,10 +125,13 @@ function Run({
   job,
   onRetry,
   onReset,
+  picking,
 }: {
   job: StartedJob;
   onRetry: () => void;
   onReset: () => void;
+  /** The reader picks an invented lease rather than uploading a file. */
+  picking: boolean;
 }) {
   const heading = useRef<HTMLHeadingElement>(null);
   const failed = job.status === "failed";
@@ -122,7 +142,9 @@ function Run({
   }, [failed]);
 
   if (job.status === "failed" && job.findings.length === 0) {
-    return <FailureState failure={job.failure} onRetry={onRetry} onReset={onReset} />;
+    return (
+      <FailureState failure={job.failure} onRetry={onRetry} onReset={onReset} picking={picking} />
+    );
   }
   const title =
     job.status === "running" ? "Checking your lease" : failed ? "Findings so far" : "Findings";
@@ -186,10 +208,12 @@ function FailureState({
   failure,
   onRetry,
   onReset,
+  picking,
 }: {
   failure: JobFailure;
   onRetry: () => void;
   onReset: () => void;
+  picking: boolean;
 }) {
   const [at] = useState(() => new Date());
   const [errorId] = useState(localErrorId);
@@ -210,8 +234,10 @@ function FailureState({
         onRetry={
           copy.next === "retry" ? onRetry : copy.next === "choose-file" ? onReset : undefined
         }
-        retryLabel={copy.next === "choose-file" ? "Choose another file" : "Try again"}
-        retryIcon={copy.next === "choose-file" ? <UploadIcon /> : undefined}
+        retryLabel={
+          copy.next === "choose-file" ? `Choose another ${picking ? "lease" : "file"}` : "Try again"
+        }
+        retryIcon={copy.next === "choose-file" && !picking ? <UploadIcon /> : undefined}
       />
     </div>
   );
