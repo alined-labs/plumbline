@@ -28,9 +28,9 @@ describe("useDemoMode", () => {
     await waitFor(() => expect(result.current).toBe("replay"));
   });
 
-  it("replays when the API does not answer", async () => {
+  it("stays live when the API does not answer, so the page does not change under the reader", async () => {
     answer("unreachable");
     const { result } = renderHook(useDemoMode, { wrapper: QueryWrapper });
-    await waitFor(() => expect(result.current).toBe("replay"));
+    await waitFor(() => expect(result.current).toBe("live"));
   });
 });

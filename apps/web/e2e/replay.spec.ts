@@ -34,7 +34,9 @@ test("the static tier offers the recorded answers instead of the composer", asyn
   await page.goto("/");
   await expect(page.getByText("The live demo is paused.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Recorded questions" })).toBeVisible();
-  await expect(page.getByLabel("Your question")).toHaveCount(0);
+  // The composer stays where it was, closed, so nothing moves when the page turns out static.
+  await expect(page.getByLabel("Your question")).toBeDisabled();
+  await expect(page.getByText(/choose one of the recorded questions above/)).toBeVisible();
   await expect(page.getByRole("heading", { level: 3, name: /Florida/ })).toBeVisible();
   await expectNoAxeViolations(page);
 
@@ -74,9 +76,17 @@ test("a withheld passage shows as its citation alone", async ({ page }) => {
   await expectNoAxeViolations(page);
 });
 
-test("an API that does not answer is the static tier too", async ({ page }) => {
+test("when the API does not answer, a failed question offers the recorded answers", async ({
+  page,
+}) => {
   await staticTier(page, "unreachable");
+  await page.route("**/api/ask", (route) => route.abort("connectionrefused"));
   await page.goto("/");
+  // Live until a question shows otherwise: the page does not swap itself after drawing.
+  await expect(page.getByLabel("Your question")).toBeEnabled();
+  await page.getByLabel("Your question").fill("Can my landlord keep my deposit?");
+  await page.getByRole("button", { name: "Send question" }).click();
+  await page.getByRole("button", { name: "read the answers Plumbline recorded" }).click();
   await expect(page.getByText("The live demo is paused.")).toBeVisible();
   await page.getByRole("button", { name: /Texas/ }).click();
   await expect(page.getByRole("article", { name: "Answer" })).toContainText(
