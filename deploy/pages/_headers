@@ -1,0 +1,12 @@
+# Response headers for the static front end on Cloudflare Pages (Lane P). deploy.yml copies
+# this file into the export and replaces __API_ORIGIN__ with the API's origin from
+# deploy/prod.env. Next.js's static export inlines its bootstrap scripts, hence
+# 'unsafe-inline' for scripts; every fetch may go only to this site and the API, and no page
+# may be framed. Answers are rendered as text by React, never as HTML (docs/security.md).
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: __API_ORIGIN__; font-src 'self'; connect-src 'self' __API_ORIGIN__; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Cross-Origin-Opener-Policy: same-origin
