@@ -40,7 +40,7 @@ _MONTHS: Final = [
     "December",
 ]
 _DELIMITER: Final = re.compile(
-    r"<(\s*/?\s*)(question|sources?|answer|reference|lease)\b", re.IGNORECASE
+    r"<(\s*/?\s*)(question|sources?|answer|reference|lease|clause)\b", re.IGNORECASE
 )
 
 SYSTEM: Final = """\
@@ -145,8 +145,8 @@ def render_source(n: int, chunk: Chunk) -> str:
 
 def defuse(text: str) -> str:
     """Break anything shaped like one of the prompts' delimiters (question, sources, the
-    judge's answer and reference, the lease checker's lease), so untrusted text cannot close
-    its block and open a new one. Real statutes never contain these."""
+    judge's answer and reference, the lease checker's lease and clause), so untrusted text
+    cannot close its block and open a new one. Real statutes never contain these."""
     return _DELIMITER.sub(lambda m: f"‹{m.group(1)}{m.group(2)}", text)
 
 
