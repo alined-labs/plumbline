@@ -1,0 +1,12 @@
+# The nightly online evaluation (Lane P): a tenth of yesterday's production answers judged
+# for faithfulness, on the API image with the API's settings, as a systemd user unit of
+# the user who runs the production stack. Install: docs/runbook.md, "Online evaluation".
+# It expects the production checkout at ~/plumbline-prod.
+[Unit]
+Description=Plumbline: judge a sample of yesterday's production answers
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/plumbline-prod
+ExecStart=/usr/bin/bash -c 'deploy/prod run --rm --no-deps -e GIT_SHA="$(git rev-parse --short HEAD)" api python -m plumbline.security.online_eval'

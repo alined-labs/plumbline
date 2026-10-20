@@ -140,6 +140,29 @@ deploy/prod up -d --wait
 A copy off this machine (the second home machine in `docs/cost-model.md`) is not set up
 yet; until it is, a disk failure on MX3 loses the backups with the database.
 
+## Online evaluation (last run: not yet; tested on a seeded database, 2026-10-20)
+
+Every night at 04:15 UTC, `python -m plumbline.security.online_eval` judges a tenth of
+yesterday's production answers (at least one, at most 30) for faithfulness against the
+passages they cite, with the calibrated judge (Claude Haiku), live and never recorded. It
+logs the expected cost before it judges (at most US$0.30 a night, counted on the same
+daily Anthropic counter as the site) and stores the night as eval run `online-<day>`:
+the score with its 95% interval, and one verdict per judged answer, with no question or
+answer copied. Install the timer once, beside the backup's:
+
+```sh
+cp deploy/systemd/plumbline-online-eval.{service,timer} ~/.config/systemd/user/
+systemctl --user daemon-reload && systemctl --user enable --now plumbline-online-eval.timer
+```
+
+By hand, for one day (`--dry-run` counts and prices without judging):
+
+```sh
+deploy/prod run --rm --no-deps api python -m plumbline.security.online_eval --day 2026-10-22 --dry-run
+```
+
+Read a night's score: `deploy/prod exec -T db psql -U plumbline -c "select summary from eval_runs where run_id = 'online-2026-10-22'"`.
+
 ## Uptime monitoring (the human, once; last run: not yet)
 
 UptimeRobot's free plan checks every 5 minutes and emails on failure.

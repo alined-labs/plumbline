@@ -1,0 +1,12 @@
+# Runs plumbline-online-eval.service every night at 04:15 UTC, after the day it judges has
+# ended and after the 03:30 backup, and at the next boot if the machine was off then.
+[Unit]
+Description=Plumbline: nightly online evaluation
+
+[Timer]
+OnCalendar=*-*-* 04:15:00 UTC
+Persistent=true
+RandomizedDelaySec=5m
+
+[Install]
+WantedBy=timers.target
