@@ -8,7 +8,7 @@ import { Callout } from "@/components/ui/callout";
 import { Chip } from "@/components/ui/chip";
 import { controlClass } from "@/components/ui/field";
 import { Tip } from "@/components/ui/tip";
-import { api } from "@/lib/api";
+import { api, WITH_COOKIE } from "@/lib/api";
 import {
   FEEDBACK_REASONS,
   feedbackBody,
@@ -34,7 +34,7 @@ export function useFeedback(requestId: string) {
     setSending(true);
     setFailed(false);
     try {
-      const { response } = await api.POST("/api/feedback", { body });
+      const { response } = await api.POST("/api/feedback", { body, ...WITH_COOKIE });
       if (!response.ok) throw new Error(`/api/feedback answered ${response.status}`);
       setVerdict(as);
       setStage("sent");
