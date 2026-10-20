@@ -2,7 +2,8 @@ import type { Jurisdiction } from "@plumbline/ts-client";
 import { z } from "zod";
 
 import { apiUrl } from "./api";
-import { findingSchema, type Finding } from "./lease";
+import type { Finding } from "./lease";
+import { findingSchema } from "./lease-schema";
 import { readSse, type SseEvent } from "./sse";
 
 // The lease check as a job, the way Lane D's route (D7) and Lane C's checker define it:
