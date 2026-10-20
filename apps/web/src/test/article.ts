@@ -30,6 +30,7 @@ export const ARTICLE: ChunkArticle = {
     effective_to: null,
   },
   span: { start: START, end: START + Array.from(QUOTE).length },
+  restricted: false,
   source: {
     id: "fl-stat-83-2026",
     title: "Florida Statutes 2026, chapter 83",
