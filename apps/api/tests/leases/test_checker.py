@@ -220,6 +220,32 @@ def test_the_jurisdiction_survives_a_redactor_that_hides_place_names() -> None:
     assert search.calls[0]["jurisdictions"] == [Jurisdiction.FLORIDA]
 
 
+class OnWhichThread:
+    """A redactor that notes whether it ran on the event loop's thread."""
+
+    def __init__(self) -> None:
+        self.on_loop: bool | None = None
+
+    def redact(self, upload: Upload) -> str:
+        try:
+            asyncio.get_running_loop()
+            self.on_loop = True
+        except RuntimeError:  # no loop runs in a worker thread
+            self.on_loop = False
+        return upload.text
+
+
+def test_redaction_runs_off_the_event_loop() -> None:
+    redactor = OnWhichThread()
+
+    async def run() -> list[Any]:
+        events = stream_check(synthetic(), redactor=redactor, search=Search(), client=Model())
+        return [event async for event in events]
+
+    assert isinstance(asyncio.run(run())[-1], LeaseDone)
+    assert redactor.on_loop is False
+
+
 @pytest.mark.parametrize(
     ("upload", "marks", "code"),
     [
