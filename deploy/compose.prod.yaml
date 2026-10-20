@@ -130,6 +130,19 @@ services:
       redis: { condition: service_healthy }
       embed: { condition: service_healthy }
 
+  # The kill switch (plumbline.security.killswitch): every 30 s it reads the day's spend
+  # counters and lowers the tier, full to free to static, as they near the caps.
+  killswitch:
+    <<: *api
+    command: ["python", "-m", "plumbline.security.killswitch"]
+    networks: [backend]
+    mem_limit: 256m
+    healthcheck:
+      disable: true  # it serves nothing; its log says each change, and restarts keep it up
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
   # A locally managed tunnel (cloudflared tunnel create): every request it carries goes to
   # the API, and DNS routes only the API's hostname to it (the web app is on Pages).
   cloudflared:

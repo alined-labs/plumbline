@@ -11,5 +11,6 @@ One file per decision, numbered, never rewritten: a reversal is a new record tha
 | [0005](0005-the-reranker.md) | Rerank offline only with bge-reranker-v2-m3, at 10 candidates; nothing reranks online | proposed |
 | [0006](0006-thin-orchestration.md) | Thin orchestration over the provider SDKs, with no LangChain in the core path | proposed |
 | [0007](0007-routing-and-spend-caps.md) | Route each request by a rule, under the demo tier and daily spend caps | proposed |
+| [0011](0011-security-controls.md) | Bound exposure and spend with a tunnel, root-only secrets, redaction and a spend-driven kill switch | proposed |
 
-Planned, written when their evidence exists: 0008 the CI evaluation gate; 0009 the judge and its calibration; 0010 the retrieval configuration; 0011 security controls; 0012 what was not built, and why.
+Planned, written when their evidence exists: 0008 the CI evaluation gate; 0009 the judge and its calibration; 0010 the retrieval configuration; 0012 what was not built, and why.
