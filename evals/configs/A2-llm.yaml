@@ -1,0 +1,6 @@
+name: A2-llm
+description: A2 with the LLM-written contextual header alone (no deterministic header), retrieval only. The contextual-retrieval replication's middle row (docs/results-table.md, Table 4) isolates the LLM header against A2.
+chunker: {kind: article, merge_parent: true}
+retrieval: {mode: hybrid, rrf_k: 60, candidates: 50, top_k: 8, rerank: none, headers: llm}
+generation: {route: fast}
+judged: false
