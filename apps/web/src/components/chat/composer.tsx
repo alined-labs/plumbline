@@ -7,6 +7,7 @@ import { Controller, useForm, useWatch } from "react-hook-form";
 import { ArrowUpIcon, CircleAlertIcon, SquareIcon } from "@/components/icons";
 import { buttonClass } from "@/components/ui/button";
 import { askSchema, EMPTY_ASK, type AskValues } from "@/lib/ask-form";
+import { prefetchAnswerChunks } from "@/lib/prefetch";
 
 import { JurisdictionFilter } from "./jurisdiction-filter";
 
@@ -74,7 +75,7 @@ function ComposerForm({ busy, onAsk, onStop, disabledReason }: ComposerProps) {
   }
 
   return (
-    <form onSubmit={submit} noValidate>
+    <form onSubmit={submit} onFocus={prefetchAnswerChunks} noValidate>
       <fieldset disabled={disabledReason !== undefined} className="disabled:opacity-60">
         <div className="flex flex-col gap-2 rounded-lg border border-border-control bg-surface py-2.5 pl-4 pr-3 shadow-1 focus-within:border-focus focus-within:ring-1 focus-within:ring-focus">
           <label htmlFor={ids.question} className="sr-only">

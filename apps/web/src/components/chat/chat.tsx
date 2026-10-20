@@ -16,6 +16,7 @@ import { apiUrl } from "@/lib/api";
 import { askBody, type AskBody, type AskValues } from "@/lib/ask-form";
 import { untilUtcMidnight } from "@/lib/dates";
 import { messageText, type PlumblineMessage } from "@/lib/messages";
+import { prefetchAnswerChunks } from "@/lib/prefetch";
 import { addStatus, finishRun, startRun, type Run } from "@/lib/run";
 
 import { ChatProfiler } from "./chat-profiler";
@@ -70,6 +71,7 @@ export function Chat() {
   const last = messages.at(-1);
 
   function ask(values: AskValues) {
+    prefetchAnswerChunks();
     lastBody.current = askBody(values);
     setLive(startRun(Date.now(), values.jurisdictions.length || 4));
     // The jurisdictions and as-of date travel in the body, beside the messages useChat sends.

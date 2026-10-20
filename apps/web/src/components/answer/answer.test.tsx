@@ -29,12 +29,17 @@ function withText(text: string): UIMessageChunk[] {
     );
 }
 
+// The Markdown renderer is a lazy chunk; loading it first lets each test render an answer whole.
+beforeAll(() => import("./answer-body"));
+
 describe("Answer", () => {
   it("renders the stub's answer with its marker, source and badge", async () => {
     render(<Answer message={await messageFrom(stubChunks())} />);
     const answer = screen.getByRole("article", { name: "Answer" });
+    expect(
+      await screen.findByRole("button", { name: "Source 1: Stub Act, s. 1" }),
+    ).toBeInTheDocument();
     expect(answer).toHaveTextContent("This is a stub answer from the Plumbline seed");
-    expect(screen.getByRole("button", { name: "Source 1: Stub Act, s. 1" })).toBeInTheDocument();
     const sources = screen.getByRole("list", { name: "Sources" });
     expect(within(sources).getByRole("listitem")).toHaveTextContent(
       "This section exists only to exercise the interface.",
@@ -46,10 +51,13 @@ describe("Answer", () => {
   it("opens the source panel from a marker and returns focus to it", async () => {
     const user = userEvent.setup();
     render(<Answer message={await messageFrom(stubChunks())} />);
-    const marker = screen.getByRole("button", { name: "Source 1: Stub Act, s. 1" });
+    const marker = await screen.findByRole("button", { name: "Source 1: Stub Act, s. 1" });
     await user.click(marker);
+    // The panel is a lazy chunk, and the dialog moves focus to its title once it has mounted.
     const panel = await screen.findByRole("dialog", { name: "Stub Act, s. 1" });
-    expect(within(panel).getByRole("heading", { name: "Stub Act, s. 1" })).toHaveFocus();
+    await waitFor(() =>
+      expect(within(panel).getByRole("heading", { name: "Stub Act, s. 1" })).toHaveFocus(),
+    );
     expect(panel).toHaveTextContent("This section exists only to exercise the interface.");
     expect(marker).toHaveAttribute("aria-expanded", "true");
 
