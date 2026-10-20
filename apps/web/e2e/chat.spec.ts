@@ -129,3 +129,71 @@ test("the jurisdiction filter and as-of date travel in the request body", async 
   await expect(page.getByLabel("Your question")).toHaveValue("");
   await expectNoAxeViolations(page);
 });
+
+test("an example question asks in its own jurisdiction", async ({ page }) => {
+  let body: { jurisdictions?: unknown } = {};
+  await page.route("**/api/ask", (route) => {
+    body = route.request().postDataJSON() as typeof body;
+    return route.fulfill({
+      status: 200,
+      headers: { "content-type": "text/event-stream", "x-vercel-ai-ui-message-stream": "v1" },
+      body: stubStream,
+    });
+  });
+  await page.goto("/");
+  const examples = page.getByRole("list", { name: "Example questions" });
+  await expect(examples.getByRole("button")).toHaveCount(4);
+  await expectNoAxeViolations(page);
+  await examples.getByRole("button", { name: /CO How much can my landlord in Bogotá/ }).click();
+  await expect(page.getByRole("article", { name: "Answer" })).toContainText("stub answer");
+  expect(body.jurisdictions).toEqual(["colombia"]);
+  await expect(examples).toHaveCount(0);
+});
+
+test("a failed answer says so and Try again asks it again", async ({ page }) => {
+  const failed = [
+    'data: {"type": "start", "messageId": "msg_failed"}',
+    'data: {"type": "start-step"}',
+    'data: {"type": "data-status", "data": {"stage": "retrieving", "detail": null}, "transient": true}',
+    'data: {"type": "error", "errorText": "Something went wrong while answering."}',
+    'data: {"type": "finish-step"}',
+    'data: {"type": "finish", "finishReason": "error"}',
+    "data: [DONE]",
+  ].join("\n\n");
+  let calls = 0;
+  await page.route("**/api/ask", (route) => {
+    calls += 1;
+    return route.fulfill({
+      status: 200,
+      headers: { "content-type": "text/event-stream", "x-vercel-ai-ui-message-stream": "v1" },
+      body: calls === 1 ? `${failed}\n\n` : stubStream,
+    });
+  });
+  await page.goto("/");
+  await ask(page, "Can my landlord keep my deposit?");
+  const alert = page
+    .getByRole("alert")
+    .filter({ hasText: "Plumbline couldn't finish this answer." });
+  await expect(alert).toBeVisible();
+  await expectNoAxeViolations(page);
+  await alert.getByRole("button", { name: "Try again" }).click();
+  await expect(page.getByRole("article", { name: "Answer" })).toContainText("stub answer");
+  await expect(alert).toHaveCount(0);
+  expect(calls).toBe(2);
+});
+
+test("over the demo quota, the composer waits for the reset", async ({ page }) => {
+  await page.route("**/api/ask", (route) =>
+    route.fulfill({ status: 429, contentType: "application/json", body: '{"detail":"quota"}' }),
+  );
+  await page.goto("/");
+  await ask(page, "Can my landlord keep my deposit?");
+  await expect(
+    page.getByRole("alert").filter({ hasText: "Today's demo questions are used up." }),
+  ).toContainText(/They reset at 00:00 UTC, in \d+ (h|min)/);
+  await expect(page.getByLabel("Your question")).toBeDisabled();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Demo questions reset at 00:00 UTC" }),
+  ).toBeVisible();
+  await expectNoAxeViolations(page);
+});

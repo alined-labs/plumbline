@@ -24,9 +24,8 @@ export type AskValues = z.infer<typeof askSchema>;
 export const EMPTY_ASK: AskValues = { question: "", jurisdictions: [], asOf: "" };
 
 /** Plumbline's own fields of the /api/ask body; useChat adds the messages. */
-export function askBody({
-  jurisdictions,
-  asOf,
-}: AskValues): Pick<Schemas["AskRequest"], "as_of" | "jurisdictions"> {
+export type AskBody = Required<Pick<Schemas["AskRequest"], "as_of" | "jurisdictions">>;
+
+export function askBody({ jurisdictions, asOf }: AskValues): AskBody {
   return { as_of: asOf === "" ? null : asOf, jurisdictions };
 }

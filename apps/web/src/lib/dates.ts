@@ -23,3 +23,11 @@ export function formatDate(value: string | Date): string {
 export function formatDateTime(value: Date): string {
   return `${day.format(value)}, ${minute.format(value)} UTC`;
 }
+
+/** "3 h 12 min" until the next 00:00 UTC, when the demo's daily questions reset. */
+export function untilUtcMidnight(now: Date): string {
+  const midnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+  const minutes = Math.max(1, Math.ceil((midnight - now.getTime()) / 60_000));
+  const hours = Math.floor(minutes / 60);
+  return hours > 0 ? `${hours} h ${minutes % 60} min` : `${minutes} min`;
+}

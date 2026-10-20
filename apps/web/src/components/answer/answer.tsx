@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useId, useMemo, useState } from "react";
+import { Fragment, useId, useMemo, useState, type ReactNode } from "react";
 
 import { CircleCheckIcon } from "@/components/icons";
 import { Badge } from "@/components/ui/badge";
@@ -21,8 +21,11 @@ export function Answer({
   message,
   run,
   streaming = false,
+  failure,
 }: {
   message: PlumblineMessage;
+  /** Shown in place of the body and sources when the answer could not be completed. */
+  failure?: ReactNode;
   /** The request's progress, kept by the chat: the stream does not store it in the message. */
   run?: Run;
   streaming?: boolean;
@@ -48,28 +51,32 @@ export function Answer({
       ) : (
         <AnswerMeta view={view} run={run} />
       )}
-      {view.summary?.status === "abstained" ? (
-        <Abstention summary={view.summary} />
-      ) : (
-        view.markdown && (
-          <AnswerBody markdown={view.markdown} citations={view.citations} onSelect={select} />
-        )
-      )}
-      {status === "partial" && <AnswerGap reason={view.summary?.abstain_reason ?? null} />}
-      {status !== "abstained" && view.citations.length > 0 && (
-        <ol
-          aria-label="Sources"
-          className="grid grid-cols-[repeat(auto-fill,minmax(--spacing(65),1fr))] gap-2"
-        >
-          {view.citations.map((citation) => (
-            <SourceCard
-              key={citation.n}
-              id={sourceId(citation.n)}
-              citation={citation}
-              selected={selected === citation.n}
-            />
-          ))}
-        </ol>
+      {failure ?? (
+        <>
+          {view.summary?.status === "abstained" ? (
+            <Abstention summary={view.summary} />
+          ) : (
+            view.markdown && (
+              <AnswerBody markdown={view.markdown} citations={view.citations} onSelect={select} />
+            )
+          )}
+          {status === "partial" && <AnswerGap reason={view.summary?.abstain_reason ?? null} />}
+          {status !== "abstained" && view.citations.length > 0 && (
+            <ol
+              aria-label="Sources"
+              className="grid grid-cols-[repeat(auto-fill,minmax(--spacing(65),1fr))] gap-2"
+            >
+              {view.citations.map((citation) => (
+                <SourceCard
+                  key={citation.n}
+                  id={sourceId(citation.n)}
+                  citation={citation}
+                  selected={selected === citation.n}
+                />
+              ))}
+            </ol>
+          )}
+        </>
       )}
     </article>
   );
