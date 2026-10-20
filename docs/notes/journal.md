@@ -2,6 +2,14 @@
 
 Dated working notes: what was tried, what was learned, what changed course. Newest first. Decisions that last go into an ADR; this is the trail that led to them.
 
+## 2026-10-19: models, prices and the first answers (Lane C)
+
+- Pinned from the providers' model pages: `gemini-3.5-flash-lite` for the fast route (the Flash-Lite Google points new projects to), `gemini-3.8-flash` for the strong and lease routes (the newest stable Flash; Google has no stable Pro yet), `claude-sonnet-5-5` for premium and `claude-haiku-5-5` for the judge. Their prices, read the same day, are in `generation/llm.py`; Gemini 3.8 Flash doubles on 2027-01-01, and the table already holds both prices.
+- The SDKs had moved: anthropic 1.13 dropped `temperature` (current Claude models take no sampling parameters) and takes a raw JSON schema through `output_config`, and google-genai takes `response_json_schema`. Claude rejects `minimum`, `maximum` and `minLength` in a schema, so the answer schema folds its bounds into the descriptions, and Pydantic enforces them on parse.
+- One answer schema works on all three providers. On a test prompt with an injected source, Flash-Lite, 3.8 Flash and Haiku all ignored the injection, all answered "partial" correctly (the Spanish source gives the deposit's size, not its return deadline), and Haiku glossed the Spanish quote. 3.8 Flash spent 661 thinking tokens on a 296-token answer.
+- Google does not use paid-tier inputs for training (only the invite-only Contributor tier does), but it does use free-tier inputs, which is why lease checks run on the full tier only ([ADR-0007](../adr/0007-routing-and-spend-caps.md)).
+- The first recorded answer through the pipeline cost $0.0007 on Flash-Lite (810 tokens in, 182 out): about 1,400 answers per dollar.
+
 ## 2026-10-19: where CI's time goes
 
 - Over the twelve latest successful CI runs (pull requests and `main`, 23:37 to 23:52 UTC), the `web` job sets the wall time: 102 s on average, from 65 to 134 s, rising as the app shell added pages and tests. `python` takes 74 s, the image job 43 s and gitleaks 6 s. With the hub's own local check in front, a branch reaches `main` a few minutes after its push.
