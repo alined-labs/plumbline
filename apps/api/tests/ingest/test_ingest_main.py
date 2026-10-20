@@ -20,6 +20,7 @@ from plumbline.ingest.parse import DoclingClient, parse_source
 from plumbline.ingest.processed import read_processed, write_processed
 from plumbline.settings import ROOT
 
+from .fakes import FakeEmbedder
 from .pdfs import make_pdf
 
 PAGE = (
@@ -69,7 +70,7 @@ def corpus(tmp_path: Path) -> dict[str, Path]:
 
 
 def _run(corpus: dict[str, Path], *argv: str) -> int:
-    return main(list(argv), **corpus)
+    return main([*argv, "--parse-only"], **corpus)  # these tests are about the parse stage
 
 
 def test_a_source_is_parsed_once_then_reused(
@@ -178,3 +179,20 @@ def test_a_scanned_page_goes_to_the_vision_reader(
         ("text_layer", "Artículo 1."),
         ("vision", "Transcribed"),
     ]
+
+
+@pytest.mark.db
+def test_a_source_that_is_not_here_does_not_stop_the_others(
+    corpus: dict[str, Path], database_url: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    # The manifest's fetch-only source is not on this machine; the other one is indexed.
+    embedder = FakeEmbedder()
+    argv = ["--configs", "A2"]
+    with caplog.at_level(logging.INFO, logger="plumbline.ingest"):
+        status = main(
+            argv, **corpus, database_url=database_url, embedder_factory=lambda _c, _m: embedder
+        )
+    assert status == 0
+    assert "2 sources: 1 missing, 1 parsed" in caplog.text
+    assert "1 index jobs: 1 indexed" in caplog.text
+    assert "dubai-test in A2" not in caplog.text

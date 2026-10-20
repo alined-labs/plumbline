@@ -4,6 +4,8 @@ a second run that does nothing; a run that repairs a lost index; failures that r
 
 from __future__ import annotations
 
+import json
+import logging
 import re
 import uuid
 from collections.abc import AsyncIterator, Mapping
@@ -18,6 +20,7 @@ from plumbline.corpus.manifest import Source, load_manifest
 from plumbline.db import make_engine, make_sessionmaker
 from plumbline.db.models import PUBLIC_TENANT, ChunkRow, IngestionJob, IngestionJobEvent
 from plumbline.db.session import tenant_session
+from plumbline.ingest.__main__ import main
 from plumbline.ingest.plan import Unit, plan_units
 from plumbline.ingest.processed import read_processed
 from plumbline.ingest.run import EMBED_BATCH, Indexer, InputsChanged, run_units
@@ -270,3 +273,77 @@ async def test_a_job_whose_inputs_changed_is_refused(sessions: Sessions, source:
     )
     with pytest.raises(InputsChanged, match="not what this job was queued for"):
         await _indexer(sessions, source, FakeEmbedder())(job)
+
+
+def test_make_ingest_indexes_a_source_and_says_so(
+    database_url: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    owner = create_engine(database_url)
+    with owner.begin() as connection:
+        connection.execute(text("DELETE FROM chunks WHERE document_id = :id"), {"id": SOURCE_ID})
+        connection.execute(
+            text("DELETE FROM ingestion_jobs WHERE source_id = :id"), {"id": SOURCE_ID}
+        )
+    embedder = FakeEmbedder()
+    argv = ["--source", SOURCE_ID, "--configs", "A2"]
+    with caplog.at_level(logging.INFO, logger="plumbline.ingest"):
+        assert main(argv, database_url=database_url, embedder_factory=lambda _c, _m: embedder) == 0
+    assert f"{SOURCE_ID} in A2" in caplog.text
+    assert "1 index jobs: 1 indexed" in caplog.text
+    with owner.connect() as connection:
+        chunks = connection.execute(
+            text("SELECT count(*), count(embedding) FROM chunks WHERE document_id = :id"),
+            {"id": SOURCE_ID},
+        ).one()
+    assert chunks[0] > chunks[1] > 0
+    caplog.clear()
+    with caplog.at_level(logging.INFO, logger="plumbline.ingest"):
+        assert main(argv, database_url=database_url, embedder_factory=lambda _c, _m: embedder) == 0
+    assert "1 index jobs: 1 current" in caplog.text
+    # --parse-only never reaches the database.
+    unreachable = "postgresql+psycopg://plumbline:plumbline@127.0.0.1:1/none"
+    assert main([*argv, "--parse-only"], database_url=unreachable) == 0
+    owner.dispose()
+
+
+def test_a_job_left_by_an_earlier_run_is_worked_by_this_one(database_url: str) -> None:
+    # A run that died after queuing A0 left its job; this run asks for A2 only. The worker
+    # builds the A0 unit from the job alone, since it knows every configuration.
+    source = load_manifest().by_id()[SOURCE_ID]
+    (stray,) = _units(source, "A0")
+    owner = create_engine(database_url)
+    with owner.begin() as connection:
+        connection.execute(text("DELETE FROM chunks WHERE document_id = :id"), {"id": SOURCE_ID})
+        connection.execute(
+            text("DELETE FROM ingestion_jobs WHERE source_id = :id"), {"id": SOURCE_ID}
+        )
+        connection.execute(
+            text(
+                "INSERT INTO ingestion_jobs (tenant_id, kind, source_id, content_hash, payload)"
+                " VALUES (:tenant, 'index', :source, :hash, CAST(:payload AS jsonb))"
+            ),
+            {
+                "tenant": str(PUBLIC_TENANT),
+                "source": SOURCE_ID,
+                "hash": stray.content_hash,
+                "payload": json.dumps(
+                    {
+                        "config": "A0",
+                        "configs": ["A0"],
+                        "variant": stray.variant,
+                        "hash": stray.content_hash,
+                    }
+                ),
+            },
+        )
+    embedder = FakeEmbedder()
+    argv = ["--source", SOURCE_ID, "--configs", "A2"]
+    assert main(argv, database_url=database_url, embedder_factory=lambda _c, _m: embedder) == 0
+    with owner.connect() as connection:
+        held = connection.execute(
+            text("SELECT variant, count(*) FROM chunks WHERE document_id = :id GROUP BY variant"),
+            {"id": SOURCE_ID},
+        ).all()
+    owner.dispose()
+    assert {variant for variant, _ in held} >= {stray.variant}
+    assert dict(held)[stray.variant] == len(stray.chunks)
