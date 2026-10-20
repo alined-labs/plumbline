@@ -2,6 +2,17 @@
 
 Dated working notes: what was tried, what was learned, what changed course. Newest first. Decisions that last go into an ADR; this is the trail that led to them.
 
+## 2026-10-20: where a search's time goes (Lane A)
+
+Measured on MX2 (4 cores, 8 GB) with `EXPLAIN (ANALYZE, BUFFERS)` and 20 timed runs, on the local index of Florida ch. 83 and ch. 718 under A2 (350 chunks, 268 with an embedding, one pg_search segment), pg_search 0.26.2, one question embedded by MX3's TEI. The statement is a/a5b-sql-retrieval's.
+
+- **Dense is cheap.** The exact cosine leg computes all 268 distances and sorts them in 2.4 ms; the whole dense statement takes a median 4.1 ms. Exact search stays affordable far past this corpus: a few thousand leaves cost tens of milliseconds, so no approximate index is needed for Gate 1.
+- **BM25 has a fixed cost.** Any pg_search query costs about 90 ms to execute here, whatever it matches: `key @@@ pdb.all()` over 350 rows takes 90 ms, the full BM25 leg 94 ms. The index has one segment, so it is not fragmentation; it looks like the cost of opening the index for each query.
+- **Planning costs about 90 ms per search term in the SQL**, and it disappears when the statement is prepared. The hybrid statement names two fields (English and Spanish), so it plans in 183 ms; with only the English field, 91 ms. psycopg prepares a statement after its fifth run on a connection, and the retriever's text is the same for every question (every value is a bind parameter), so on a warm connection a repeated query skipped planning: 91 ms instead of 271 ms.
+- **So a hybrid search costs about 100 ms on a warm connection, and about 280 ms on a cold one**, plus the question's embedding (about 300 ms round trip to MX3 for one short question, measured end to end at 320 ms for A2). The filters (variant, leaves, status, dates) change nothing measurable: pushing the variant into the query as a literal saved nothing.
+- **To try on MX3** before Thursday: the same numbers on the production machine, and a pool large enough that the API's connections stay warm. If the 90 ms per query holds there, it is the largest part of retrieval and worth an issue with ParadeDB.
+- **One property of the index to remember**: BM25's document frequencies are the whole index's, across every variant, so a borderline BM25 ranking can move when another variant is indexed. A retrieval test that ranked "Artículo 9" across jurisdictions flipped when other tests' rows were in the database (see a/a5b's test notes).
+
 ## 2026-10-20: the reranker on MX3's CPU
 
 - bge-reranker-v2-m3 on MX3's TEI 1.9.4 CPU server (float32) took p50 33.4 s and p95 58.3 s to rerank 20 candidates per question, over 50 questions; the plan's budget was 1.5 s at p95. The candidates were real leaf chunks of the article-aware chunker over Fla. Stat. ch. 83, the LAU, Ley 820 and Dubai's Law No. 26, 20 per question from its own jurisdiction (95 reranker tokens at the median, 425 at p95). Results: `evals/results/rerank/benchmark.json`.
