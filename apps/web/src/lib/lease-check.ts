@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 import { apiUrl } from "./api";
+import { findingSchema, type Finding } from "./lease";
+import { readSse, type SseEvent } from "./sse";
 
 // The lease check as a job, the way Lane D's route (D7) and Lane C's checker define it:
 //   POST /api/check-lease?jurisdiction=&signed_on=    the file itself as the body -> 202 {id}
@@ -9,6 +11,21 @@ import { apiUrl } from "./api";
 // refusal is application/problem+json with a stable `code`. Until openapi.json carries the
 // job, its shapes are read here and nowhere else, so a rename is a change to this file.
 
+export const LEASE_STAGES = ["uploaded", "redacting", "reading", "checking"] as const;
+export type LeaseStage = (typeof LEASE_STAGES)[number];
+
+export type LeaseEvent =
+  | { type: "stage"; stage: LeaseStage; done?: number; total?: number }
+  | { type: "finding"; finding: Finding }
+  | { type: "done"; findings: number; language: "en" | "es" };
+
+const stageSchema = z.object({
+  stage: z.enum(LEASE_STAGES),
+  done: z.number().int().min(0).optional(),
+  total: z.number().int().min(0).optional(),
+});
+const doneSchema = z.object({ findings: z.number().int().min(0), language: z.enum(["en", "es"]) });
+const failedSchema = z.object({ code: z.string().min(1), message: z.string() });
 const problemSchema = z.object({
   code: z.string().min(1).optional(),
   title: z.string().optional(),
@@ -118,4 +135,96 @@ export async function startLeaseCheck(
     .safeParse(await response.json().catch(() => null));
   if (!job.success) throw unavailable;
   return job.data.id;
+}
+
+const UNREADABLE = "The lease checker sent something this page can't read.";
+
+function parseEvent(sse: SseEvent): LeaseEvent | undefined {
+  // Anything else (a comment, a keep-alive) is not ours to read.
+  if (!["stage", "finding", "done", "failed"].includes(sse.event)) return undefined;
+  let payload: unknown;
+  try {
+    payload = JSON.parse(sse.data);
+  } catch {
+    throw new LeaseFailure("unavailable", UNREADABLE);
+  }
+  if (sse.event === "failed") {
+    const failed = failedSchema.safeParse(payload);
+    if (!failed.success) throw new LeaseFailure("unavailable", UNREADABLE);
+    throw new LeaseFailure(failed.data.code, failed.data.message);
+  }
+  // A finding that does not match Lane C's schema is an error, not a gap: dropping it quietly
+  // could hide a conflict.
+  if (sse.event === "finding") {
+    const finding = findingSchema.safeParse(payload);
+    if (!finding.success) throw new LeaseFailure("unavailable", UNREADABLE);
+    return { type: "finding", finding: finding.data };
+  }
+  if (sse.event === "stage") {
+    const stage = stageSchema.safeParse(payload);
+    if (!stage.success) throw new LeaseFailure("unavailable", UNREADABLE);
+    return { type: "stage", ...stage.data };
+  }
+  const done = doneSchema.safeParse(payload);
+  if (!done.success) throw new LeaseFailure("unavailable", UNREADABLE);
+  return { type: "done", ...done.data };
+}
+
+/** How many times a dropped stream is picked up again, and how long the first wait is. */
+const MAX_RESUMES = 3;
+const RESUME_WAIT_MS = 500;
+
+function wait(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(signal.reason);
+    const timer = setTimeout(resolve, ms);
+    signal?.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        reject(signal.reason);
+      },
+      { once: true },
+    );
+  });
+}
+
+/** The job's events until `done`, which ends the iteration, or `failed`, which throws. A stream
+ * that drops before either is picked up again from the last event ID, up to three times in a
+ * row; a server that sends no IDs cannot be resumed, so the check ends as a lost connection. */
+export async function* leaseEvents(
+  id: string,
+  transport: Transport = {},
+): AsyncGenerator<LeaseEvent> {
+  let lastEventId: string | undefined;
+  let resumes = 0;
+  for (;;) {
+    try {
+      const headers: Record<string, string> = { Accept: "text/event-stream" };
+      if (lastEventId !== undefined) headers["Last-Event-ID"] = lastEventId;
+      const response = await send(
+        apiUrl(`/api/check-lease/${encodeURIComponent(id)}/events`),
+        { headers, cache: "no-store" },
+        transport,
+      );
+      if (!response.ok || !response.body) throw await refusal(response);
+      for await (const sse of readSse(response.body)) {
+        resumes = 0; // a stream that moves on has not given up
+        lastEventId = sse.lastEventId ?? lastEventId;
+        const event = parseEvent(sse);
+        if (event) yield event;
+        if (event?.type === "done") return;
+      }
+      throw new Dropped();
+    } catch (error) {
+      // What the checker said (a refusal, a failure) and a cancel end the check as they are.
+      // Anything else is the connection: picked up again where it stopped, if it can be.
+      if (error instanceof LeaseFailure || transport.signal?.aborted) throw error;
+      if (lastEventId === undefined || resumes >= MAX_RESUMES) {
+        throw new LeaseFailure("connection_lost", "The connection to the lease checker dropped.");
+      }
+      resumes += 1;
+      await wait(RESUME_WAIT_MS * resumes, transport.signal);
+    }
+  }
 }
