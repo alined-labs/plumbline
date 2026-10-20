@@ -128,6 +128,15 @@ def test_a_quote_matches_whole_words_only() -> None:
     assert not quote_in("tw … four", "one two three four")
 
 
+def test_a_number_runs_on_through_a_separator_between_digits() -> None:
+    assert not quote_in("1.000", "una multa de 1.000.000 de pesos")
+    assert not quote_in("artículo 9", "según el artículo 9.3 de la ley")
+    assert not quote_in("000 pesos", "1.000 pesos")
+    assert quote_in("artículo 9", "según el artículo 9. Luego")
+    assert quote_in("1.000.000", "una multa de 1.000.000 de pesos")
+    assert quote_in("30 días", "30 días, 60 días")
+
+
 def test_a_quote_not_in_the_statute_stops_every_record() -> None:
     items = [item(), spanish()]
     with pytest.raises(RecordError, match="fl-9001: quoted_text is not in the pinned text"):
