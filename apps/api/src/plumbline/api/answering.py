@@ -2,7 +2,7 @@
 checker, wired to the index in Postgres, and the rule for when the stand-ins may serve.
 
 The configuration is the settings' `answer_config`. One that retrieves needs a retrieval
-factory (Lane A's Retriever, task A5b); until the server has one, the API answers with the
+factory (Lane A's Retriever, `default_retrieval`); a server without one answers with the
 long-context baseline (LC) instead, which reads the whole law of the question's
 jurisdictions from the index (Lane C's SqlLawSource), and the answer's trace names LC, so
 nobody mistakes it for the configured one. Either way the API serves the configuration's
@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from plumbline.api.lease_stub import StubLeaseChecker
 from plumbline.api.leases import LeaseChecker
 from plumbline.api.search import CONFIGS, Retrieval, RetrievalFactory
+from plumbline.cache import get_cache
 from plumbline.core.config import EvalConfig, load_config
 from plumbline.core.stream import AnswerPipeline, Question, StreamError, StreamEvent
 from plumbline.core.types import DemoTier, Jurisdiction
@@ -53,6 +54,7 @@ from plumbline.leases.checker import LeaseEvent
 from plumbline.leases.service import LeaseChecker as RealLeaseChecker
 from plumbline.retrieval.index import variant_key
 from plumbline.retrieval.jurisdiction import detect as detect_jurisdictions
+from plumbline.retrieval.retriever import online_retrieval
 from plumbline.settings import Settings
 
 log = logging.getLogger(__name__)
@@ -94,8 +96,12 @@ def refuse_stubs(settings: Settings, pipeline: object, lease_checker: object) ->
 
 
 def default_retrieval(settings: Settings) -> RetrievalFactory | None:
-    """Lane A's retrieval for a configuration. None until A5b's Retriever lands."""
-    return None
+    """Lane A's retrieval (A5b) where the API answers for real: SQL search over the index, the
+    question embedded by TEI through the response cache. Outside production, None: the
+    stand-ins need no search, and the debug route answers 503."""
+    if not wants_real(settings):
+        return None
+    return online_retrieval(settings, get_cache(settings.cache_mode, settings.cache_dir))
 
 
 def router_for(settings: Settings, meter: SpendMeter) -> Router:

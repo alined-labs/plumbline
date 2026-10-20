@@ -44,7 +44,7 @@ class Retrieval(Protocol):
 
 
 class RetrievalFactory(Protocol):
-    def __call__(self, config: EvalConfig) -> Retrieval: ...
+    def __call__(self, config: EvalConfig, /) -> Retrieval: ...
 
 
 class SearchResult(BaseModel):
