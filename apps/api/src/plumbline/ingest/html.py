@@ -1,12 +1,19 @@
-"""Reading the HTML statute sources without a parser model (ParseMethod.HTML): the BOE's
-consolidated texts, Florida's Online Sunshine chapters and the Colombian Senate's laws,
-each turned into Markdown with one block per paragraph.
+"""Reading the HTML statute sources without a parser model (ParseMethod.HTML): Florida's
+Online Sunshine statutes and the Colombian Senate's laws, each turned into Markdown with
+one block per paragraph.
 
-Each site has a profile: the element that holds the law, and the elements inside it that
-are navigation, forms, a table of contents or empty boxes. A host without a profile is an
-error, because reading a whole page would mix menus into the law. The pages are old and
-not always well formed (Colombia's opens one container inside another and never closes
-it), so an element ends at its matching end tag or, failing that, at the end of the page.
+Each site has a profile: the element that holds the law, or none when the committed file
+is the law alone (Lane B cuts Florida's statute markup out of its page), and the elements
+inside it that are navigation, forms, a table of contents or empty boxes. A host without a
+profile is an error, because reading a whole page would mix menus into the law. The pages
+are old and not always well formed (Colombia's opens one container inside another and
+never closes it), so an element ends at its matching end tag or, failing that, at the end
+of the page.
+
+Struck-through text is kept as ~~text~~: the Colombian Senate strikes out the words the
+Constitutional Court declared unconstitutional (INEXEQUIBLE), and the chunker must be able
+to tell them from the law in force. Underlined words (conditionally upheld) are still law
+and stay plain text.
 """
 
 from __future__ import annotations
@@ -17,7 +24,7 @@ from dataclasses import dataclass
 from html.parser import HTMLParser
 from urllib.parse import urlsplit
 
-READER = "plumbline html 1"  # ParsedDocument.parser; bump it when the output changes
+READER = "plumbline html 2"  # ParsedDocument.parser; bump it when the output changes
 
 
 class HtmlError(ValueError):
@@ -26,16 +33,16 @@ class HtmlError(ValueError):
 
 @dataclass(frozen=True)
 class Profile:
-    container: str  # the id of the element that holds the law
+    container: str | None  # the id of the element that holds the law; None: the whole file
     skip: frozenset[str] = frozenset()  # "tag", "tag.class", ".class" or "#id"
 
 
 PROFILES: dict[str, Profile] = {
-    # div.marcadores is a jump menu listing every article. Each article sits in a div.bloque;
-    # p.bloque is the "[Bloque 14: #a9]" label above it.
-    "www.boe.es": Profile("textoxslt", frozenset({"div.marcadores", "p.bloque", "p.linkSubir"})),
-    # div.CatchlineIndex is each part's table of contents: it repeats every section title.
-    "www.leg.state.fl.us": Profile("statutes", frozenset({"div.CatchlineIndex"})),
+    # The committed files are cuts of the statute markup alone. div.CatchlineIndex is each
+    # part's table of contents: it repeats every section title. A <sup> is a footnote mark,
+    # and one before a section number would glue onto it ("1" + "83.5615"); the footnote
+    # itself is the section's own Note, which is kept.
+    "www.leg.state.fl.us": Profile(None, frozenset({"div.CatchlineIndex", "sup"})),
     # The validity boxes are empty tables that a script fills in; only their labels are here.
     # a.antsig links to the law's previous and next pages: a long law spans several pages.
     "www.secretariasenado.gov.co": Profile(
@@ -64,6 +71,10 @@ BLOCKS = frozenset(
     | {f"h{n}" for n in range(1, 7)}
 )
 CELLS = frozenset({"td", "th"})
+STRUCK = frozenset({"s", "strike", "del"})
+# Stand-ins for the ~~ around struck text until whitespace is normalized, so that
+# "<s> words </s>" becomes "~~words~~", which Markdown reads as strikethrough.
+OPEN, CLOSE = "\x00", "\x01"
 
 
 def profile_for(url: str) -> Profile:
@@ -112,14 +123,16 @@ class _Reader(HTMLParser):
     def __init__(self, profile: Profile) -> None:
         super().__init__(convert_charrefs=True)
         self.profile = profile
-        self.found = False
+        self.found = profile.container is None
         self.blocks: list[str] = []
         self._text: list[str] = []
         self._prefix = ""  # of the block being read: "## ", "- " or ""
         self._quote = 0  # blockquote depth
+        self._struck = 0  # strikethrough depth
         # An open container or skipped element: its tag, and how many of that tag are open
-        # inside it, so the matching end tag can be found in tag soup.
-        self._inside: tuple[str, int] | None = None
+        # inside it, so the matching end tag can be found in tag soup. Without a container,
+        # the whole file sits in a root whose end tag never comes.
+        self._inside: tuple[str, int] | None = None if profile.container else ("", 1)
         self._skipping: tuple[str, int] | None = None
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
@@ -154,6 +167,10 @@ class _Reader(HTMLParser):
                 self._prefix = "- "
         elif tag in CELLS and self._text:
             self._text.append(" | ")
+        elif tag in STRUCK:
+            self._struck += 1
+            if self._struck == 1:
+                self._text.append(OPEN)
 
     def handle_endtag(self, tag: str) -> None:
         if self._inside is None:
@@ -164,6 +181,10 @@ class _Reader(HTMLParser):
             self.flush()
             if tag == "blockquote" and self._quote:
                 self._quote -= 1
+        elif tag in STRUCK and self._struck:
+            self._struck -= 1
+            if not self._struck:
+                self._text.append(CLOSE)
         self._inside = _shallower(self._inside, tag)
         if self._inside is None:
             self._skipping = None  # tag soup: the container closed inside a skipped element
@@ -173,10 +194,14 @@ class _Reader(HTMLParser):
             self._text.append(data)
 
     def flush(self) -> None:
+        if self._struck:  # a struck run that crosses a block ends here and goes on in the next
+            self._text.append(CLOSE)
         text = " ".join("".join(self._text).split())
+        text = re.sub(f"{OPEN}\\s*", "~~", re.sub(f"\\s*{CLOSE}", "~~", text))
+        text = text.replace("~~~~", "")  # nothing struck, or two struck runs that touch
         if text:
             self.blocks.append("> " * self._quote + self._prefix + text)
-        self._text = []
+        self._text = [OPEN] if self._struck else []
         self._prefix = ""
 
     def _reading(self) -> bool:
