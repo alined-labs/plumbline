@@ -35,7 +35,7 @@ Every control is backed by a test (run by `make check` and CI) or by a manual ch
 | --- | --- | --- |
 | Daily question and lease-check quotas per visitor and per address | `api/quota.py` (Lane D) | `apps/api/tests/api/test_quota.py` |
 | Daily spend caps per provider; the premium route only under Anthropic's cap | `generation/router.py` (Lane C) | Lane C's router tests |
-| Kill switch: Gemini or Anthropic at 80% of its cap drops the tier to `free`, either at its cap drops it to `static`, the next UTC day restores it | `security/killswitch.py`, the `killswitch` service | `apps/api/tests/security/test_killswitch.py`; manual, 2026-10-20 (below) |
+| Kill switch: Gemini or Anthropic at 80% of its cap drops the tier to `free`, either at its cap drops it to `static`, and three answers in a row ended by an exception within ten minutes (a provider refusing every call, which the counters cannot see) drop it to `static`; the next UTC day restores it | `security/killswitch.py`, the `killswitch` service | `apps/api/tests/security/test_killswitch.py`; manual, 2026-10-20 (below) |
 | Uploads at most 10 MB, PDF, DOCX or text only, read in memory, zip bombs refused | `ingest/upload.py` (Lane D) | `apps/api/tests/ingest/test_upload.py`, `apps/api/tests/api/test_check_lease.py` |
 | A Word document's XML neither expands entities nor reads a file it points to; a lease's text never reaches a log line, a header or the start response | `ingest/upload.py`, `api/leases.py` (Lane D) | `apps/api/tests/security/test_uploads.py` |
 | Errors as problem details that say nothing about internals | `api/problems.py` (Lane D) | `apps/api/tests/api/test_problems.py` |
