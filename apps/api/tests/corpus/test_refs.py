@@ -249,6 +249,24 @@ def test_a_spanish_article_is_read_as_it_stood_on_the_date(
     assert "Se modifica" not in text  # the BOE's amendment notes are not the law
 
 
+@pytest.mark.parametrize(
+    ("day", "header"),
+    [
+        (date(2026, 10, 1), "[BOE-A-2026-20266, in force from 20261001]"),  # RDL 26/2026
+        (date(2026, 10, 5), "[BOE-A-2026-20526, in force from 20261002]"),  # set aside by Congress
+        # The last version has no fecha_vigencia; its note dates RDL 29/2026's wording.
+        (date(2026, 10, 8), "[BOE-A-2026-20822, in force from 20261008]"),
+        (None, "[BOE-A-2026-20822, in force from 20261008]"),
+    ],
+)
+def test_a_version_without_its_date_takes_it_from_its_note(day: date | None, header: str) -> None:
+    text = article_text(SOURCES["es-lau"], "10", day)
+    assert text is not None
+    assert text.splitlines()[0] == header
+    restored = "Si llegada la fecha de vencimiento del contrato, o de cualquiera"
+    assert (restored in text) is (day == date(2026, 10, 5))
+
+
 def test_the_property_horizontal_law_is_read_by_the_number_lawyers_cite() -> None:
     text = article_text(SOURCES["es-lph"], "17")
     assert text is not None
