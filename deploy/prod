@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Runs docker compose on the production stack (Lane P): deploy/prod <compose arguments>.
+#
+#   deploy/prod build        build the API image from this checkout
+#   deploy/prod up -d        start or update the stack
+#   deploy/prod ps           state and health of every service
+#   deploy/prod logs -f api  follow one service's log
+#
+# It fixes the compose file and the public names (deploy/prod.env), and refuses to start
+# before the secrets exist, so a half-configured stack never comes up.
+set -Eeuo pipefail
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
+if [[ ${1-} == up ]]; then
+  for file in api.env db_password tunnel.json; do
+    # Existence only, through sudo-free metadata: the files are not readable by this user.
+    if [[ ! -e /etc/plumbline/$file ]]; then
+      printf 'deploy/prod: /etc/plumbline/%s is missing: run sudo bash deploy/secrets-init.sh first\n' "$file" >&2
+      exit 1
+    fi
+  done
+  if grep -q '^TUNNEL_ID=00000000-' "$here/prod.env"; then
+    printf 'deploy/prod: set TUNNEL_ID in deploy/prod.env (cloudflared tunnel list)\n' >&2
+    exit 1
+  fi
+fi
+
+exec docker compose -f "$here/compose.prod.yaml" --env-file "$here/prod.env" "$@"
