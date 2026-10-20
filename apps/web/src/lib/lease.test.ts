@@ -1,6 +1,7 @@
 import { finding, WAIVER } from "@/test/lease";
 
-import { findingSchema, groupFindings, SEVERITY_INFO, shownCitations, summarize } from "./lease";
+import { groupFindings, SEVERITY_INFO, shownCitations, summarize } from "./lease";
+import { findingSchema } from "./lease-schema";
 
 describe("findingSchema", () => {
   it("accepts a finding the way Lane C's checker words it", () => {
