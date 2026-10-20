@@ -47,8 +47,15 @@ def test_the_models_match_the_migrated_database(database_url: str) -> None:
     engine.dispose()
     tables = set(Base.metadata.tables)
     # Tables the models do not describe (alembic_version, and PostGIS's spatial_ref_sys in
-    # the ParadeDB image) show up as removals; anything else is a real difference.
-    assert [d for d in diff if not (d[0] == "remove_table" and d[1].name not in tables)] == []
+    # the ParadeDB image) show up as removals, and so does the BM25 index, which SQLAlchemy
+    # cannot express; anything else is a real difference.
+    unmodelled = [
+        d
+        for d in diff
+        if (d[0] == "remove_table" and d[1].name not in tables)
+        or (d[0] == "remove_index" and d[1].name == "chunks_bm25")
+    ]
+    assert [d for d in diff if d not in unmodelled] == []
 
 
 @pytest.mark.anyio

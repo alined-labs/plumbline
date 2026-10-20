@@ -13,10 +13,12 @@ from sqlalchemy import (
     ARRAY,
     BigInteger,
     Boolean,
+    Computed,
     Date,
     DateTime,
     Double,
     ForeignKey,
+    ForeignKeyConstraint,
     Identity,
     Index,
     Integer,
@@ -87,19 +89,30 @@ class Document(Base):
 
 
 class ChunkRow(Base):
-    """plumbline.core.types.Chunk, stored, with its embedding."""
+    """plumbline.core.types.Chunk, stored, with its embedding, in one chunk set (variant).
+    The BM25 index of migration 0004 is not declared here: SQLAlchemy cannot express it."""
 
     __tablename__ = "chunks"
-    __table_args__ = (Index("ix_chunks_article_ref", "jurisdiction", "law", "article", "edition"),)
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["variant", "parent_id"],
+            ["chunks.variant", "chunks.id"],
+            ondelete="CASCADE",
+            name="chunks_parent_fkey",
+        ),
+        UniqueConstraint("key", name="uq_chunks_key"),
+        Index("ix_chunks_parent", "variant", "parent_id"),
+        Index("ix_chunks_article_ref", "variant", "jurisdiction", "law", "article", "edition"),
+    )
 
+    variant: Mapped[str] = mapped_column(primary_key=True)  # Lane A's variant_key(config)
     id: Mapped[str] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(Computed("variant || ':' || id", persisted=True))
     tenant_id: Mapped[uuid.UUID] = _tenant()
     document_id: Mapped[str] = mapped_column(
         ForeignKey("documents.id", ondelete="CASCADE"), index=True
     )
-    parent_id: Mapped[str | None] = mapped_column(
-        ForeignKey("chunks.id", ondelete="CASCADE"), index=True
-    )
+    parent_id: Mapped[str | None]
     jurisdiction: Mapped[str]
     law: Mapped[str]
     language: Mapped[str]
