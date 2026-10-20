@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Terraform for Cloudflare, from the pinned image, so MX3 needs no Terraform install.
+#   infra/cloudflare/tf init | plan | apply | import <address> <id> | ...
+# Needs CLOUDFLARE_API_TOKEN (Zone: DNS Edit, Zone: Zone WAF Edit, Account: Cloudflare
+# Pages Edit), CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_ZONE_ID in the environment. The hosts
+# and the tunnel id come from deploy/prod.env; the state stays in $STATE, off the repo.
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+root="$(cd "$here/../.." && pwd)"
+image="hashicorp/terraform:1.16.6@sha256:bfffc1ded5fbf0a17beaaf22eb4793980abdb19d0761ff6a3a0efb2ab4d9b316"
+state="${STATE:-$HOME/.local/state/plumbline/cloudflare}"
+
+: "${CLOUDFLARE_API_TOKEN:?export CLOUDFLARE_API_TOKEN first (never paste it into a file here)}"
+: "${CLOUDFLARE_ACCOUNT_ID:?export CLOUDFLARE_ACCOUNT_ID first}"
+: "${CLOUDFLARE_ZONE_ID:?export CLOUDFLARE_ZONE_ID first}"
+
+# shellcheck source=/dev/null
+source "$root/deploy/prod.env"
+mkdir -p "$state" && chmod 700 "$state"
+
+args=("$@")
+if [[ "${1:-}" == "init" ]]; then
+  args+=("-backend-config=path=/state/terraform.tfstate")
+fi
+
+exec docker run --rm -i \
+  --user "$(id -u):$(id -g)" \
+  -v "$here:/work" -w /work \
+  -v "$state:/state" \
+  -e TF_DATA_DIR=/state/data \
+  -e TF_IN_AUTOMATION=1 \
+  -e CLOUDFLARE_API_TOKEN \
+  -e TF_VAR_account_id="$CLOUDFLARE_ACCOUNT_ID" \
+  -e TF_VAR_zone_id="$CLOUDFLARE_ZONE_ID" \
+  -e TF_VAR_web_host="$WEB_HOST" \
+  -e TF_VAR_api_host="$API_HOST" \
+  -e TF_VAR_tunnel_id="$TUNNEL_ID" \
+  "$image" "${args[@]}"
