@@ -2,6 +2,13 @@
 
 Dated working notes: what was tried, what was learned, what changed course. Newest first. Decisions that last go into an ADR; this is the trail that led to them.
 
+## 2026-10-20: the reranker on MX3's CPU
+
+- bge-reranker-v2-m3 on MX3's TEI 1.9.4 CPU server (float32) took p50 33.4 s and p95 58.3 s to rerank 20 candidates per question, over 50 questions; the plan's budget was 1.5 s at p95. The candidates were real leaf chunks of the article-aware chunker over Fla. Stat. ch. 83, the LAU, Ley 820 and Dubai's Law No. 26, 20 per question from its own jurisdiction (95 reranker tokens at the median, 425 at p95). Results: `evals/results/rerank/benchmark.json`.
+- A probe explains it: one short candidate costs half a second, five cost 2.6 s, twenty 10 s. Time is linear in tokens with no batching gain, about 110 GFLOP/s for a 568M-parameter model, so the CPU, not the other services on MX3, sets the cost.
+- At 10 candidates: p50 16.1 s, p95 36.3 s (`benchmark-10.json`), half the 20-candidate time and still 24 times the budget. Neither of the plan's fallbacks reaches 1.5 s here, so ADR-0005 proposes reranking offline only (recorded once per pair) and answering online with Cohere on the full tier or the hybrid order without reranking.
+- The benchmark took 32 minutes of MX3's CPU; a dev-split recording for one reranked configuration will take about 70.
+
 ## 2026-10-19: models, prices and the first answers (Lane C)
 
 - Pinned from the providers' model pages: `gemini-3.5-flash-lite` for the fast route (the Flash-Lite Google points new projects to), `gemini-3.8-flash` for the strong and lease routes (the newest stable Flash; Google has no stable Pro yet), `claude-sonnet-5-5` for premium and `claude-haiku-5-5` for the judge. Their prices, read the same day, are in `generation/llm.py`; Gemini 3.8 Flash doubles on 2027-01-01, and the table already holds both prices.

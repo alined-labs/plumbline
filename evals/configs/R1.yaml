@@ -1,5 +1,5 @@
 name: R1
-description: The Cohere Rerank API on the best configuration. Seeded on A4; Lane A rebases it on the winner before running it.
+description: Dropped (ADR-0005, no Cohere). Kept so the configuration set stays as the plan names it; never run.
 chunker: {kind: article, merge_parent: true}
 retrieval: {mode: hybrid, rrf_k: 60, candidates: 50, top_k: 8, rerank: cohere, rerank_candidates: 20, headers: deterministic}
 generation: {route: fast}

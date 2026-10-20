@@ -1,0 +1,24 @@
+{
+  "probe": "rerank latency against candidate count, one call each, through a live cache in an empty directory",
+  "measured_at": "2026-10-20T00:41Z",
+  "server": "MX3 TEI 1.9.4 CPU, BAAI/bge-reranker-v2-m3, float32",
+  "candidate": "one English sentence of about 35 tokens with a unique suffix, so nothing is memoized; the question adds about 15",
+  "seconds_by_candidates": [
+    [
+      1,
+      0.48
+    ],
+    [
+      1,
+      0.52
+    ],
+    [
+      5,
+      2.6
+    ],
+    [
+      20,
+      10.01
+    ]
+  ]
+}
