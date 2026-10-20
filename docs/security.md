@@ -52,6 +52,34 @@ Every control is backed by a test (run by `make check` and CI) or by a manual ch
 | Retrieved passages and uploads are data, never instructions: prompts carry them in delimited blocks | Lane C's prompts | Lane C's recorded prompt-injection set; the red team (P4) *planned* |
 | Model output rendered as text, never as HTML: the API serves only JSON, problem details and event streams; the web app writes markup only in its theme script, and every Markdown renderer skips HTML | Lane E's answer components | `apps/api/tests/security/test_no_html.py` |
 
+## Against the OWASP Top 10 for LLM applications
+
+The 2025 list, risk by risk: what Plumbline does about each, and where it is checked. The
+plan's minimum was LLM01, 02, 05, 07, 08, 09 and 10; the other three are here too, so
+nothing is left unstated.
+
+| Risk | What Plumbline does | Checked by |
+| --- | --- | --- |
+| LLM01 Prompt injection | Retrieved passages, uploads and the judge's inputs reach a model only inside delimited data-only blocks, with their tags defused (`generation/prompt.py`'s `defuse`); every prompt says the blocks are data. The model has no tool to call, so an injection can at most change one answer, which the citation check then reads | recorded injection sets: `apps/api/tests/generation/test_injection.py`, `apps/api/tests/judge/test_judge_injection.py`, `apps/api/tests/leases/test_injection.py`; the planted poisoned listing end to end and the Promptfoo run (P4) *planned* |
+| LLM02 Sensitive information disclosure | Uploads redacted before any model call (P2); a lease is read in memory, never stored, logged or echoed; Dubai and Colombian sources show only the quoted passage; production keys only in root-only files; the stored nightly score holds no question or answer | `apps/api/tests/security/test_redaction.py` (on its branch until allowed), `test_uploads.py`, `apps/api/tests/api/test_chunks.py`, `test_online_eval.py`, `deploy/preflight.sh` |
+| LLM03 Supply chain | Every image pinned by digest, Python locked with hashes (`uv.lock`), the spaCy models pinned by URL and hash, JavaScript locked; pip-audit and pnpm audit in CI; Dependabot; models come from their publishers' APIs or pinned weights | CI's audit jobs; `apps/api/tests/security/test_production_compose.py` (digests) |
+| LLM04 Data and model poisoning | The corpus is nine official sources pinned by sha256 in a manifest and re-checked against the publishers; nothing a visitor sends is ever indexed; no model is trained or fine-tuned | `python -m plumbline.corpus.fetch --check` (Lane B, last run 2026-10-20); the poisoned listing (P4) *planned* |
+| LLM05 Improper output handling | Model output is text, never HTML: the API serves JSON, problem details and event streams, and the web renders Markdown with HTML skipped; structured output is validated against its schema before use, and an answer's citations are verified against the retrieved text | `apps/api/tests/security/test_no_html.py`; `apps/api/tests/generation/test_schema.py`, `test_verifier.py` |
+| LLM06 Excessive agency | None granted: no model has tools, writes, or reaches anything but its own prompt; the MCP server calls the public API with a visitor's limits | by construction (no tool definitions in `generation/llm.py`); the MCP server's tests once it merges (Lane D, held for allow) |
+| LLM07 System prompt leakage | The prompts are in the public repository and hold no secret, key or rule that is not also enforced in code (caps, quotas, tiers, redaction are all outside the model) | by construction; the Promptfoo run (P4) *planned* |
+| LLM08 Vector and embedding weaknesses | One index of public law, built only from the pinned corpus; tenant rows under forced row-level security; embeddings computed locally, so no text leaves for an embedding API | `apps/api/tests/security/test_isolation.py` |
+| LLM09 Misinformation | An answer cites the article it relies on or abstains; each citation's quote is verified in the retrieved text, and an unverified one withdraws the claim; the as-of date filters the law; the disclaimer wherever an answer appears; quality published with intervals and a nightly judged sample | `apps/api/tests/generation/test_verifier.py`, `test_abstain.py`; `/evals`; `apps/api/tests/security/test_online_eval.py` |
+| LLM10 Unbounded consumption | Edge rate limits, per-visitor daily quotas, output capped at 1,024 tokens, a law budget on long-context prompts, upload size and page limits, at most four lease checks at once, daily spend caps and the kill switch | the rows above under "Abuse and spend" |
+
+## What is not covered
+
+- **No formal penetration test, no SOC 2 or other certification.** The red team (P4) is automated and self-run.
+- **No high availability.** Production is one home machine; when it is down, the static site on Pages stays up and says so, and nothing fails over.
+- **No bot challenge.** The plan's Turnstile on `/api/ask` and `/api/check-lease` is not built: the edge rate limit, the daily quotas and the spend caps bound what a bot can cost, but not that it tries.
+- **Redaction is pattern and model based.** A name the models miss and the lease never gives as a party gets through; real uploads stay off until P2 merges.
+- **No off-machine backup yet.** A disk failure on MX3 loses the database with its dumps (`docs/runbook.md`, "Backups").
+- **No managed WAF rules.** The Free plan's managed rules only; no custom firewall rules beyond the rate limit.
+
 ## The kill switch, triggered by hand (2026-10-20)
 
 On the rehearsal stack (production Compose with scratch secrets, no tunnel), with the caps at Gemini US$0.30 and Anthropic US$1.00:
