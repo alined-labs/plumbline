@@ -5,8 +5,11 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from datetime import date
+from decimal import Decimal
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 from sqlalchemy.orm import Session, sessionmaker
 
 from plumbline.core.types import Jurisdiction
@@ -124,3 +127,18 @@ def test_the_law_source_reads_one_variant_in_force_in_order(
     assert [c.jurisdiction for c in everything] == [Jurisdiction.FLORIDA] * 3 + [
         Jurisdiction.SPAIN
     ] * 2
+
+
+@given(st.lists(st.decimals(min_value=1, max_value=999, places=3), min_size=2, max_size=12))
+def test_florida_section_numbers_sort_as_decimals(numbers: list[Decimal]) -> None:
+    sections = [f"83.{str(n).replace('.', '')}" for n in numbers]  # "83.425", "83.5", ...
+    by_key = sorted(sections, key=article_key)
+    assert by_key == sorted(sections, key=Decimal)
+
+
+@given(st.integers(1, 300), st.sampled_from(["bis", "ter", "quater"]))
+def test_a_suffixed_article_sits_after_its_number_and_before_the_next(
+    number: int, suffix: str
+) -> None:
+    order = sorted([f"{number + 1}", f"{number} {suffix}", f"{number}"], key=article_key)
+    assert order == [f"{number}", f"{number} {suffix}", f"{number + 1}"]
