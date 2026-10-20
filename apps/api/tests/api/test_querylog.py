@@ -11,12 +11,15 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from plumbline.api import answering
 from plumbline.api.app import create_app
 from plumbline.core.stream import AnswerPipeline, Question, StreamError, StreamEvent, TextDelta
 from plumbline.core.types import CacheMode
 from plumbline.db import make_engine, make_sessionmaker
 from plumbline.db.models import PUBLIC_TENANT, QueryRow
 from plumbline.db.session import tenant_session
+from plumbline.generation.pipeline import UNREADABLE
+from plumbline.security.killswitch import PIPELINE_ERROR, failing
 from plumbline.settings import Settings
 
 pytestmark = pytest.mark.anyio
@@ -94,3 +97,15 @@ async def test_the_answer_streams_even_when_the_row_cannot_be_written() -> None:
     engine = make_engine("postgresql+psycopg://plumbline:plumbline@127.0.0.1:1/none")
     await _ask(make_sessionmaker(engine))
     await engine.dispose()
+
+
+def test_only_an_escaped_exception_reads_as_a_refusing_provider() -> None:
+    # The kill switch (security/killswitch.py, #218) goes static after a run of answers whose
+    # recorded error ends with PIPELINE_ERROR: an exception that escaped the pipeline, such as
+    # a provider refusing a spent key. The API's own refusals record their sentence instead,
+    # and must never read that way, or reaching our own cap would look like a dead provider.
+    assert "RuntimeError in the pipeline".endswith(PIPELINE_ERROR)
+    for own in (answering.SPENT, answering.PAUSED, answering.TOO_MUCH_LAW, UNREADABLE):
+        assert not own.rstrip(".").endswith(PIPELINE_ERROR.strip())
+    assert not failing([answering.SPENT] * 3)
+    assert failing(["APIStatusError in the pipeline"] * 3)
