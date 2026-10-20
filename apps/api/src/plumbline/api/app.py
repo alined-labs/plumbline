@@ -19,6 +19,7 @@ from plumbline.api import (
     chunks,
     evals,
     health,
+    law,
     leases,
     problems,
     search,
@@ -47,6 +48,7 @@ ROUTERS: tuple[APIRouter, ...] = (
     chunks.router,
     leases.router,
     evals.router,
+    law.router,
 )
 
 

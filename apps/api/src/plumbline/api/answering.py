@@ -50,7 +50,10 @@ from plumbline.generation.router import (
     Upload,
 )
 from plumbline.generation.stub import StubPipeline
+from plumbline.ingest.upload import guess_language
+from plumbline.leases.check import check_clause
 from plumbline.leases.checker import LeaseEvent
+from plumbline.leases.schema import Finding
 from plumbline.leases.service import LeaseChecker as RealLeaseChecker
 from plumbline.retrieval.index import variant_key
 from plumbline.retrieval.jurisdiction import detect as detect_jurisdictions
@@ -190,6 +193,33 @@ class ClaudeLeaseChecker(RealLeaseChecker):
         served = ROUTES[SERVED_ROUTE]
         return Route(lease.name, served.model, served.provider)
 
+    async def clause(
+        self,
+        text: str,
+        route: Route,
+        *,
+        jurisdiction: Jurisdiction,
+        as_of: date | None,
+    ) -> Finding | None:
+        # As a whole lease is (leases/checker.py): redacted before any model sees it, in a
+        # worker thread, refused rather than sent unredacted.
+        language = guess_language(text)
+        upload = Upload(text=text, language=language, synthetic=False)
+        redacted = await asyncio.to_thread(self.redactor.redact, upload)
+        kwargs = {"cache": self.cache} if self.cache is not None else {}
+        client = MeteredClient(self.client_for_model(route.model, **kwargs), self.meter)
+        checked = await check_clause(
+            "1",
+            redacted,
+            language,
+            jurisdiction=jurisdiction,
+            search=self.search,
+            client=client,
+            as_of=as_of,
+            model=route.model,
+        )
+        return checked.finding
+
 
 class PausedLeaseChecker:
     """No search, no lease check: every start answers 503 lease_checks_paused."""
@@ -200,6 +230,11 @@ class PausedLeaseChecker:
     def stream(
         self, upload: Upload, route: Route, *, jurisdiction: Jurisdiction | None, as_of: date | None
     ) -> AsyncIterator[LeaseEvent]:
+        raise RouteRefused(PAUSED)
+
+    async def clause(
+        self, text: str, route: Route, *, jurisdiction: Jurisdiction, as_of: date | None
+    ) -> Finding | None:
         raise RouteRefused(PAUSED)
 
 
