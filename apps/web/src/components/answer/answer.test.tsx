@@ -4,6 +4,8 @@ import type { UIMessageChunk } from "ai";
 import type { ComponentProps } from "react";
 
 import { addStatus, finishRun, startRun } from "@/lib/run";
+import { mockArticle } from "@/test/article";
+import { QueryWrapper } from "@/test/query";
 import { messageFrom, stubChunks, stubChunksWith } from "@/test/stream";
 
 import { Answer as AnswerView } from "./answer";
@@ -12,11 +14,19 @@ import { PanelProvider } from "./panel-context";
 // The panel lives above the page, so every answer renders inside its provider.
 function Answer(props: ComponentProps<typeof AnswerView>) {
   return (
-    <PanelProvider>
-      <AnswerView {...props} />
-    </PanelProvider>
+    <QueryWrapper>
+      <PanelProvider>
+        <AnswerView {...props} />
+      </PanelProvider>
+    </QueryWrapper>
   );
 }
+
+// The open source asks the API for its article; these tests are not about it.
+beforeEach(() => {
+  mockArticle("pending");
+});
+afterEach(() => vi.restoreAllMocks());
 
 /** The stub's stream with its answer text replaced. */
 function withText(text: string): UIMessageChunk[] {
