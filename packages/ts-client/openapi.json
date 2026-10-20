@@ -556,6 +556,43 @@
         "title": "StreamError",
         "type": "object"
       },
+      "TierChange": {
+        "properties": {
+          "tier": {
+            "$ref": "#/components/schemas/DemoTier"
+          }
+        },
+        "required": [
+          "tier"
+        ],
+        "title": "TierChange",
+        "type": "object"
+      },
+      "TierState": {
+        "properties": {
+          "tier": {
+            "$ref": "#/components/schemas/DemoTier"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "tier",
+          "updated_at"
+        ],
+        "title": "TierState",
+        "type": "object"
+      },
       "TraceSummary": {
         "additionalProperties": false,
         "description": "What the answer cost and where it came from (the model-and-tier badge).",
@@ -960,6 +997,53 @@
         ]
       }
     },
+    "/api/admin/settings/tier": {
+      "put": {
+        "operationId": "put_tier_api_admin_settings_tier_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TierChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TierState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Put Tier",
+        "tags": [
+          "settings",
+          "admin"
+        ]
+      }
+    },
     "/api/ask": {
       "post": {
         "operationId": "ask_api_ask_post",
@@ -1019,6 +1103,27 @@
         "summary": "Health",
         "tags": [
           "ops"
+        ]
+      }
+    },
+    "/api/settings/tier": {
+      "get": {
+        "operationId": "get_tier_api_settings_tier_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TierState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Tier",
+        "tags": [
+          "settings"
         ]
       }
     }

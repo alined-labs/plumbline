@@ -58,6 +58,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/settings/tier": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put Tier */
+        put: operations["put_tier_api_admin_settings_tier_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ask": {
         parameters: {
             query?: never;
@@ -84,6 +101,23 @@ export interface paths {
         };
         /** Health */
         get: operations["health_api_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/tier": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Tier */
+        get: operations["get_tier_api_settings_tier_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -333,6 +367,16 @@ export interface components {
              */
             retryable: boolean;
         };
+        /** TierChange */
+        TierChange: {
+            tier: components["schemas"]["DemoTier"];
+        };
+        /** TierState */
+        TierState: {
+            tier: components["schemas"]["DemoTier"];
+            /** Updated At */
+            updated_at: string | null;
+        };
         /**
          * TraceSummary
          * @description What the answer cost and where it came from (the model-and-tier badge).
@@ -523,6 +567,39 @@ export interface operations {
             };
         };
     };
+    put_tier_api_admin_settings_tier_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TierChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TierState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     ask_api_ask_post: {
         parameters: {
             query?: never;
@@ -572,6 +649,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Health"];
+                };
+            };
+        };
+    };
+    get_tier_api_settings_tier_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TierState"];
                 };
             };
         };

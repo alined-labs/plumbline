@@ -12,6 +12,7 @@ from pydantic import ValidationError
 
 from plumbline.api.schemas import AskRequest, Health
 from plumbline.api.stream import HEADERS, ui_message_stream
+from plumbline.api.tier import tier_store
 from plumbline.core.stream import AnswerPipeline, Question
 from plumbline.settings import Settings
 
@@ -26,9 +27,8 @@ def _settings(request: Request) -> Settings:
 @router.get("/health", tags=["ops"])
 async def health(request: Request) -> Health:
     settings = _settings(request)
-    return Health(
-        version=version("plumbline"), tier=settings.demo_tier, cache_mode=settings.cache_mode
-    )
+    tier = await tier_store(request).current()
+    return Health(version=version("plumbline"), tier=tier, cache_mode=settings.cache_mode)
 
 
 @router.post(
@@ -43,7 +43,6 @@ async def health(request: Request) -> Health:
     },
 )
 async def ask(body: AskRequest, request: Request) -> StreamingResponse:
-    settings = _settings(request)
     request_id = f"req_{secrets.token_hex(8)}"
     try:
         question = Question(
@@ -51,7 +50,7 @@ async def ask(body: AskRequest, request: Request) -> StreamingResponse:
             as_of=body.as_of,
             jurisdictions=body.jurisdictions,
             request_id=request_id,
-            tier=settings.demo_tier,
+            tier=await tier_store(request).current(),
         )
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail="The question is empty or too long.") from exc
