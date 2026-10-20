@@ -4,6 +4,7 @@ A visitor is a random id in a signed, HttpOnly, SameSite=Lax cookie. Each questi
 against two daily counters, the visitor's and the IP address's, which expire at the next
 UTC midnight; past DAILY_QUESTIONS_PER_IP on either, /api/ask answers 429 with
 Retry-After set to that midnight, and the front end shows its quota-reached state.
+Lease checks are counted apart, at a tenth of that: a check is many model calls.
 
 - The cookie's signing secret is made once and kept in the settings table, so every
   worker, and the next process, accepts the cookies the others set.
@@ -21,7 +22,7 @@ import logging
 import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Final, Protocol
+from typing import Final, Literal, Protocol
 
 from fastapi import Request, Response
 from pydantic import BaseModel
@@ -42,6 +43,12 @@ log = logging.getLogger(__name__)
 COOKIE: Final = "plumbline_visitor"
 COOKIE_DAYS: Final = 365
 SIGNING_SETTING: Final = "visitor_cookie_secret"  # the settings row holding it
+LEASE_SHARE: Final = 10  # one lease check is allowed for every ten questions
+Kind = Literal["question", "lease"]
+WORDS: Final[dict[Kind, tuple[str, str]]] = {
+    "question": ("questions", "asking"),
+    "lease": ("lease checks", "checking"),
+}
 
 
 class Counter(Protocol):
@@ -104,36 +111,57 @@ class Quota:
         sessions: async_sessionmaker[AsyncSession],
         counter: Counter,
     ) -> None:
-        self._limit = settings.daily_questions_per_ip
+        self._limits: dict[Kind, int] = {
+            "question": settings.daily_questions_per_ip,
+            "lease": max(1, settings.daily_questions_per_ip // LEASE_SHARE),
+        }
         self._sessions = sessions
         self._counter = counter
         self._secret: bytes | None = None
 
-    async def admit(self, request: Request) -> Visitor:
-        """The visitor, after counting this question; 429 when it is one too many."""
+    async def visitor(self, request: Request) -> Visitor:
+        """The visitor the request's cookie names, or a new one with a cookie to set."""
+        return _visitor(request.cookies.get(COOKIE), await self._signing_secret())
+
+    async def owner(self, request: Request) -> str | None:
+        """The id in the request's cookie when we signed it; None for anyone else."""
+        return _valid_visitor(request.cookies.get(COOKIE), await self._signing_secret())
+
+    async def admit(
+        self,
+        request: Request,
+        kind: Kind = "question",
+        *,
+        visitor: Visitor | None = None,
+        count: bool = True,
+    ) -> Visitor:
+        """The visitor, after counting one more `kind`; 429 when it is one too many. With
+        count=False nothing is counted and the 429 is for a visitor who has none left."""
         secret = await self._signing_secret()
-        visitor = _visitor(request.cookies.get(COOKIE), secret)
+        known = visitor if visitor is not None else _visitor(request.cookies.get(COOKIE), secret)
         now = datetime.now(UTC)
         midnight = _next_midnight(now)
-        day = now.date().isoformat()
-        keys = [
-            f"quota:{day}:visitor:{visitor.id}",
-            f"quota:{day}:ip:{_sign(secret, _address(request))}",
-        ]
+        prefix = f"quota:{now.date().isoformat()}:" + ("lease:" if kind == "lease" else "")
+        keys = [f"{prefix}visitor:{known.id}", f"{prefix}ip:{_sign(secret, _address(request))}"]
+        noun, verb = WORDS[kind]
         try:
-            counts = [await self._counter.increment(key, midnight) for key in keys]
+            if count:
+                counts = [await self._counter.increment(key, midnight) for key in keys]
+            else:
+                counts = [await self._counter.get(key) + 1 for key in keys]
         except (RedisError, OSError) as exc:
-            log.warning("questions are not being counted: %s", exc)
-            return visitor
-        if max(counts) > self._limit:
+            log.warning("%s are not being counted: %s", noun, exc)
+            return known
+        limit = self._limits[kind]
+        if max(counts) > limit:
             retry_after = max(1, int((midnight - now).total_seconds()))
             raise ApiError(
                 429,
                 "quota_reached",
-                f"Today's {self._limit} questions are used up; asking opens again at 00:00 UTC.",
+                f"Today's {limit} {noun} are used up; {verb} opens again at 00:00 UTC.",
                 headers={"Retry-After": str(retry_after)},
             )
-        return visitor
+        return known
 
     async def usage(self, request: Request) -> Usage:
         """How many of today's questions this reader has used. Counts nothing and sets no
@@ -148,7 +176,7 @@ class Quota:
         except (RedisError, OSError) as exc:
             log.warning("the usage cannot be read: %s", exc)
             used = 0
-        return Usage(used=used, limit=self._limit, resets_at=_next_midnight(now))
+        return Usage(used=used, limit=self._limits["question"], resets_at=_next_midnight(now))
 
     async def _signing_secret(self) -> bytes:
         if self._secret is not None:
