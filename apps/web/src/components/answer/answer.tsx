@@ -2,9 +2,11 @@
 
 import { Fragment, useId, useMemo, useState, type ReactNode } from "react";
 
-import { CircleCheckIcon } from "@/components/icons";
+import { CheckIcon, CircleCheckIcon, CopyIcon } from "@/components/icons";
 import { Badge } from "@/components/ui/badge";
-import { answerView, type AnswerView } from "@/lib/answer";
+import { buttonClass } from "@/components/ui/button";
+import { Tip } from "@/components/ui/tip";
+import { answerAsText, answerView, type AnswerView } from "@/lib/answer";
 import type { PlumblineMessage } from "@/lib/messages";
 import { seconds, type Run } from "@/lib/run";
 
@@ -78,6 +80,7 @@ export function Answer({
           )}
         </>
       )}
+      {!streaming && !failure && view.summary && <AnswerActions view={view} />}
     </article>
   );
 }
@@ -145,6 +148,40 @@ function AnswerMeta({ view, run }: { view: AnswerView; run: Run | undefined }) {
           <StatusSteps run={run} />
         </div>
       )}
+    </div>
+  );
+}
+
+/** Answer spec, actions: copy the answer with its sources and the disclaimer. Feedback joins
+ * them when the API has a route to send it to. */
+function AnswerActions({ view }: { view: AnswerView }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(answerAsText(view));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // The browser refused the clipboard; the answer is still on the page to select.
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-0.5">
+      <Tip label={copied ? "Copied" : "Copy answer"}>
+        <button
+          type="button"
+          onClick={copy}
+          aria-label={copied ? "Answer copied" : "Copy answer"}
+          className={buttonClass({ variant: "ghost", size: "sm", icon: true })}
+        >
+          {copied ? <CheckIcon /> : <CopyIcon />}
+        </button>
+      </Tip>
+      <p aria-live="polite" className="sr-only">
+        {copied ? "Answer copied with its sources" : ""}
+      </p>
     </div>
   );
 }

@@ -121,4 +121,22 @@ describe("Answer", () => {
       "Searching 4 jurisdictions · 40 passages4.0 s",
     );
   });
+
+  it("copies the finished answer with its sources and the disclaimer", async () => {
+    const user = userEvent.setup();
+    render(<Answer message={await messageFrom(stubChunks())} />);
+    await user.click(screen.getByRole("button", { name: "Copy answer" }));
+    const copied = await navigator.clipboard.readText();
+    expect(copied).toContain("Plumbline seed [1].");
+    expect(copied).toContain(
+      '[1] Stub Act, s. 1: "This section exists only to exercise the interface."',
+    );
+    expect(copied).toContain("Legal information, not legal advice.");
+    expect(screen.getByRole("button", { name: "Answer copied" })).toBeInTheDocument();
+  });
+
+  it("offers no actions while the answer streams", async () => {
+    render(<Answer message={await messageFrom(stubChunks())} streaming />);
+    expect(screen.queryByRole("button", { name: "Copy answer" })).not.toBeInTheDocument();
+  });
 });
