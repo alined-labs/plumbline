@@ -120,7 +120,7 @@ async def spent(router: Router) -> bool:
     """Whether SERVED_ROUTE's provider has spent its daily cap. The API checks before every
     live answer and lease check, so the cap holds on its own; the kill switch (P5) reads the
     same counters and lowers the tier for the site as a whole. A call already running when
-    the cap is crossed finishes, so a day can end at most one answer over."""
+    the cap is crossed finishes, so a day can end over the cap by every call then in flight."""
     provider = ROUTES[SERVED_ROUTE].provider
     return await router.meter.spent_today(provider) >= router.caps.get(provider, 0.0)
 
