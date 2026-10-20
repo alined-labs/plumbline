@@ -29,6 +29,17 @@ for (const { path, heading, current } of pages) {
   });
 }
 
+test("an unknown address gets the not-found page, with a way back", async ({ page }) => {
+  const response = await page.goto("/no-such-page/");
+  expect(response?.status()).toBe(404);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "There's no page at this address",
+  );
+  await expectNoAxeViolations(page);
+  await page.getByRole("link", { name: "Ask a question" }).click();
+  await expect(page).toHaveURL("/");
+});
+
 test("the footer dates the law for each jurisdiction, in order", async ({ page }) => {
   await page.goto("/about/");
   const dates = page.getByRole("region", { name: "Statutes indexed" });
