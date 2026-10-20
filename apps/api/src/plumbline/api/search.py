@@ -5,6 +5,11 @@ evaluation can see why a passage was or was not found.
 It runs the same steps the answer pipeline runs (search `rerank_candidates` when the
 configuration reranks, else `top_k`; rerank the candidates' text_for_search; cut with
 generation.pipeline.reorder), so the scores it shows are the ones an answer would use.
+The date follows the pipeline too: the question's `as_of` reaches the search only when the
+configuration filters by date, and the search always reads the law in force on one day, that
+date or today (UTC). The result names that day (`law_date`), and each hit's chunk carries its
+own validity (status, effective_from, effective_to, validity_note), so an evaluation can see
+why a provision in force on another day was left out.
 
 It returns whole chunks, fetch-only sources included, so it takes the admin token and does
 not exist while none is set. Retrieval itself is Lane A's: the app is given a factory that
@@ -26,6 +31,7 @@ from plumbline.api.admin import require_admin
 from plumbline.core.config import EvalConfig, load_config
 from plumbline.core.types import Jurisdiction, Retrieved
 from plumbline.generation.pipeline import ChunkSearch, Reranker, reorder
+from plumbline.generation.router import utc_today
 from plumbline.settings import ROOT, Settings
 
 router = APIRouter(prefix="/api", tags=["admin"], dependencies=[Depends(require_admin)])
@@ -53,7 +59,9 @@ class SearchResult(BaseModel):
     config_hash: str
     k: int
     jurisdictions: list[Jurisdiction]
-    as_of: date | None
+    as_of: date | None  # the date asked for
+    as_of_filter: bool  # whether the configuration searches the law as of the asked date
+    law_date: date  # the day whose law was searched: as_of when filtered, else today (UTC)
     candidates: int  # what search returned before the reranker cut it to k
     timings_ms: dict[str, float]
     hits: list[Retrieved]
@@ -80,6 +88,8 @@ async def search(
     cut = k or chosen.retrieval.top_k
     reranker = retrieval.reranker
     timings: dict[str, float] = {}
+    # As the pipeline does: a configuration without the as-of filter searches today's law.
+    searched_as_of = as_of if chosen.retrieval.as_of_filter else None
 
     started = time.perf_counter()
     found = await asyncio.to_thread(
@@ -87,7 +97,7 @@ async def search(
         q,
         k=chosen.retrieval.rerank_candidates if reranker else cut,
         jurisdictions=jurisdictions or None,
-        as_of=as_of,
+        as_of=searched_as_of,
     )
     timings["search"] = _since(started)
     candidates = len(found)
@@ -105,6 +115,8 @@ async def search(
         k=cut,
         jurisdictions=jurisdictions or [],
         as_of=as_of,
+        as_of_filter=chosen.retrieval.as_of_filter,
+        law_date=searched_as_of or utc_today(),
         candidates=candidates,
         timings_ms=timings,
         hits=found[:cut],

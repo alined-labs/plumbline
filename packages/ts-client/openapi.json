@@ -1492,6 +1492,10 @@
             ],
             "title": "As Of"
           },
+          "as_of_filter": {
+            "title": "As Of Filter",
+            "type": "boolean"
+          },
           "candidates": {
             "title": "Candidates",
             "type": "integer"
@@ -1522,6 +1526,11 @@
             "title": "K",
             "type": "integer"
           },
+          "law_date": {
+            "format": "date",
+            "title": "Law Date",
+            "type": "string"
+          },
           "query": {
             "title": "Query",
             "type": "string"
@@ -1541,6 +1550,8 @@
           "k",
           "jurisdictions",
           "as_of",
+          "as_of_filter",
+          "law_date",
           "candidates",
           "timings_ms",
           "hits"
@@ -3119,6 +3130,7 @@
                     "summary": "What retrieval finds for a question, with every score",
                     "value": {
                       "as_of": "2026-10-20",
+                      "as_of_filter": true,
                       "candidates": 20,
                       "config": "A2",
                       "config_hash": "5b405538b487",
@@ -3168,6 +3180,7 @@
                         "florida"
                       ],
                       "k": 1,
+                      "law_date": "2026-10-20",
                       "query": "How long does a Florida landlord have to return a security deposit?",
                       "timings_ms": {
                         "search": 84.0
