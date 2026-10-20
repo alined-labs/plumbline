@@ -373,6 +373,8 @@ export interface components {
             article: components["schemas"]["PublishedArticle"];
             /** Chunk Id */
             chunk_id: string;
+            /** Restricted */
+            restricted: boolean;
             source: components["schemas"]["SourceLink"] | null;
             span: components["schemas"]["Span"] | null;
         };
@@ -1219,7 +1221,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The page as a PNG; a labelled placeholder when the source is not on this server. */
+            /** @description The page as a PNG; a labelled placeholder when the source is not on this server or its terms forbid republishing it. */
             200: {
                 headers: {
                     [name: string]: unknown;

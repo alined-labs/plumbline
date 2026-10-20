@@ -407,6 +407,10 @@
             "title": "Chunk Id",
             "type": "string"
           },
+          "restricted": {
+            "title": "Restricted",
+            "type": "boolean"
+          },
           "source": {
             "anyOf": [
               {
@@ -432,7 +436,8 @@
           "chunk_id",
           "article",
           "span",
-          "source"
+          "source",
+          "restricted"
         ],
         "title": "ChunkArticle",
         "type": "object"
@@ -2270,7 +2275,7 @@
                 }
               }
             },
-            "description": "The page as a PNG; a labelled placeholder when the source is not on this server."
+            "description": "The page as a PNG; a labelled placeholder when the source is not on this server or its terms forbid republishing it."
           },
           "422": {
             "content": {

@@ -5,8 +5,9 @@
 
 Boxes are fractions of the page from its top left, so the browser draws them over a render
 at any scale. An unknown source or page is 404, and so is a source without pages (HTML or
-XML). A fetch-only source this machine has not fetched (make fetch) gets a labelled
-placeholder image and no boxes. Renders stay in a small LRU cache.
+XML). A source whose terms forbid republishing it (api/restricted.py), and a fetch-only
+source this machine has not fetched (make fetch), get a labelled placeholder image and no
+boxes: a page is the whole of the publisher's text. Renders stay in a small LRU cache.
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ from fastapi import APIRouter, HTTPException, Query, Request, Response
 from fastapi import Path as PathParam
 from pydantic import BaseModel, Field
 
+from plumbline.api.restricted import is_restricted
 from plumbline.corpus.manifest import Manifest, Source
 from plumbline.ingest.render import (
     PDFIUM_LOCK,
@@ -71,6 +73,8 @@ class Corpus:
             raise HTTPException(status_code=404, detail="No such source.")
         if source.format != "pdf":
             raise HTTPException(status_code=404, detail="This source has no pages.")
+        if is_restricted(source):
+            return source, None  # its pages are not shown, so its file is not even read
         with self._lock:
             if source_id not in self._files:
                 path = self._root / source.path
@@ -119,13 +123,19 @@ def _corpus(request: Request) -> Corpus:
     return corpus
 
 
+def _why_not(source: Source) -> str:
+    if is_restricted(source):
+        return f"Not shown: the publisher's terms do not let us republish {source.title}"
+    return f"Not on this server: {source.title} (make fetch)"
+
+
 @router.get(
     "/{source_id}/pages/{n}.png",
     response_class=Response,
     responses={
         200: {
             "description": "The page as a PNG; a labelled placeholder when the source is not on"
-            " this server.",
+            " this server or its terms forbid republishing it.",
             "content": {"image/png": {"schema": {"type": "string", "format": "binary"}}},
         }
     },
@@ -135,7 +145,7 @@ def page_image(request: Request, source_id: str, n: Page, scale: Scale = 1) -> R
     source, data = corpus.pdf(source_id)
     if data is None:
         with PDFIUM_LOCK:
-            png = placeholder_png(f"Not on this server: {source.title} (make fetch)", DPI[scale])
+            png = placeholder_png(_why_not(source), DPI[scale])
         return Response(png, media_type="image/png", headers={"Cache-Control": "no-store"})
     png = corpus.render(source_id, data, n, DPI[scale])
     # A page image changes only with its file, so the file's hash makes a lasting ETag.

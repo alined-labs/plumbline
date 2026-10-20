@@ -9,7 +9,7 @@ import httpx
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from plumbline.api import chunks
+from plumbline.api import chunks, restricted
 from plumbline.api.app import create_app
 from plumbline.api.chunks import Span, find_span
 from plumbline.core.types import CacheMode
@@ -75,6 +75,7 @@ async def article(database_url: str) -> AsyncIterator[tuple[Sessions, str]]:
                     text=ARTICLE,
                     text_for_search=ARTICLE,
                     heading="Plazo mínimo",
+                    validity_note="An editor's note on the article.",
                     **common,
                 )
             )
@@ -138,6 +139,60 @@ async def test_a_paragraph_citation_opens_its_whole_article(
     }
     assert ARTICLE[body["span"]["start"] : body["span"]["end"]] == "pactada\npor las partes"
     assert body["source"]["title"] == "Ley de Arrendamientos Urbanos"
+    assert body["restricted"] is False
+    assert body["article"]["heading"] == "Plazo mínimo"
+    assert body["article"]["validity_note"] == "An editor's note on the article."
+
+
+def _licensed(key: str) -> Source:
+    return Source.model_validate(
+        {
+            "id": f"es-lau-{key}",
+            "law": "es-lau",
+            "title": "A law whose terms forbid republishing it",
+            "jurisdiction": "dubai",
+            "language": "es",
+            "url": "https://example.org/law",
+            "edition": "boe-2026-10-13",
+            "retrieved_on": "2026-10-13",
+            "sha256": "0" * 64,
+            "format": "pdf",
+            "license_basis": "test",
+            "committed": False,
+            "path": "data/corpus/fetched/law.pdf",
+        }
+    )
+
+
+@pytest.mark.db
+@pytest.mark.anyio
+async def test_a_source_whose_terms_forbid_republishing_it_shows_only_the_quote(
+    api: httpx.AsyncClient, article: tuple[Sessions, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, key = article
+    monkeypatch.setattr(chunks, "_sources", lambda: {f"es-lau-{key}": _licensed(key)})
+    body = (
+        await api.get(f"/api/chunks/a9-1-{key}", params={"quote": "libremente pactada por las"})
+    ).json()
+    quoted = body["article"]["text"]
+    assert quoted == "libremente pactada\npor las"  # the passage as the article words it
+    assert (body["span"], body["restricted"]) == ({"start": 0, "end": len(quoted)}, True)
+    assert (body["article"]["heading"], body["article"]["validity_note"]) == (None, None)
+    assert body["article"]["label"] == "LAU art. 9"  # a reference, not the publisher's text
+    assert "Se entenderán" not in str(body)  # nothing else of the article got out
+
+    unquoted = (await api.get(f"/api/chunks/a9-{key}")).json()
+    assert (unquoted["article"]["text"], unquoted["span"], unquoted["restricted"]) == (
+        "",
+        None,
+        True,
+    )
+    missing = (await api.get(f"/api/chunks/a9-{key}", params={"quote": "not in it"})).json()
+    assert (missing["article"]["text"], missing["span"]) == ("", None)
+
+    monkeypatch.setattr(restricted, "SHOW_IN_FULL", True)  # with the publisher's consent
+    full = (await api.get(f"/api/chunks/a9-{key}")).json()
+    assert (full["article"]["text"], full["restricted"]) == (ARTICLE, False)
 
 
 @pytest.mark.db

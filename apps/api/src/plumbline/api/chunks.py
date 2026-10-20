@@ -7,6 +7,10 @@ when it is one, else its parent. Every variant of a chunk shares its text and it
 
 The span is found ignoring case and whitespace, so a quote whose line breaks differ from
 the article's is still found, and is given in characters of the article's own text.
+
+A source whose terms forbid republishing it (api/restricted.py) is shown only as the quoted
+passage: `text` is the passage, the heading and the editor's note are left out, `span` covers
+the passage, and `restricted` says so, so the panel can say why there is no more.
 """
 
 from __future__ import annotations
@@ -20,6 +24,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from plumbline.api.restricted import is_restricted
 from plumbline.core.types import ArticleRef, Jurisdiction, Language, ProvisionStatus
 from plumbline.corpus.manifest import Source, load_manifest
 from plumbline.db.models import PUBLIC_TENANT, ChunkRow
@@ -57,6 +62,7 @@ class ChunkArticle(BaseModel):
     article: PublishedArticle
     span: Span | None  # where the quote is in article.text; None when it is not there
     source: SourceLink | None  # None for a document outside the manifest
+    restricted: bool  # True: article.text is only the quoted passage (the source's terms)
 
 
 def find_span(text: str, quote: str) -> Span | None:
@@ -103,6 +109,12 @@ async def chunk_article(
             parent = await session.get(ChunkRow, (chunk.variant, chunk.parent_id))
             article = parent or chunk
     source = _sources().get(article.document_id)
+    restricted = is_restricted(source)
+    text = article.text
+    span = find_span(text, quote) if quote else None
+    if restricted:
+        text = text[span.start : span.end] if span else ""
+        span = Span(start=0, end=len(text)) if span else None
     return ChunkArticle(
         chunk_id=chunk_id,
         article=PublishedArticle(
@@ -113,17 +125,18 @@ async def chunk_article(
                 edition=article.edition,
             ),
             label=article.label,
-            heading=article.heading,
-            text=article.text,
+            heading=None if restricted else article.heading,
+            text=text,
             language=Language(article.language),
             page=article.page,
             status=ProvisionStatus(article.status),
-            validity_note=article.validity_note,
+            validity_note=None if restricted else article.validity_note,
             effective_from=article.effective_from,
             effective_to=article.effective_to,
         ),
-        span=find_span(article.text, quote) if quote else None,
+        span=span,
         source=SourceLink(id=source.id, title=source.title, url=str(source.url))
         if source
         else None,
+        restricted=restricted,
     )
