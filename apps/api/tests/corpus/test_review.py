@@ -5,7 +5,7 @@ import pytest
 
 from plumbline.corpus.leases import load_expected
 from plumbline.corpus.manifest import load_manifest
-from plumbline.corpus.review import main, render_item
+from plumbline.corpus.review import main, render_item, select
 from plumbline.settings import ROOT
 from rag_eval.schema import GoldenItem, load_golden
 
@@ -99,3 +99,36 @@ def test_a_golden_file_path_may_be_anywhere(tmp_path: Path) -> None:
     copy = tmp_path / "golden_copy.jsonl"
     copy.write_text(DRAFTS.read_text(encoding="utf-8"), encoding="utf-8")
     assert main([str(copy), "--item", "oos-0002"]) == 0
+
+
+def test_items_can_be_picked_by_id_prefix_and_category() -> None:
+    drafts = load_golden(DRAFTS)
+    assert {draft.id[:3] for draft in select(drafts, prefixes=["du-"])} == {"du-"}
+    assert len(select(drafts, prefixes=["du-"])) == 10
+    named = select(drafts, ids=["fl-0001"], prefixes=["xj-"])
+    assert next(draft.id for draft in named) == "fl-0001"
+    assert {draft.id[:3] for draft in named} == {"fl-", "xj-"}
+    leases = select(drafts, categories=["lease_check"])
+    assert len(leases) == 9
+    assert {draft.id for draft in select(drafts, prefixes=["du-"], categories=["lease_check"])} == {
+        "du-0009",
+        "du-0010",
+    }
+    assert len(select(drafts)) == len(drafts)
+
+
+def test_the_command_lists_items_and_refuses_a_filter_that_matches_none(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert main([str(DRAFTS), "--prefix", "oos-", "--list"]) == 0
+    lines = capsys.readouterr().out.splitlines()
+    assert len(lines) == 8
+    assert lines[0].startswith("oos-0001  out_of_scope")
+    assert (
+        main([str(DRAFTS), "--prefix", "du-", "--category", "single_article", "--chars", "50"]) == 0
+    )
+    printed = capsys.readouterr().out
+    assert "## du-0001" in printed
+    assert "## du-0004" not in printed  # a multi-article item
+    assert main([str(DRAFTS), "--prefix", "zz-"]) == 1
+    assert "no item matches" in capsys.readouterr().err

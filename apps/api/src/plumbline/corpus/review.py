@@ -3,6 +3,8 @@ so the reviewer reads the claim and the statute together instead of looking each
 
     uv run python -m plumbline.corpus.review data/golden/drafts/golden_v0.jsonl
     uv run python -m plumbline.corpus.review FILE --item es-0008 --item fl-0001 --chars 0
+    uv run python -m plumbline.corpus.review FILE --prefix du- --category lease_check
+    uv run python -m plumbline.corpus.review FILE --list
 
 The sheet is Markdown on stdout. It quotes statute text, including Dubai's and Colombia's,
 whose licences do not allow redistribution: it is for the reviewer's own reading, so do not
@@ -22,7 +24,7 @@ from plumbline.corpus.leases import ExpectedFindings, load_expected
 from plumbline.corpus.manifest import MANIFEST, Manifest, Source, load_manifest
 from plumbline.corpus.refs import article_exists, article_text, paragraph_text
 from plumbline.settings import ROOT
-from rag_eval.schema import ArticleRef, GoldenItem, load_golden
+from rag_eval.schema import ArticleRef, Category, GoldenItem, load_golden
 
 
 def render_item(
@@ -111,6 +113,22 @@ def _findings(item: GoldenItem, expected: ExpectedFindings) -> list[str]:
     return lines
 
 
+def select(
+    items: Sequence[GoldenItem],
+    ids: Sequence[str] = (),
+    prefixes: Sequence[str] = (),
+    categories: Sequence[str] = (),
+) -> list[GoldenItem]:
+    """The items to read: those named by id or by an id prefix (all of them when neither is
+    given), narrowed to the categories asked for."""
+    chosen = list(items)
+    if ids or prefixes:
+        chosen = [item for item in chosen if item.id in ids or item.id.startswith(tuple(prefixes))]
+    if categories:
+        chosen = [item for item in chosen if item.category.value in categories]
+    return chosen
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m plumbline.corpus.review",
@@ -118,6 +136,22 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("file", type=Path, help="a golden JSONL file")
     parser.add_argument("--item", action="append", default=[], metavar="ID", help="only this item")
+    parser.add_argument(
+        "--prefix",
+        action="append",
+        default=[],
+        metavar="PREFIX",
+        help="only items whose id starts with PREFIX, such as du- or xj-",
+    )
+    parser.add_argument(
+        "--category",
+        action="append",
+        default=[],
+        choices=[category.value for category in Category],
+        metavar="NAME",
+        help="only items of this category",
+    )
+    parser.add_argument("--list", action="store_true", help="one line per item, not the sheet")
     parser.add_argument(
         "--chars", type=int, default=600, help="how much of each article to show; 0 for all"
     )
@@ -127,13 +161,22 @@ def main(argv: Sequence[str] | None = None) -> int:
     if unknown:
         print(f"{args.file}: no item {', '.join(unknown)}", file=sys.stderr)
         return 1
+    chosen = select(items, args.item, args.prefix, args.category)
+    if not chosen:
+        print(f"{args.file}: no item matches", file=sys.stderr)
+        return 1
+    if args.list:
+        for item in chosen:
+            print(
+                f"{item.id}  {item.category.value:<18} {item.difficulty.value:<6} {item.question}"
+            )
+        return 0
     manifest = load_manifest(MANIFEST)
     expected_file = ROOT / "data" / "leases" / "expected_findings.json"
     expected = load_expected(expected_file) if expected_file.is_file() else None
     print(f"# Review sheet for {args.file.name}\n")
-    for item in items:
-        if not args.item or item.id in args.item:
-            print(render_item(item, manifest, expected, ROOT, args.chars))
+    for item in chosen:
+        print(render_item(item, manifest, expected, ROOT, args.chars))
     return 0
 
 
