@@ -31,4 +31,14 @@ describe("ErrorState", () => {
     );
     expect(screen.getByRole("button", { name: "Error ID copied" })).toBeInTheDocument();
   });
+
+  it("sits under a page's own h1 as an h2, and words its one action as asked", () => {
+    render(
+      <ErrorState {...props} headingLevel={2} retryLabel="Choose another file" onRetry={vi.fn()} />,
+    );
+    expect(screen.getByRole("heading", { level: 2, name: props.title })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Choose another file" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
+  });
 });

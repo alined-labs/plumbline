@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
 
@@ -21,18 +21,39 @@ type FormInput = z.input<typeof uploadSchema>;
 export function UploadForm({
   onSubmit,
   disabled = false,
+  initial,
+  focusJurisdiction = false,
 }: {
   onSubmit: (values: UploadValues) => void;
   disabled?: boolean;
+  /** What the reader had chosen before a failure sent them back here. */
+  initial?: Partial<UploadValues>;
+  /** Puts the cursor on the jurisdiction, when that is what the reader has to fix. */
+  focusJurisdiction?: boolean;
 }) {
   const fileMessage = useId();
-  const { register, handleSubmit, formState, setValue, resetField, setError, clearErrors } =
-    useForm<FormInput, unknown, UploadValues>({
-      resolver: zodResolver(uploadSchema),
-      defaultValues: { file: undefined, jurisdiction: "", signedOn: "" },
-    });
+  const {
+    register,
+    handleSubmit,
+    formState,
+    setValue,
+    resetField,
+    setError,
+    clearErrors,
+    setFocus,
+  } = useForm<FormInput, unknown, UploadValues>({
+    resolver: zodResolver(uploadSchema),
+    defaultValues: {
+      file: initial?.file,
+      jurisdiction: initial?.jurisdiction ?? "",
+      signedOn: initial?.signedOn ?? "",
+    },
+  });
   // What the form shows. The value for the submit lives in the form too, set beside it.
-  const [file, setFile] = useState<File>();
+  const [file, setFile] = useState<File | undefined>(initial?.file);
+  useEffect(() => {
+    if (focusJurisdiction) setFocus("jurisdiction");
+  }, [focusJurisdiction, setFocus]);
 
   // The type and size are checked on the spot, so a refused file never shows as chosen, not
   // even for a frame. It is the same schema the submit runs, so the messages agree.

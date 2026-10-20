@@ -15,6 +15,8 @@ export function ErrorState({
   errorId,
   at,
   onRetry,
+  retryLabel = "Try again",
+  headingLevel = 1,
 }: {
   title: string;
   lead: string;
@@ -22,7 +24,12 @@ export function ErrorState({
   errorId: string;
   at: Date;
   onRetry?: () => void;
+  /** The action's words when "Try again" is not what it does ("Choose another file"). */
+  retryLabel?: string;
+  /** 2 when the page around it already has its h1. */
+  headingLevel?: 1 | 2;
 }) {
+  const Heading = headingLevel === 1 ? "h1" : "h2";
   const [copied, setCopied] = useState(false);
   const stamp = `err ${errorId} · ${formatDateTime(at)}`;
 
@@ -43,7 +50,7 @@ export function ErrorState({
       <span className="flex size-10 items-center justify-center rounded-full bg-danger-bg text-danger">
         <OctagonAlertIcon size={20} />
       </span>
-      <h1 className="text-heading-2">{title}</h1>
+      <Heading className="text-heading-2">{title}</Heading>
       <p className="text-body text-fg-muted">
         <strong className="font-semibold text-fg">{lead}</strong>
         {body && ` ${body}`}
@@ -52,7 +59,7 @@ export function ErrorState({
         {onRetry && (
           <button type="button" onClick={onRetry} className={buttonClass({ variant: "primary" })}>
             <RotateCwIcon />
-            Try again
+            {retryLabel}
           </button>
         )}
         <button type="button" onClick={copy} className={buttonClass()}>

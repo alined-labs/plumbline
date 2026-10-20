@@ -1,5 +1,5 @@
 import { FAILURE_CODES, LeaseFailure } from "./lease-check";
-import { failureCopy, isStateNotice } from "./lease-failures";
+import { failureCopy, showsOnForm } from "./lease-failures";
 
 const now = new Date("2026-10-19T21:48:00Z");
 
@@ -50,10 +50,11 @@ describe("failureCopy", () => {
   });
 });
 
-describe("isStateNotice", () => {
-  it("is true for the demo's own limits, which are a state and not a broken page", () => {
-    expect(isStateNotice(new LeaseFailure("quota_reached", "x"))).toBe(true);
-    expect(isStateNotice(new LeaseFailure("lease_checks_paused", "x"))).toBe(true);
-    expect(isStateNotice(new LeaseFailure("timed_out", "x"))).toBe(false);
+describe("showsOnForm", () => {
+  it("is true for the demo's own limits and a missing jurisdiction, not for a broken check", () => {
+    expect(showsOnForm(new LeaseFailure("quota_reached", "x"))).toBe(true);
+    expect(showsOnForm(new LeaseFailure("lease_checks_paused", "x"))).toBe(true);
+    expect(showsOnForm(new LeaseFailure("jurisdiction_unknown", "x"))).toBe(true);
+    expect(showsOnForm(new LeaseFailure("timed_out", "x"))).toBe(false);
   });
 });
