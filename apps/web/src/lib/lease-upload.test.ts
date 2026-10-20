@@ -46,7 +46,7 @@ describe("uploadSchema", () => {
       "This file is empty: choose a lease with text in it",
     ]);
     expect(messages({ file: pdf("lease.pdf", MAX_LEASE_BYTES + 1), ...filters })).toEqual([
-      "Choose a file of 20 MB or less",
+      "Choose a file of 10 MB or less",
     ]);
   });
 

@@ -2,8 +2,10 @@ import { z } from "zod";
 
 import { JURISDICTION_IDS } from "./jurisdictions";
 
-/** The API's upload limit, and what the dropzone says it takes ("PDF or DOCX, up to 20 MB"). */
-export const MAX_LEASE_BYTES = 20 * 1024 * 1024;
+/** The API's upload limit (MAX_BYTES in ingest/upload.py), which the dropzone and the schema
+ * both say. The Dropzone spec's example reads 20 MB; the server's number is the one to state. */
+export const MAX_LEASE_MB = 10;
+export const MAX_LEASE_BYTES = MAX_LEASE_MB * 1024 * 1024;
 
 const PDF = "application/pdf";
 const DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -34,7 +36,7 @@ export const uploadSchema = z.object({
     .instanceof(File, { error: "Choose a lease to check" })
     .refine(isLeaseFile, "Upload a PDF or DOCX file")
     .refine((file) => file.size > 0, "This file is empty: choose a lease with text in it")
-    .refine((file) => file.size <= MAX_LEASE_BYTES, "Choose a file of 20 MB or less"),
+    .refine((file) => file.size <= MAX_LEASE_BYTES, `Choose a file of ${MAX_LEASE_MB} MB or less`),
   // Empty: the checker reads the jurisdiction from the lease.
   jurisdiction: z.union([z.literal(""), z.enum(JURISDICTION_IDS)]),
   // Empty: the checker does not assume a signing date.
