@@ -6,6 +6,7 @@ import json
 import secrets
 from collections.abc import AsyncIterator, Sequence
 from datetime import date
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -41,7 +42,13 @@ from plumbline.generation.llm import (
     LLMResult,
     Usage,
 )
-from plumbline.generation.pipeline import THINKING_ROOM, UNREADABLE, Pipeline, reorder
+from plumbline.generation.pipeline import (
+    THINKING_ROOM,
+    UNREADABLE,
+    Pipeline,
+    marked_sources,
+    reorder,
+)
 from plumbline.observability.tracing import Tracer
 from plumbline.settings import ROOT
 
@@ -487,3 +494,46 @@ def test_a_pipeline_needs_the_source_its_configuration_reads() -> None:
             indexed={FLORIDA},
             client=Model(""),
         )
+
+
+FORFEIT_QUOTE = "forfeits the right to impose a claim upon the security deposit"
+
+
+def test_markers_counted_as_footnotes_find_their_sources_by_chunk_id() -> None:
+    # Claude, given many sources, numbers its markers [1], [2] in the order it cites them:
+    # here [1] is source 2 ("forfeit") and [2] is source 1 ("return").
+    footnoted = reply(
+        answer="The landlord forfeits the claim [1] and must return the deposit [2].",
+        citations=[
+            {"n": 1, "chunk_id": "forfeit", "quote": FORFEIT_QUOTE, "gloss": None},
+            {"n": 2, "chunk_id": "return", "quote": QUOTE, "gloss": None},
+        ],
+    )
+    p = Pipeline(
+        lc_config(),
+        law=Law(),
+        detect=florida,
+        reranker=None,
+        indexed={FLORIDA},
+        client=Model(footnoted),
+    )
+    evs = events(p)
+    cited = [e for e in evs if isinstance(e, Citation)]
+    assert [(c.n, c.chunk_id, c.verified) for c in cited] == [
+        (1, "forfeit", True),
+        (2, "return", True),
+    ]
+    summary = evs[-2]
+    assert isinstance(summary, AnswerSummary)
+    assert summary.status is AnswerStatus.ANSWERED
+
+
+def test_marked_sources_keep_a_markers_first_chunk() -> None:
+    numbered = {i: hit.chunk for i, hit in enumerate(HITS, 1)}
+    cited = [
+        SimpleNamespace(n=1, chunk_id="forfeit"),
+        SimpleNamespace(n=1, chunk_id="return"),  # [1] reused for another chunk
+        SimpleNamespace(n=2, chunk_id="nowhere"),  # an id no source has
+    ]
+    marked = marked_sources(cited, numbered)  # type: ignore[arg-type]
+    assert {n: c.id for n, c in marked.items()} == {1: "forfeit"}

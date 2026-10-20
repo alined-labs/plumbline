@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from collections.abc import AsyncIterator, Callable, Collection, Iterator, Sequence
+from collections.abc import AsyncIterator, Callable, Collection, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import date
@@ -63,7 +63,7 @@ from plumbline.generation.llm import (
 )
 from plumbline.generation.prompt import build_prompt
 from plumbline.generation.schema import GeneratedAnswer, answer_json_schema
-from plumbline.generation.verifier import verify
+from plumbline.generation.verifier import CitedSpan, verify
 from plumbline.retrieval.jurisdiction import detect as detect_jurisdictions
 
 MODELS: Final = {"fast": FAST_MODEL, "strong": STRONG_MODEL, "premium": PREMIUM_MODEL}
@@ -277,8 +277,8 @@ class Pipeline:
 
         yield StatusEvent(stage=Stage.VERIFYING)
         with _timer(run, "verify"):
-            sources = {n: r.chunk for n, r in enumerate(run.retrieved, start=1)}
-            checked = verify(generated.citations, sources)
+            numbered = {n: r.chunk for n, r in enumerate(run.retrieved, start=1)}
+            checked = verify(generated.citations, marked_sources(generated.citations, numbered))
             missing = missing_jurisdictions(asked, self.indexed)
             decision = after_generation(
                 generated.status, generated.abstain_reason, len(checked.verified), missing
@@ -314,6 +314,28 @@ class Pipeline:
             cost_usd=result.cost_usd if result else 0.0,
             cached=result.cached if result else True,  # no model call: nothing went live
         )
+
+
+def marked_sources(
+    citations: Sequence[CitedSpan], numbered: Mapping[int, Chunk]
+) -> dict[int, Chunk]:
+    """The source each of the answer's [n] markers names, found by the chunk id its
+    citation copies from the source's id attribute, not by the number.
+
+    The number is the answer's marker. Gemini numbers its markers by the sources' order;
+    Claude, given a whole law (43 numbered articles), counts them as its own footnotes, [1]
+    and [2] for sources 14 and 2, and looking those up by number dropped every correct
+    quote (measured on 2026-10-20). The chunk id cannot be guessed, only copied, and the
+    quote is still checked against that chunk's own text. A marker keeps the chunk its first
+    citation names, so a later citation reusing the marker for another chunk still fails
+    the verifier's check that the chunk is the marker's.
+    """
+    by_id = {chunk.id: chunk for chunk in numbered.values()}
+    marked: dict[int, Chunk] = {}
+    for cited in citations:
+        if cited.n not in marked and cited.chunk_id in by_id:
+            marked[cited.n] = by_id[cited.chunk_id]
+    return marked
 
 
 @contextmanager

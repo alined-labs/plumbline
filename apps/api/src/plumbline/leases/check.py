@@ -22,7 +22,7 @@ from pydantic import Field
 
 from plumbline.core.types import Frozen, Jurisdiction, Language, Retrieved
 from plumbline.generation.llm import STRONG_MODEL, LLMClient, LLMRequest, Message
-from plumbline.generation.pipeline import ChunkSearch
+from plumbline.generation.pipeline import ChunkSearch, marked_sources
 from plumbline.generation.prompt import defuse, render_source
 from plumbline.generation.schema import GeneratedCitation, portable_schema
 from plumbline.generation.verifier import verify
@@ -116,8 +116,8 @@ async def check_clause(
     # Not addressed by this law, or relevant but with nothing to show: no finding.
     if not assessment.relevant or not assessment.title.strip() or not assessment.why.strip():
         return outcome(None)
-    sources = {i: r.chunk for i, r in enumerate(retrieved, start=1)}
-    checked = verify(assessment.citations, sources)
+    numbered = {i: r.chunk for i, r in enumerate(retrieved, start=1)}
+    checked = verify(assessment.citations, marked_sources(assessment.citations, numbered))
     if not checked.verified:
         return outcome(None, checked.invalid)
     finding = Finding(
