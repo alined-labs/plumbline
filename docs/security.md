@@ -18,7 +18,7 @@ Every control is backed by a test (run by `make check` and CI) or by a manual ch
 | Containers: no new privileges; the API and cloudflared read-only with every capability dropped; the API image runs as an unprivileged user | `deploy/compose.prod.yaml`, `deploy/api/Dockerfile` | `apps/api/tests/security/test_production_compose.py`; CI migrates a fresh database with the image under `--read-only --cap-drop ALL` |
 | Browser headers: CSP (fetches only to the site and the API, no framing), HSTS, nosniff, referrer and permissions policies | `deploy/pages/_headers` | manual, 2026-10-20: a local export with these headers, only Zod's guarded `eval` probe reported |
 | CORS limited to the web origin, with credentials | `CORS_ORIGINS` | Lane D's API tests |
-| Rate limits at the edge on `/api/ask` and `/api/check-lease`: 5 requests per 10 s per address | Cloudflare, the rule in `deploy/cloudflare/rate-limit.md` | `deploy/edge-check.sh` once live (a burst must meet a 429) *planned* |
+| Rate limits at the edge on `/api/ask`, `/api/check-lease`, `/api/law/check-clause` and `/api/law/search`: 5 requests per 10 s per address, one counter for the four | Cloudflare, the rule in `deploy/cloudflare/rate-limit.md` | `deploy/edge-check.sh` once live (a burst must meet a 429) *planned* |
 
 ### Secrets
 
