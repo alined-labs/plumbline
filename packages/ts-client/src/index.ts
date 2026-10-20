@@ -26,6 +26,10 @@ export type PlumblineDataParts = {
   trace: TraceSummary;
 };
 
+/** A client for the API at `baseUrl`. In production the site and the API are separate hosts
+ * (plumbline.alinedlabs.co and plumbline-api.alinedlabs.co), so every request includes
+ * credentials: without them the browser neither sends the visitor cookie nor keeps the one
+ * the API sets, and each request is a new visitor. */
 export function createApiClient(baseUrl: string) {
-  return createClient<paths>({ baseUrl });
+  return createClient<paths>({ baseUrl, credentials: "include" });
 }
