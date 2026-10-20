@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
 
@@ -23,6 +23,7 @@ export function UploadForm({
   disabled = false,
   initial,
   focusJurisdiction = false,
+  focusOnMount = false,
 }: {
   onSubmit: (values: UploadValues) => void;
   disabled?: boolean;
@@ -30,6 +31,9 @@ export function UploadForm({
   initial?: Partial<UploadValues>;
   /** Puts the cursor on the jurisdiction, when that is what the reader has to fix. */
   focusJurisdiction?: boolean;
+  /** Puts the cursor on the form's first control when it appears again after a check, so a
+   * keyboard reader is not left at the top of the document. */
+  focusOnMount?: boolean;
 }) {
   const fileMessage = useId();
   const {
@@ -51,9 +55,12 @@ export function UploadForm({
   });
   // What the form shows. The value for the submit lives in the form too, set beside it.
   const [file, setFile] = useState<File | undefined>(initial?.file);
+  const zone = useRef<HTMLButtonElement>(null);
+  const submitButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (focusJurisdiction) setFocus("jurisdiction");
-  }, [focusJurisdiction, setFocus]);
+    else if (focusOnMount) (zone.current ?? submitButton.current)?.focus();
+  }, [focusJurisdiction, focusOnMount, setFocus]);
 
   // The type and size are checked on the spot, so a refused file never shows as chosen, not
   // even for a frame. It is the same schema the submit runs, so the messages agree.
@@ -84,6 +91,7 @@ export function UploadForm({
           />
         ) : (
           <Dropzone
+            buttonRef={zone}
             disabled={disabled}
             invalid={Boolean(fileError)}
             describedBy={fileError ? fileMessage : undefined}
@@ -126,6 +134,7 @@ export function UploadForm({
         </Field>
       </div>
       <button
+        ref={submitButton}
         type="submit"
         disabled={disabled}
         className={buttonClass({ variant: "primary", size: "lg", className: "self-start" })}

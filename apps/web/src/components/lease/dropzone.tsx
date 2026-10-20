@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState, type DragEvent } from "react";
+import { useId, useRef, useState, type DragEvent, type Ref } from "react";
 
 import { UploadIcon } from "@/components/icons";
 import { LEASE_ACCEPT, MAX_LEASE_MB } from "@/lib/lease-upload";
@@ -13,11 +13,14 @@ export function Dropzone({
   invalid = false,
   describedBy,
   disabled = false,
+  buttonRef,
 }: {
   onFile: (file: File) => void;
   invalid?: boolean;
   describedBy?: string;
   disabled?: boolean;
+  /** The zone's button, for a form that moves the focus to it. */
+  buttonRef?: Ref<HTMLButtonElement>;
 }) {
   const input = useRef<HTMLInputElement | null>(null);
   const helpId = useId();
@@ -33,6 +36,7 @@ export function Dropzone({
   return (
     <>
       <button
+        ref={buttonRef}
         type="button"
         disabled={disabled}
         data-invalid={invalid || undefined}

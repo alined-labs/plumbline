@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import { CopyIcon, OctagonAlertIcon, RotateCwIcon } from "@/components/icons";
 import { buttonClass } from "@/components/ui/button";
@@ -16,6 +16,7 @@ export function ErrorState({
   at,
   onRetry,
   retryLabel = "Try again",
+  retryIcon = <RotateCwIcon />,
   headingLevel = 1,
 }: {
   title: string;
@@ -26,6 +27,8 @@ export function ErrorState({
   onRetry?: () => void;
   /** The action's words when "Try again" is not what it does ("Choose another file"). */
   retryLabel?: string;
+  /** Its icon, when a circular arrow does not say it ("Choose another file"). */
+  retryIcon?: ReactNode;
   /** 2 when the page around it already has its h1. */
   headingLevel?: 1 | 2;
 }) {
@@ -58,7 +61,7 @@ export function ErrorState({
       <div className="flex flex-wrap justify-center gap-3">
         {onRetry && (
           <button type="button" onClick={onRetry} className={buttonClass({ variant: "primary" })}>
-            <RotateCwIcon />
+            {retryIcon}
             {retryLabel}
           </button>
         )}
