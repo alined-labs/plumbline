@@ -98,3 +98,61 @@ def test_a_page_without_the_container_is_refused() -> None:
 def test_bytes_that_are_not_the_declared_charset_are_refused() -> None:
     with pytest.raises(HtmlError, match="not valid utf-8"):
         decode(b'<meta charset="utf-8"><p>Art\xedculo</p>')
+
+
+SENATE = "http://www.secretariasenado.gov.co/senado/basedoc"
+
+
+def _senate_page(article: str, text: str) -> str:
+    return (
+        '<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1" />'
+        '</head><BODY><div id="aj_data">'
+        f'<p><a class="bookmarkaj" name="{article}">ART&Iacute;CULO {article}.</a> {text}</p>'
+        '<div><a class="caja_vja_encabezado" href="javascript:insRow1()">Jurisprudencia Vigencia'
+        '</a></div><table id="Table1" class="caja_vja_v" cellPadding=10 width="100%"></table>'
+        "</div></BODY></html>"
+    )
+
+
+def _senate_script(note: str) -> str:
+    return (
+        'function insRow1()\r\n{\r\nvar description = new Array();\r\ndescription[0] = "'
+        f"<tbody><tr><td><p><span class='b_aj'>Corte Constitucional</span></p><p>{note}</p>"
+        "</td></tr></tbody>\";\r\nvar z=document.getElementById('Table1').rows[0];\r\n}\r\n"
+    )
+
+
+def test_the_senates_notes_fill_the_boxes_of_their_own_page() -> None:
+    # Lane B's file: each page, then the script that fills its boxes; numbering restarts.
+    parts = [
+        (
+            f"{SENATE}/ley_0820_2003.html",
+            _senate_page("12", "Las partes indicar&aacute;n la direcci&oacute;n."),
+        ),
+        (f"{SENATE}/js/ley_0820_2003.js", _senate_script("Inciso 3o. declarado INEXEQUIBLE.")),
+        (
+            f"{SENATE}/ley_0820_2003_pr001.html",
+            _senate_page("40", "Los contratos se registrar&aacute;n."),
+        ),
+        (f"{SENATE}/js/ley_0820_2003_pr001.js", _senate_script(r"Declarado \"EXEQUIBLE\".")),
+    ]
+    joined = "".join(f"<!-- plumbline part: {url} -->\n{body}\n" for url, body in parts)
+    markdown = to_markdown(decode(joined.encode("cp1252")), profile_for(COLOMBIA))
+    assert markdown.split("\n\n") == [
+        "ARTÍCULO 12. Las partes indicarán la dirección.",
+        "> Corte Constitucional",
+        "> Inciso 3o. declarado INEXEQUIBLE.",
+        "ARTÍCULO 40. Los contratos se registrarán.",
+        "> Corte Constitucional",
+        '> Declarado "EXEQUIBLE".',
+    ]
+
+
+def test_a_box_whose_script_has_no_note_is_an_error() -> None:
+    parts = [
+        (f"{SENATE}/ley_0820_2003.html", _senate_page("12", "Texto.")),
+        (f"{SENATE}/js/ley_0820_2003.js", "function insRow1() { description[0]='changed'; }"),
+    ]
+    joined = "".join(f"<!-- plumbline part: {url} -->\n{body}\n" for url, body in parts)
+    with pytest.raises(HtmlError, match=r"ley_0820_2003\.js has no note for box 1"):
+        to_markdown(decode(joined.encode("cp1252")), profile_for(COLOMBIA))

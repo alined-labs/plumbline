@@ -14,17 +14,25 @@ Struck-through text is kept as ~~text~~: the Colombian Senate strikes out the wo
 Constitutional Court declared unconstitutional (INEXEQUIBLE), and the chunker must be able
 to tell them from the law in force. Underlined words (conditionally upheld) are still law
 and stay plain text.
+
+The Senate's validity notes ("Notas de vigencia", the Court's rulings, the original
+wording) are not in its pages: each page's script fills its note boxes. Lane B commits a
+law as its pages, each followed by its script, every part after a line
+"<!-- plumbline part: <url> -->". The reader puts each script's notes into the boxes of
+the page before it, as quotes, so the chunker reads them as notes, never as law in force,
+and leaves the scripts themselves out.
 """
 
 from __future__ import annotations
 
 import codecs
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from urllib.parse import urlsplit
 
-READER = "plumbline html 2"  # ParsedDocument.parser; bump it when the output changes
+READER = "plumbline html 3"  # ParsedDocument.parser; bump it when the output changes
 
 
 class HtmlError(ValueError):
@@ -35,6 +43,49 @@ class HtmlError(ValueError):
 class Profile:
     container: str | None  # the id of the element that holds the law; None: the whole file
     skip: frozenset[str] = frozenset()  # "tag", "tag.class", ".class" or "#id"
+    prepare: Callable[[str], str] | None = None  # rewrites the file before it is read
+
+
+PART = re.compile(r"<!-- plumbline part: (\S+) -->")
+NOTE = re.compile(
+    r"function insRow(\d+)\(\)\s*\{\s*var description = new Array\(\);\s*"
+    r'description\[0\] = "((?:[^"\\]|\\.)*)";'
+)
+NOTE_BOX = re.compile(r'<table id="Table(\d+)"[^>]*>\s*</table>', re.IGNORECASE)
+
+
+def senate_notes(html: str) -> str:
+    """The Senate's pages with each page's notes in its boxes, as quotes, and without the
+    scripts that held them. A file without part lines is returned as it is."""
+    pieces = PART.split(html)  # text before the first part, then url, body, url, body...
+    if len(pieces) == 1:
+        return html
+    pages: list[str] = [pieces[0]]
+    for url, body in zip(pieces[1::2], pieces[2::2], strict=True):
+        if not url.endswith(".js"):
+            pages.append(body)
+            continue
+        notes = {int(n): _unescape(text) for n, text in NOTE.findall(body)}
+        pages[-1] = _fill_boxes(pages[-1], notes, url)  # this script fills the page before it
+    return "".join(pages)
+
+
+def _fill_boxes(page: str, notes: dict[int, str], script: str) -> str:
+    """The page with each box replaced by its note. A box its script has no note for is an
+    error: silently empty, it would hide that a provision was struck down or amended."""
+
+    def note(box: re.Match[str]) -> str:
+        number = int(box[1])
+        if number not in notes:
+            raise HtmlError(f"{script} has no note for box {number}: has the script changed?")
+        return f"<blockquote>{notes[number]}</blockquote>"
+
+    return NOTE_BOX.sub(note, page)
+
+
+def _unescape(js: str) -> str:
+    """A JavaScript string literal's text: \\" is ", \\' is ' and so on."""
+    return re.sub(r"\\(.)", lambda m: {"n": "\n", "t": "\t"}.get(m[1], m[1]), js)
 
 
 PROFILES: dict[str, Profile] = {
@@ -60,6 +111,7 @@ PROFILES: dict[str, Profile] = {
                 "table",
             }
         ),
+        senate_notes,
     ),
 }
 ALWAYS_SKIPPED = frozenset(
@@ -104,7 +156,7 @@ def decode(raw: bytes) -> str:
 
 def to_markdown(html: str, profile: Profile) -> str:
     reader = _Reader(profile)
-    reader.feed(html)
+    reader.feed(profile.prepare(html) if profile.prepare else html)
     reader.close()
     if not reader.found:
         raise HtmlError(f"no element with id {profile.container!r} in the page")
