@@ -63,7 +63,7 @@ function setup(answers: (() => Response)[], { noticeSeen = true } = {}) {
 /** Choose the lease the way a reader can without a picker: drop it on the zone. */
 async function submit(user: ReturnType<typeof userEvent.setup>) {
   const lease = new File([new Uint8Array(1_468_006)], "contrato.pdf", { type: "application/pdf" });
-  const zone = screen.getByRole("button", { name: /Drop a lease here or choose a file/ });
+  const zone = await screen.findByRole("button", { name: /Drop a lease here or choose a file/ });
   fireEvent.drop(zone, { dataTransfer: { files: [lease] } });
   await user.click(await screen.findByRole("button", { name: "Check lease" }));
 }

@@ -3,7 +3,7 @@
 import { useId, useRef, useState, type DragEvent, type Ref } from "react";
 
 import { UploadIcon } from "@/components/icons";
-import { LEASE_ACCEPT, MAX_LEASE_MB } from "@/lib/lease-upload";
+import { LEASE_ACCEPT, MAX_LEASE_MB } from "@/lib/lease-file";
 
 /** Dropzone spec: the empty state of the lease page and the way to give it a lease. The whole
  * zone is one button, so Enter or Space opens the picker; a file dropped on it, or chosen, is

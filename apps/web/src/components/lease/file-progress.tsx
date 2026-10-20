@@ -2,7 +2,7 @@ import { Spinner } from "@/components/answer/status-steps";
 import { CircleCheckIcon, CircleXIcon, FileTextIcon } from "@/components/icons";
 import type { StartedJob } from "@/lib/lease-job";
 import { progress, steps, type StepState } from "@/lib/lease-steps";
-import { formatBytes } from "@/lib/lease-upload";
+import { formatBytes } from "@/lib/lease-file";
 
 // Colour, icon and word together (DESIGN.md): the colour is never the only signal.
 const STATE_STYLE: Record<StepState, string> = {

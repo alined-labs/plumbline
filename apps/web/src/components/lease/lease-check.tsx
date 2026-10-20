@@ -1,12 +1,12 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 
 import { UploadIcon } from "@/components/icons";
 import { ErrorState } from "@/components/states/error-state";
 import { buttonClass } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
-import { ConfirmDialog } from "@/components/ui/dialog";
 import { localErrorId } from "@/lib/error-id";
 import { failureCopy, showsOnForm } from "@/lib/lease-failures";
 import type { JobFailure, StartedJob } from "@/lib/lease-job";
@@ -19,7 +19,14 @@ import { FileProgress } from "./file-progress";
 import { Findings } from "./findings";
 import { useLeaseJob } from "./lease-job";
 import { SamplePicker } from "./sample-picker";
-import { UploadForm } from "./upload-form";
+
+// The upload form (the form library, its schema and the dropzone) and the redaction notice
+// serve real uploads only. While uploads are off the page offers the invented leases and loads
+// neither, which keeps the form library out of its first load (docs/notes/mobile-performance.md).
+const UploadForm = dynamic(() => import("./upload-form").then((module) => module.UploadForm));
+const ConfirmDialog = dynamic(() =>
+  import("@/components/ui/dialog").then((module) => module.ConfirmDialog),
+);
 
 /** The lease page's working part: the form, then a check moving through its steps with the
  * findings arriving, then the findings; or the way a failure is worded. The redaction notice
@@ -80,28 +87,30 @@ export function LeaseCheck({ samples }: { samples?: SampleLease[] | undefined } 
       <p role="status" className="sr-only">
         {announcement(job)}
       </p>
-      <ConfirmDialog
-        open={waiting !== null}
-        onOpenChange={(open) => {
-          if (!open) setWaiting(null);
-        }}
-        title="Before you upload a lease"
-        confirm={{ label: "Upload a lease", icon: <UploadIcon /> }}
-        onConfirm={() => {
-          markNoticeSeen();
-          if (waiting) start(waiting);
-          setWaiting(null);
-        }}
-      >
-        <p>
-          Plumbline removes names, ID numbers, addresses and account details from the lease before
-          any model reads it.
-        </p>
-        <p>
-          The check is legal information, not legal advice. For a decision about your lease, talk to
-          a lawyer licensed where the property is.
-        </p>
-      </ConfirmDialog>
+      {!samples && (
+        <ConfirmDialog
+          open={waiting !== null}
+          onOpenChange={(open) => {
+            if (!open) setWaiting(null);
+          }}
+          title="Before you upload a lease"
+          confirm={{ label: "Upload a lease", icon: <UploadIcon /> }}
+          onConfirm={() => {
+            markNoticeSeen();
+            if (waiting) start(waiting);
+            setWaiting(null);
+          }}
+        >
+          <p>
+            Plumbline removes names, ID numbers, addresses and account details from the lease before
+            any model reads it.
+          </p>
+          <p>
+            The check is legal information, not legal advice. For a decision about your lease, talk
+            to a lawyer licensed where the property is.
+          </p>
+        </ConfirmDialog>
+      )}
     </div>
   );
 }

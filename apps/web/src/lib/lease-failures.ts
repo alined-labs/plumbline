@@ -1,7 +1,7 @@
 import { untilUtcMidnight } from "./dates";
-import { isFailureCode, type FailureCode } from "./lease-check";
+import { isFailureCode, type FailureCode } from "./lease-codes";
 import type { JobFailure } from "./lease-job";
-import { MAX_LEASE_MB } from "./lease-upload";
+import { MAX_LEASE_MB } from "./lease-file";
 
 /** What the page offers after a failure: the same file again, another file, the jurisdiction
  * field, or nothing (the reader waits). */

@@ -2,6 +2,21 @@
 
 Dated working notes: what was tried, what was learned, what changed course. Newest first. Decisions that last go into an ADR; this is the trail that led to them.
 
+## 2026-10-20: every page on a phone, measured (Lane E)
+
+Lighthouse's default phone emulation (4x slower CPU, a slow connection) on the static export, five runs a page, medians; MX3's load moves single runs by about five points, and a run at a load average near 8 scored the lease page 84 where the same build scored 91 at 4, so these were taken with the machine quiet. Accessibility and SEO are 100 on every page, best practices 96 (the local server sends no security headers; Cloudflare Pages adds them).
+
+| Page | Performance | Blocking time | LCP | First-load JS |
+| --- | ---: | ---: | ---: | ---: |
+| `/` (chat) | 92 | 287 ms | 2.6 s | 223.5 kB |
+| `/check-lease` | 90 | 322 ms | 2.5 s | 198.6 kB |
+| `/evals` | 92 | 290 ms | 2.3 s | 191.8 kB |
+| `/about` | 90 | 330 ms | 2.4 s | 191.8 kB |
+
+- **The chat page went from 82 to 92 in three steps**: its engine (the AI SDK and its transport) loads on first use, its composer validates without zod, and a page with no API no longer swaps its empty state for the replay after drawing, which had moved the footer by a layout shift of 0.68 and brought the score down to 67 for an afternoon.
+- **The lease page went from 80 to 90** by loading the upload form (the form library, its schema and the dropzone) and the redaction notice only when uploads are on; while they are off the page offers the invented leases and needs neither. Splitting the findings view off as well saved 1.3 kB and moved nothing beyond the noise, so it was left out.
+- **What is left on every page** is React's hydration of the shell and the framework's runtime, about 190 kB that `/about` pays too.
+
 ## 2026-10-20: where a search's time goes (Lane A)
 
 Measured on MX2 (4 cores, 8 GB) with `EXPLAIN (ANALYZE, BUFFERS)` and 20 timed runs, on the local index of Florida ch. 83 and ch. 718 under A2 (350 chunks, 268 with an embedding, one pg_search segment), pg_search 0.26.2, one question embedded by MX3's TEI. The statement is a/a5b-sql-retrieval's.
