@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from sqlalchemy import create_engine, text
 
 from plumbline.cache import ResponseCache
 from plumbline.core.types import CacheMode
@@ -32,12 +33,17 @@ PAGE = (
 
 
 def _source(
-    source_id: str, data: bytes, *, committed: bool = True, fmt: str = "html"
+    source_id: str,
+    data: bytes,
+    *,
+    committed: bool = True,
+    fmt: str = "html",
+    law: str = "co-ley-820",
 ) -> dict[str, Any]:
     folder = "raw" if committed else "fetched"
     return {
         "id": source_id,
-        "law": "co-ley-820",
+        "law": law,
         "title": "Ley 820 de 2003",
         "jurisdiction": "colombia",
         "language": "es",
@@ -50,6 +56,20 @@ def _source(
         "committed": committed,
         "path": f"data/corpus/{folder}/{source_id}.{fmt}",
     }
+
+
+def _forget(database_url: str, *source_ids: str) -> None:
+    """Nothing of these sources indexed, whatever another test left in the shared database."""
+    engine = create_engine(database_url)
+    with engine.begin() as connection:
+        for source_id in source_ids:
+            connection.execute(
+                text("DELETE FROM chunks WHERE document_id = :id"), {"id": source_id}
+            )
+            connection.execute(
+                text("DELETE FROM ingestion_jobs WHERE source_id = :id"), {"id": source_id}
+            )
+    engine.dispose()
 
 
 @pytest.fixture
@@ -186,6 +206,7 @@ def test_a_source_that_is_not_here_does_not_stop_the_others(
     corpus: dict[str, Path], database_url: str, caplog: pytest.LogCaptureFixture
 ) -> None:
     # The manifest's fetch-only source is not on this machine; the other one is indexed.
+    _forget(database_url, "co-ley-820-test")
     embedder = FakeEmbedder()
     argv = ["--configs", "A2"]
     with caplog.at_level(logging.INFO, logger="plumbline.ingest"):
@@ -196,3 +217,29 @@ def test_a_source_that_is_not_here_does_not_stop_the_others(
     assert "2 sources: 1 missing, 1 parsed" in caplog.text
     assert "1 index jobs: 1 indexed" in caplog.text
     assert "dubai-test in A2" not in caplog.text
+
+
+@pytest.mark.db
+def test_a_source_the_chunker_cannot_read_is_named_and_the_others_still_indexed(
+    corpus: dict[str, Path], database_url: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    _forget(database_url, "co-ley-820-test", "no-name-test")
+    raw = corpus["root"] / "data" / "corpus" / "raw"
+    (raw / "no-name-test.html").write_bytes(PAGE)
+    manifest = json.loads(corpus["manifest"].read_text(encoding="utf-8"))
+    manifest["sources"] = [
+        _source("co-ley-820-test", PAGE),
+        _source("no-name-test", PAGE, law="xx-law"),  # a law with no short name
+    ]
+    corpus["manifest"].write_text(json.dumps(manifest), encoding="utf-8")
+    with caplog.at_level(logging.INFO, logger="plumbline.ingest"):
+        status = main(
+            ["--configs", "A2"],
+            **corpus,
+            database_url=database_url,
+            embedder_factory=lambda _c, _m: FakeEmbedder(),
+        )
+    assert status == 1  # the corpus is not fully indexed
+    assert "no-name-test in A2: cannot be chunked, so it is not indexed" in caplog.text
+    assert "no short name for law 'xx-law'" in caplog.text
+    assert "1 index jobs: 1 indexed" in caplog.text  # the other source went on

@@ -34,7 +34,7 @@ from plumbline.db import make_engine, make_sessionmaker
 from plumbline.db.migrate import upgrade
 from plumbline.ingest.index import Embedder
 from plumbline.ingest.parse import DoclingClient, ParseError, parse_source
-from plumbline.ingest.plan import UnsupportedConfig, plan_units
+from plumbline.ingest.plan import Unplanned, UnsupportedConfig, plan_all
 from plumbline.ingest.processed import (
     FETCHED,
     PROCESSED,
@@ -100,7 +100,7 @@ def main(
         lambda cache, model: TeiEmbedder(settings.embed_url, cache, model=model)
     )
     try:
-        indexed = asyncio.run(
+        indexed, unplanned = asyncio.run(
             index_stage(
                 everything,
                 documents,
@@ -114,7 +114,7 @@ def main(
         )
     except UnsupportedConfig as exc:
         parser.error(str(exc))
-    return 1 if failed or any(o.status == "failed" for o in indexed) else 0
+    return 1 if failed or unplanned or any(o.status == "failed" for o in indexed) else 0
 
 
 def parse_stage(
@@ -193,11 +193,21 @@ async def index_stage(
     caches: Mapping[bool, ResponseCache],
     embedder_factory: EmbedderFactory,
     load_document: Callable[[Source], ParsedDocument],
-) -> list[Outcome]:
+) -> tuple[list[Outcome], list[Unplanned]]:
     """Index the sources the parse stage produced a document for, in the `configs` asked for.
     A worker may meet a job left from an earlier run, for any of the manifest's sources and
-    any configuration in `available`, and builds its unit from the job alone."""
-    units = plan_units(manifest, documents, configs)
+    any configuration in `available`, and builds its unit from the job alone.
+
+    A source the chunker cannot read is reported and left out while the others go on; the
+    second value lists them, so the run can say the corpus is not fully indexed."""
+    units, unplanned = plan_all(manifest, documents, configs)
+    for skipped in unplanned:
+        log.error(
+            "%s in %s: cannot be chunked, so it is not indexed: %s",
+            skipped.source.id,
+            "+".join(skipped.configs),
+            skipped.error,
+        )
     for unit in units:
         log.info(
             "%s in %s (%s): %d chunks, %d to embed",
@@ -237,7 +247,7 @@ async def index_stage(
     log.info(
         "%d index jobs: %s", len(outcomes), ", ".join(f"{n} {k}" for k, n in sorted(totals.items()))
     )
-    return outcomes
+    return outcomes, unplanned
 
 
 if __name__ == "__main__":
