@@ -43,7 +43,7 @@ x-api: &api
     # Daily spend caps in US dollars (docs/cost-model.md, section 5): past one, the router
     # drops to the next model down, and the kill switch takes the tier down after them.
     GEMINI_DAILY_CAP_USD: "0.30"
-    ANTHROPIC_DAILY_CAP_USD: "1.00"
+    ANTHROPIC_DAILY_CAP_USD: "5.00"
     COHERE_DAILY_CAP_USD: "0"
   volumes:
     # The settings read /app/.env (PLUMBLINE_ROOT=/app): the provider keys, the admin

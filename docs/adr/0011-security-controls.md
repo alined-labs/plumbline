@@ -26,7 +26,7 @@ Plumbline is a public demo served from a home machine (MX3) on a budget of tens 
 
 ## Consequences
 
-- The production caps (Gemini US$0.30 a day, Anthropic US$1.00) bound the worst day at US$1.30. A call in flight when a threshold is crossed still completes, and the switch acts within 30 s plus the tier's 10-second cache, so the overshoot is the cost of the calls made in about 40 seconds.
+- The production caps (Gemini US$0.30 a day, Anthropic US$5.00, raised from US$1.00 by the human on 2026-10-20) bound the worst day at US$5.30. A call in flight when a threshold is crossed still completes, and the switch acts within 30 s plus the tier's 10-second cache, so the overshoot is the cost of the calls made in about 40 seconds.
 - `static` stops the live chat for the rest of the UTC day; the static export and its stored answers stay up.
 - A tier raised by hand while a cap is spent is lowered again at the next check. To serve more, raise the cap, not the tier.
 - Redaction is pattern and model based: it can miss a name a model does not recognise. Real uploads stay off until P2 merges, and the full tier, the only one that takes uploads, runs on a billed key whose inputs are not used for training.
