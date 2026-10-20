@@ -35,6 +35,13 @@ GUIDE_ARTICLE: Final = re.compile(
     r"^Decree (?P<number>\d+)/(?P<year>\d{4}) art\. (?P<article>\d+)$"
 )
 SCRIPT: Final = re.compile(r"(?is)<(script|style)\b.*?</\1>")
+# A BOE version can come without its effective date; its note then says when it took effect:
+# "Se modifica, con efectos de 8 de octubre de 2026, por el art. 3.8 del Real Decreto-ley ...".
+NOTED_EFFECT: Final = re.compile(r"Se modifica, con efectos de (\d{1,2}) de (\w+) de (\d{4})")
+MONTHS: Final = (
+    "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre",
+    "octubre", "noviembre", "diciembre",
+)  # fmt: skip
 
 
 @lru_cache(maxsize=16)
@@ -125,11 +132,11 @@ def _boe_article(path: Path, source: Source, article: str, as_of: date | None) -
     for block in root.iter("bloque"):
         if block.get("titulo") != f"Artículo {name}":
             continue
-        chosen = None
+        chosen, since = None, ""
         for version in block.findall("version"):
-            effective = version.get("fecha_vigencia") or ""
+            effective = version.get("fecha_vigencia") or _noted_effect(version)
             if effective and effective <= day:
-                chosen = version
+                chosen, since = version, effective
         if chosen is None:
             return None
         paragraphs = [
@@ -137,9 +144,24 @@ def _boe_article(path: Path, source: Source, article: str, as_of: date | None) -
             for child in chosen
             if child.tag != "blockquote" and "".join(child.itertext()).strip()
         ]
-        header = f"[{chosen.get('id_norma')}, in force from {chosen.get('fecha_vigencia')}]"
+        header = f"[{chosen.get('id_norma')}, in force from {since}]"
         return header + "\n" + _tidy("\n".join(paragraphs))
     return None
+
+
+def _noted_effect(version: ET.Element) -> str:
+    """The effective date of a BOE version whose `fecha_vigencia` is empty, as YYYYMMDD, read
+    from its plain note (not the "siempreSeVe" box, which quotes a wording still to come), or ""
+    when the note gives none. In the LAU of 2026-10-13 the last version of art. 10 is like this:
+    it carries RDL 28/2026's id but RDL 29/2026's wording, in effect from 2026-10-08."""
+    for note in version.findall("blockquote"):
+        if note.get("class"):
+            continue
+        found = NOTED_EFFECT.search(" ".join("".join(note.itertext()).split()))
+        if found and found[2].lower() in MONTHS:
+            day, month, year = int(found[1]), MONTHS.index(found[2].lower()) + 1, int(found[3])
+            return f"{year:04d}{month:02d}{day:02d}"
+    return ""
 
 
 def _senado_article(text: str, article: str) -> str | None:

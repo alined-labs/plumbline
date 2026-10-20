@@ -1,0 +1,313 @@
+[
+ {
+  "id": "asof-01",
+  "law": "es-lau",
+  "edition": "boe-2026-10-13",
+  "article": "36",
+  "as_of": "2026-03-01",
+  "version": "BOE-A-2019-3108",
+  "effective_from": "2019-03-06",
+  "present": "cualquier tipo de garantía",
+  "absent": [
+   "seguros de impago"
+  ],
+  "why": "A March 2026 question gets the guarantee rule before October's decree-laws: no ban on rent-default insurance."
+ },
+ {
+  "id": "asof-02",
+  "law": "es-lau",
+  "edition": "boe-2026-10-13",
+  "article": "36",
+  "as_of": "2026-10-01",
+  "version": "BOE-A-2026-20266",
+  "effective_from": "2026-10-01",
+  "present": "seguros de impago",
+  "absent": [
+   "cualquier tipo de garantía"
+  ],
+  "why": "RDL 26/2026 was in force for one day, 1 October 2026."
+ },
+ {
+  "id": "asof-03",
+  "law": "es-lau",
+  "edition": "boe-2026-10-13",
+  "article": "36",
+  "as_of": "2026-10-05",
+  "version": "BOE-A-2026-20526",
+  "effective_from": "2026-10-02",
+  "present": "cualquier tipo de garantía",
+  "absent": [
+   "seguros de impago"
+  ],
+  "why": "Congress set RDL 26/2026 aside on 2 October 2026, so the earlier wording applied again until 7 October."
+ },
+ {
+  "id": "asof-04",
+  "law": "es-lau",
+  "edition": "boe-2026-10-13",
+  "article": "36",
+  "as_of": "2026-10-20",
+  "version": "BOE-A-2026-20823",
+  "effective_from": "2026-10-08",
+  "present": "seguros de impago",
+  "absent": [
+   "cualquier tipo de garantía"
+  ],
+  "why": "RDL 29/2026 made the change again from 8 October 2026."
+ },
+ {
+  "id": "asof-05",
+  "law": "es-lau",
+  "edition": "boe-2026-10-13",
+  "article": "10",
+  "as_of": "2026-10-05",
+  "version": "BOE-A-2026-20526",
+  "effective_from": "2026-10-02",
+  "present": "Si llegada la fecha de vencimiento del contrato, o de cualquiera",
+  "absent": [
+   "contrato de arrendamiento de vivienda habitual, o de cualquiera"
+  ],
+  "why": "Art. 10 as Congress's resolution of 2 October 2026 restored it."
+ },
+ {
+  "id": "asof-06",
+  "law": "es-lau",
+  "edition": "boe-2026-10-13",
+  "article": "10",
+  "as_of": "2026-10-20",
+  "version": "BOE-A-2026-20822",
+  "effective_from": "2026-10-08",
+  "present": "contrato de arrendamiento de vivienda habitual, o de cualquiera de sus prórrogas, una vez",
+  "absent": [
+   "Si llegada la fecha de vencimiento del contrato, o de cualquiera",
+   "incluidas las voluntarias y las reguladas por ley"
+  ],
+  "why": "The BOE file gives this version no fecha_vigencia; its note dates RDL 29/2026's wording from 8 October 2026. RDL 28/2026's wording, from 15 November 2026, is only quoted in a note and must not be served."
+ },
+ {
+  "id": "asof-07",
+  "law": "es-lau",
+  "edition": "boe-2026-10-13",
+  "article": "9",
+  "as_of": "2013-05-01",
+  "version": "BOE-A-2009-18733",
+  "effective_from": "2009-12-24",
+  "present": "inferior a cinco años",
+  "absent": [
+   "inferior a tres años"
+  ],
+  "why": "Before Ley 4/2013 (6 June 2013) the minimum was five years."
+ },
+ {
+  "id": "asof-08",
+  "law": "es-lau",
+  "edition": "boe-2026-10-13",
+  "article": "9",
+  "as_of": "2014-01-01",
+  "version": "BOE-A-2013-5941",
+  "effective_from": "2013-06-06",
+  "present": "inferior a tres años",
+  "absent": [
+   "inferior a cinco años"
+  ],
+  "why": "Ley 4/2013 cut the minimum to three years."
+ },
+ {
+  "id": "asof-09",
+  "law": "es-lau",
+  "edition": "boe-2026-10-13",
+  "article": "9",
+  "as_of": "2019-01-10",
+  "version": "BOE-A-2018-17293",
+  "effective_from": "2018-12-19",
+  "present": "inferior a siete años si el arrendador fuese persona jurídica",
+  "absent": [
+   "inferior a tres años"
+  ],
+  "why": "RDL 21/2018 raised it to five (seven) years from 19 December 2018."
+ },
+ {
+  "id": "asof-10",
+  "law": "es-lau",
+  "edition": "boe-2026-10-13",
+  "article": "9",
+  "as_of": "2019-02-10",
+  "version": "BOE-A-2019-799",
+  "effective_from": "2019-01-24",
+  "present": "inferior a tres años",
+  "absent": [
+   "inferior a siete años"
+  ],
+  "why": "Congress repealed RDL 21/2018, so three years applied again from 24 January 2019."
+ },
+ {
+  "id": "asof-11",
+  "law": "es-lau",
+  "edition": "boe-2026-10-13",
+  "article": "9",
+  "as_of": "2019-04-01",
+  "version": "BOE-A-2019-3108",
+  "effective_from": "2019-03-06",
+  "present": "inferior a siete años",
+  "absent": [
+   "inferior a tres años"
+  ],
+  "why": "RDL 7/2019 restored five (seven) years from 6 March 2019."
+ },
+ {
+  "id": "asof-12",
+  "law": "es-lau",
+  "edition": "boe-2026-10-13",
+  "article": "18",
+  "as_of": "2026-03-01",
+  "version": "BOE-A-2019-3108",
+  "effective_from": "2019-03-06",
+  "present": "Índice de Garantía de Competitividad",
+  "absent": [
+   "Índice de Referencia para la Actualización"
+  ],
+  "why": "The yearly rent update in March 2026 is capped by the CPI, not the IRAV of October 2026."
+ },
+ {
+  "id": "asof-13",
+  "law": "es-lau",
+  "edition": "boe-2026-10-13",
+  "article": "18",
+  "as_of": "2026-10-20",
+  "version": "BOE-A-2026-20823",
+  "effective_from": "2026-10-08",
+  "present": "Índice de Referencia para la Actualización",
+  "absent": [
+   "Índice de Garantía de Competitividad"
+  ],
+  "why": "From 8 October 2026 the update refers to the IRAV."
+ },
+ {
+  "id": "asof-14",
+  "law": "es-lau",
+  "edition": "boe-2026-10-13",
+  "article": "21",
+  "as_of": "2026-03-01",
+  "version": "BOE-A-1994-26003",
+  "effective_from": "1995-01-01",
+  "present": "4. Las pequeñas reparaciones",
+  "absent": [
+   "descontar su importe de las rentas futuras"
+  ],
+  "why": "Paragraph 5 (repairs by the tenant deducted from future rent) did not exist in March 2026."
+ },
+ {
+  "id": "asof-15",
+  "law": "es-lau",
+  "edition": "boe-2026-10-13",
+  "article": "21",
+  "as_of": "2026-10-20",
+  "version": "BOE-A-2026-20823",
+  "effective_from": "2026-10-08",
+  "present": "descontar su importe de las rentas futuras",
+  "absent": [],
+  "why": "Paragraph 5 applies from 8 October 2026."
+ },
+ {
+  "id": "asof-16",
+  "law": "es-lau",
+  "edition": "boe-2026-10-13",
+  "article": "25",
+  "as_of": "2026-03-01",
+  "version": "BOE-A-2019-3108",
+  "effective_from": "2019-03-06",
+  "present": "podrán pactar la renuncia del arrendatario al derecho de adquisición preferente",
+  "absent": [
+   "no podrán pactar la renuncia"
+  ],
+  "why": "In March 2026 a tenant could waive the right of first refusal."
+ },
+ {
+  "id": "asof-17",
+  "law": "es-lau",
+  "edition": "boe-2026-10-13",
+  "article": "25",
+  "as_of": "2026-10-20",
+  "version": "BOE-A-2026-20823",
+  "effective_from": "2026-10-08",
+  "present": "no podrán pactar la renuncia",
+  "absent": [],
+  "why": "From 8 October 2026 the waiver is forbidden."
+ },
+ {
+  "id": "asof-18",
+  "law": "es-lau",
+  "edition": "boe-2026-10-13",
+  "article": "20",
+  "as_of": "2022-03-01",
+  "version": "BOE-A-2019-3108",
+  "effective_from": "2019-03-06",
+  "present": "cuando este sea persona jurídica",
+  "absent": [],
+  "why": "Before Ley 12/2023 agency and formalisation costs fell on the landlord only when it was a legal person."
+ },
+ {
+  "id": "asof-19",
+  "law": "es-lau",
+  "edition": "boe-2026-10-13",
+  "article": "20",
+  "as_of": "2023-06-01",
+  "version": "BOE-A-2023-12203",
+  "effective_from": "2023-05-26",
+  "present": "los de formalización del contrato serán a cargo del arrendador.",
+  "absent": [
+   "cuando este sea persona jurídica"
+  ],
+  "why": "Since 26 May 2023 they fall on every landlord."
+ },
+ {
+  "id": "asof-20",
+  "law": "es-lau",
+  "edition": "boe-2026-10-13",
+  "article": "9 bis",
+  "as_of": "2026-03-01",
+  "version": null,
+  "effective_from": null,
+  "present": null,
+  "absent": [],
+  "why": "Art. 9 bis (temporary housing leases) was added on 8 October 2026; a March 2026 question must not retrieve it."
+ },
+ {
+  "id": "asof-21",
+  "law": "es-lau",
+  "edition": "boe-2026-10-13",
+  "article": "9 bis",
+  "as_of": "2026-10-20",
+  "version": "BOE-A-2026-20823",
+  "effective_from": "2026-10-08",
+  "present": "vivienda temporal",
+  "absent": [],
+  "why": "Art. 9 bis applies from 8 October 2026."
+ },
+ {
+  "id": "asof-22",
+  "law": "es-lph",
+  "edition": "boe-2026-10-05",
+  "article": "10",
+  "as_of": "2026-10-20",
+  "version": "BOE-A-2023-26452",
+  "effective_from": "2023-12-29",
+  "present": "ajustes razonables en materia de accesibilidad universal",
+  "absent": [
+   "periodo temporal de repercusión"
+  ],
+  "why": "LPH art. 10 before Ley 4/2026's wording takes effect on 23 October 2026."
+ },
+ {
+  "id": "asof-23",
+  "law": "es-lph",
+  "edition": "boe-2026-10-05",
+  "article": "10",
+  "as_of": "2026-10-23",
+  "version": "BOE-A-2026-20528",
+  "effective_from": "2026-10-23",
+  "present": "periodo temporal de repercusión",
+  "absent": [],
+  "why": "LPH art. 10 as Ley 4/2026 rewords it from 23 October 2026, a date after the edition's own."
+ }
+]
