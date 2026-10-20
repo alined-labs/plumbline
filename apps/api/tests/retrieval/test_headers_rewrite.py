@@ -2,13 +2,19 @@ import asyncio
 import json
 import re
 from collections.abc import AsyncIterator, Callable
+from pathlib import Path
 
 import pytest
+from pydantic import SecretStr
 
-from plumbline.core.types import Chunk, Jurisdiction, Language
+from plumbline.cache import ResponseCache
+from plumbline.core.config import load_config
+from plumbline.core.types import CacheMode, Chunk, Jurisdiction, Language
 from plumbline.generation.llm import LLMRequest, LLMResult, Usage
 from plumbline.retrieval.headers import header_request, parse_headers, write_headers
-from plumbline.retrieval.rewrite import rewrite_request, rewrite_to_spanish
+from plumbline.retrieval.retriever import online_retrieval
+from plumbline.retrieval.rewrite import rewrite_request, rewrite_to_spanish, spanish_rewriter
+from plumbline.settings import ROOT, Settings
 
 LAW = "Ley 29/1994, de 24 de noviembre, de Arrendamientos Urbanos."
 
@@ -118,3 +124,23 @@ def test_rewrite_requests_are_deterministic() -> None:
     first = rewrite_request("Can my landlord in Bogotá keep the deposit?")
     assert first == rewrite_request("Can my landlord in Bogotá keep the deposit?")
     assert first.temperature == 0.0
+
+
+def test_the_rewrite_runs_as_a_plain_call_even_inside_an_event_loop() -> None:
+    client = FakeClient(lambda request: json.dumps({"query": "fianza  devolución"}))
+    rewrite = spanish_rewriter(client)
+
+    async def inside_a_loop() -> str:
+        return rewrite("When must a Spanish landlord return the deposit?")
+
+    assert asyncio.run(inside_a_loop()) == "fianza devolución"
+    assert client.requests[0].model == "claude-haiku-5-5"
+
+
+def test_the_apis_retrieval_builds_a_configuration_that_rewrites(tmp_path: Path) -> None:
+    # GET /api/search?config=A6 answered 500: the factory built A6 with no rewrite.
+    settings = Settings(_env_file=None, anthropic_api_key=SecretStr("test-key"))
+    factory = online_retrieval(settings, ResponseCache(CacheMode.REPLAY, tmp_path))
+    a6 = factory(load_config(ROOT / "evals" / "configs" / "A6.yaml"))
+    assert a6.search is not None
+    assert factory(load_config(ROOT / "evals" / "configs" / "A2.yaml")).search is not None
