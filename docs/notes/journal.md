@@ -2,6 +2,25 @@
 
 Dated working notes: what was tried, what was learned, what changed course. Newest first. Decisions that last go into an ADR; this is the trail that led to them.
 
+## 2026-10-20: a search through the API, on three jurisdictions (Lane D)
+
+Measured on MX1 (4 cores, load average 0.1), on the shared Postgres's A2 index of Florida, Spain and Colombia: 2,092 chunks, 1,780 with an embedding, against the 350 Florida chunks of Lane A's profile below. Questions are embedded by MX3's TEI, and the API runs as production does (`ENVIRONMENT=prod`, `CACHE_MODE=live`). Model calls: none.
+
+| Step | Median | p95 or max | n |
+| --- | ---: | ---: | ---: |
+| The question's embedding (MX3's TEI, quiet) | 332 ms | max 502 ms | 10 |
+| The hybrid SQL, first on a connection | 95 ms | | 1 |
+| The hybrid SQL, warm connection, all jurisdictions | 61 ms | p95 78 ms | 30 |
+| The hybrid SQL, warm, Spain only | 60 ms | p95 82 ms | 30 |
+| `GET /api/law/search`, a new question | 484 ms | max 531 ms | 12 |
+| `GET /api/law/search`, the same question again | 81 ms | max 100 ms | 12 |
+
+- **The embedding is most of a search.** Of a new question's 484 ms, about 330 ms is the round trip to TEI, about 60 ms the SQL, and the rest is the route: the quota count in Redis and building the configuration's retriever. A question asked again skips TEI, because the response cache keeps every result of the process in memory.
+- **Six times the chunks did not slow the SQL.** The warm statement took 61 ms over 2,092 chunks here, against about 100 ms over 350 on MX2. The fixed cost of opening the BM25 index that Lane A measured did not grow with the index, and filtering to one jurisdiction saves nothing.
+- **TEI's latency depends on what else MX3 is doing.** At 15:10 UTC, while Spain's chunks were being embedded, one short sentence took 9 s; at 16:20 it took 332 ms. Production has its own embedding container, so a reader's question never waits behind an ingest.
+- **For the answer's budget:** Lane P's load test targets a p95 of 6 s for `/api/ask`, and retrieval takes about half a second of it. The live `A2-claude` answer measured this afternoon spent 0.9 s retrieving, with a busy TEI, and 4.2 s generating.
+- **To decide before launch:** the in-memory cache (`ResponseCache._memory` in `cache.py`) is never evicted. In `live` mode, production keeps every new question's embedding and every answer for the life of the process. At the daily quotas that is probably tens of megabytes a day, but it is unbounded. A size limit, or no memory at all in `live` mode, needs `cache.py`, which is frozen.
+
 ## 2026-10-20: every page on a phone, measured (Lane E)
 
 Lighthouse's default phone emulation (4x slower CPU, a slow connection) on the static export, five runs a page, medians; MX3's load moves single runs by about five points, and a run at a load average near 8 scored the lease page 84 where the same build scored 91 at 4, so these were taken with the machine quiet. Accessibility and SEO are 100 on every page, best practices 96 (the local server sends no security headers; Cloudflare Pages adds them).
