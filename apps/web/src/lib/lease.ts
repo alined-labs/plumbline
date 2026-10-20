@@ -99,3 +99,18 @@ export function groupFindings(findings: readonly Finding[]): FindingGroup[] {
       .sort((a, b) => a.n - b.n),
   })).filter((group) => group.findings.length > 0);
 }
+
+/** The counts of the findings that are shown, as a phrase in the groups' order: "2 conflict with
+ * the law, 1 worth checking". Code counts them; no model words a number. */
+export function summarize(findings: readonly Finding[]): { total: number; text: string } {
+  const groups = groupFindings(findings);
+  return {
+    total: groups.reduce((sum, group) => sum + group.findings.length, 0),
+    text: groups
+      .map(
+        ({ severity, findings: inGroup }) =>
+          `${inGroup.length} ${SEVERITY_INFO[severity].summary(inGroup.length)}`,
+      )
+      .join(", "),
+  };
+}
