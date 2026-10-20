@@ -32,6 +32,16 @@ export type EngineState = {
 /** How the shell's composer drives the engine once it has loaded. */
 export type EngineControls = { ask: (values: AskValues) => void; stop: () => void };
 
+/** The API's own words when it stopped an answer in the stream (its error part): its daily
+ * Claude budget spent, more law than one answer reads, a pipeline failure. A refusal before the
+ * stream (an HTTP status) or a connection that failed carries no words of the API's. */
+export function streamErrorText(error: unknown): string | null {
+  if (!(error instanceof Error) || APICallError.isInstance(error) || error instanceof TypeError) {
+    return null;
+  }
+  return error.message.trim() || null;
+}
+
 /** Over the demo's daily quota, the API answers 429 (Patterns to rebuild: sandbox quotas). */
 function isQuotaReached(error: unknown): boolean {
   return APICallError.isInstance(error) && error.statusCode === 429;
@@ -149,7 +159,8 @@ export function ChatEngine({
           </button>
         }
       >
-        The search service didn&apos;t answer. Your question is kept; try again in a moment, or{" "}
+        {streamErrorText(error) ?? "The search service didn't answer."} Your question is kept; try
+        again in a moment, or{" "}
         <button
           type="button"
           onClick={onReplay}

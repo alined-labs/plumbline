@@ -411,6 +411,24 @@ test("an example question asks in its own jurisdiction", async ({ page }) => {
   await expect(examples).toHaveCount(0);
 });
 
+test("an answer the API stopped in its stream says why, in the API's words", async ({ page }) => {
+  const spent =
+    "Today's budget for live answers is used up. Plumbline answers again from 00:00 UTC; until then, browse the stored answers and the cited articles.";
+  await answerWithStub(
+    page,
+    `data: ${JSON.stringify({ type: "start" })}\n\ndata: ${JSON.stringify({ type: "error", errorText: spent })}\n\ndata: [DONE]\n\n`,
+  );
+  await page.goto("/");
+  await ask(page, "Can my landlord keep my deposit?");
+  await expect(page.getByText("Plumbline couldn't finish this answer.")).toBeVisible();
+  await expect(page.getByText(/Today's budget for live answers is used up\./)).toBeVisible();
+  await expect(page.getByText("The search service didn't answer.")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "read the answers Plumbline recorded" }),
+  ).toBeVisible();
+  await expectNoAxeViolations(page);
+});
+
 test("a failed answer says so and Try again asks it again", async ({ page }) => {
   const failed = [
     'data: {"type": "start", "messageId": "msg_failed"}',
