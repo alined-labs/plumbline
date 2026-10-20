@@ -33,16 +33,16 @@ The human fills this table when each account is opened (task H2) and rechecks it
 
 ## 3. Daily caps and the worst month
 
-Each provider has a daily spend cap. Once Lane C's router (C6) and the kill switch (P5) enforce them, reaching a cap drops the tier from `full` to `free`, then to `static`, and logs the event. The defaults are in [`settings.py`](../apps/api/src/plumbline/settings.py), and production may set others in its environment.
+Each provider has a daily spend cap. The router (C6) sends premium questions to the strong route once Anthropic's cap is spent, and the kill switch (P5, [ADR-0011](adr/0011-security-controls.md)) drives the tier: `free` once Gemini or Anthropic has spent 80% of its cap, `static` once either has spent its whole cap, logging each change and restoring the tier the next UTC day. The site answers on Claude on every tier but `static`, and production holds one billed Gemini key, so `free` lowers spend but only `static` stops it. The defaults are in [`settings.py`](../apps/api/src/plumbline/settings.py); production sets its own in [`deploy/compose.prod.yaml`](../deploy/compose.prod.yaml).
 
 | Setting | Default | Production |
 | --- | --- | --- |
-| `GEMINI_DAILY_CAP_USD` | US$1.00 | *to fill* |
-| `ANTHROPIC_DAILY_CAP_USD` | US$1.00 | *to fill* |
-| `COHERE_DAILY_CAP_USD` | US$0.50 | *to fill* |
-| `DAILY_QUESTIONS_PER_IP` | 30 | *to fill* |
+| `GEMINI_DAILY_CAP_USD` | US$1.00 | US$0.30 |
+| `ANTHROPIC_DAILY_CAP_USD` | US$1.00 | US$1.00 |
+| `COHERE_DAILY_CAP_USD` | US$0.50 | US$0 (R1 dropped) |
+| `DAILY_QUESTIONS_PER_IP` | 30 | 30 |
 
-At the defaults the caps add up to US$2.50 a day, so the worst possible 30-day month spends US$75 on models: three quarters of the API credit. That bound holds only once the caps are enforced; until C6 and P5 are merged, the caps are settings, not limits.
+At production's caps the worst day spends US$1.30 on models, plus the calls in flight during the switch's reaction time (about 40 s: a 30-second check and the tier's 10-second cache). The worst 30-day month would be US$39, more than the US$4.73 left on Gemini: a run of full-cap days ends when that balance does, and the static tier carries the demo from there. The site answers on Claude: a long-context answer on Florida measured US$0.144 (Lane D, 2026-10-20, the whole law sent uncached), so at the US$1.00 Anthropic cap the tier drops to `free` after the sixth such answer of the day (US$0.86) and to `static` after the seventh (US$1.01); a cached law prefix would lower that cost.
 
 ## 4. Cost per question
 
