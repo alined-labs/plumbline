@@ -1,6 +1,6 @@
 import { finding, WAIVER } from "@/test/lease";
 
-import { findingSchema, groupFindings, SEVERITY_INFO, shownCitations } from "./lease";
+import { findingSchema, groupFindings, SEVERITY_INFO, shownCitations, summarize } from "./lease";
 
 describe("findingSchema", () => {
   it("accepts a finding the way Lane C's checker words it", () => {
@@ -43,5 +43,31 @@ describe("groupFindings", () => {
     expect(SEVERITY_INFO.conflict.summary(2)).toBe("conflict with the law");
     expect(SEVERITY_INFO.match.summary(1)).toBe("matches the law");
     expect(SEVERITY_INFO.match.summary(8)).toBe("match the law");
+  });
+});
+
+describe("summarize", () => {
+  it("counts what is shown in the groups' order, worded to agree with each count", () => {
+    expect(
+      summarize([
+        finding({ n: 1, severity: "conflict" }),
+        finding({ n: 2, severity: "check" }),
+        finding({ n: 3, severity: "conflict" }),
+      ]),
+    ).toEqual({ total: 3, text: "2 conflict with the law, 1 worth checking" });
+    expect(summarize([finding({ severity: "match" })])).toEqual({
+      total: 1,
+      text: "1 matches the law",
+    });
+  });
+
+  it("does not count a finding that has no verified citation, and is empty with none", () => {
+    const [citation] = WAIVER.citations;
+    if (!citation) throw new Error("the fixture has a citation");
+    expect(summarize([finding({ citations: [{ ...citation, verified: false }] })])).toEqual({
+      total: 0,
+      text: "",
+    });
+    expect(summarize([])).toEqual({ total: 0, text: "" });
   });
 });
