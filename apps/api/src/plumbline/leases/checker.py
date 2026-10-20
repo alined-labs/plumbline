@@ -3,8 +3,9 @@
     redact -> which law governs it -> extract the clauses -> check each clause -> done
 
 Redaction comes first and runs once: no model sees any of the lease before it. The
-governing jurisdiction is the caller's, or the one the lease names (Lane A's detector);
-a lease that names none, or several, is not guessed at. Clauses are checked several at a
+governing jurisdiction is the caller's, or the one the lease names (Lane A's detector, run
+locally on the original text, since redaction may hide place names); a lease that names
+none, or several, is not guessed at. Clauses are checked several at a
 time, but findings are yielded in clause order and numbered as they go, so a reader sees
 the first clauses' findings while the last are still being checked.
 
@@ -90,7 +91,10 @@ async def stream_check(
         text = redactor.redact(upload)
     except RedactionRefused as exc:
         raise LeaseCheckError("redaction_refused") from exc
-    governing = jurisdiction or _named(text)
+    # Read on the original text: redaction may replace place names ("Miami, Florida") with
+    # placeholders, and this is local pattern matching, not a model call, so nothing of
+    # the lease leaves the machine before redaction either way.
+    governing = jurisdiction or _named(upload.text)
     yield LeaseStage("reading")
     extraction = await extract_clauses(text, client, model)
     clauses = extraction.clauses
