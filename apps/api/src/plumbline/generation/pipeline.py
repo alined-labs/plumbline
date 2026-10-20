@@ -21,7 +21,7 @@ from collections.abc import AsyncIterator, Callable, Collection, Iterator, Seque
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Final, Protocol
+from typing import Final, Literal, Protocol
 
 from pydantic import ValidationError
 
@@ -67,6 +67,13 @@ from plumbline.generation.verifier import verify
 from plumbline.retrieval.jurisdiction import detect as detect_jurisdictions
 
 MODELS: Final = {"fast": FAST_MODEL, "strong": STRONG_MODEL, "premium": PREMIUM_MODEL}
+# Gemini 3.8 Flash thinks by default, and its thoughts count against the same output limit
+# as the answer: a long-context answer measured on 2026-10-20 spent 640 of its 1,024 tokens
+# thinking and was cut off mid-JSON. The strong route asks for low thinking, and a route
+# that thinks gets room for it on top of the configuration's max_output_tokens, which
+# bounds the answer itself.
+THINKING: Final[dict[str, Literal["low"]]] = {"strong": "low"}
+THINKING_ROOM: Final = 2048
 UNREADABLE: Final = "The answer could not be read. Please try again."
 
 
@@ -242,13 +249,16 @@ class Pipeline:
 
         yield StatusEvent(stage=Stage.GENERATING)
         prompt = build_prompt(question, run.retrieved, asked)
+        thinking = THINKING.get(self.route)
+        room = THINKING_ROOM if thinking else 0
         request = LLMRequest(
             model=self.model,
             system=prompt.system,
             messages=[Message(role="user", content=prompt.user)],
-            max_output_tokens=self.config.generation.max_output_tokens,
+            max_output_tokens=self.config.generation.max_output_tokens + room,
             temperature=self.config.generation.temperature,
             json_schema=answer_json_schema(),
+            thinking=thinking,
         )
         preview = FieldStream("answer")
         with _timer(run, "generate"):

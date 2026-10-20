@@ -41,7 +41,7 @@ from plumbline.generation.llm import (
     LLMResult,
     Usage,
 )
-from plumbline.generation.pipeline import UNREADABLE, Pipeline, reorder
+from plumbline.generation.pipeline import THINKING_ROOM, UNREADABLE, Pipeline, reorder
 from plumbline.observability.tracing import Tracer
 from plumbline.settings import ROOT
 
@@ -452,9 +452,28 @@ def test_the_long_context_baseline_reads_the_whole_law() -> None:
     request = model.requests[0]
     assert request.model == STRONG_MODEL
     assert request.messages[0].content.count("<source n=") == len(HITS)  # all of it
+    # The strong model thinks: low, with room beside the answer's own budget.
+    assert request.thinking == "low"
+    assert request.max_output_tokens == 1024 + THINKING_ROOM
     summary = evs[-2]
     assert isinstance(summary, AnswerSummary)
     assert summary.status is AnswerStatus.ANSWERED
+
+
+def test_the_fast_route_sends_no_thinking_and_the_configured_budget() -> None:
+    model = Model(reply())
+    p = Pipeline(
+        config(rerank="none", threshold=None),
+        search=Search(),
+        detect=florida,
+        reranker=None,
+        indexed={FLORIDA},
+        client=model,
+    )
+    events(p)
+    (request,) = model.requests
+    assert request.thinking is None
+    assert request.max_output_tokens == 1024
 
 
 def test_a_pipeline_needs_the_source_its_configuration_reads() -> None:
