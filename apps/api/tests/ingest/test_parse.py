@@ -19,8 +19,8 @@ from plumbline.core.types import CacheMode, ParseMethod
 from plumbline.corpus.manifest import Source
 from plumbline.ingest import html
 from plumbline.ingest.parse import (
-    DOCLING,
     DOCLING_VERSION,
+    PDF_PARSER,
     DoclingClient,
     ParseError,
     coverage,
@@ -88,7 +88,7 @@ def test_a_pdf_replays_docling_page_by_page_and_keeps_its_blank_page() -> None:
         "http://docling", ResponseCache(CacheMode.REPLAY, ROOT / "cache"), _offline()
     )
     document = parse_source(_source(STATUTE), STATUTE, docling)
-    assert document.parser == DOCLING
+    assert document.parser == PDF_PARSER
     assert [(p.number, p.method) for p in document.pages] == [
         (1, ParseMethod.TEXT_LAYER),
         (2, ParseMethod.TEXT_LAYER),

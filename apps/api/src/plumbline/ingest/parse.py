@@ -2,7 +2,8 @@
 data/processed/<source_id>.json, committed, so every lane rebuilds the index without
 running the parser.
 
-- An HTML source is read in code (plumbline.ingest.html) as one page.
+- An HTML source is read in code (plumbline.ingest.html) as one page, and so is the BOE's
+  open-data XML (plumbline.ingest.boe), which keeps every version of every article.
 - A PDF is read page by page, so ParsedPage.number is always the page in the file. A page
   with a text layer goes to docling-serve, one page per request: docling's page-break
   marker skips empty pages, so splitting a whole-document conversion on it would misnumber
@@ -36,13 +37,17 @@ import pypdfium2 as pdfium
 from plumbline.cache import Fresh, ResponseCache
 from plumbline.core.types import ParsedDocument, ParsedPage, ParseMethod
 from plumbline.corpus.manifest import Source
-from plumbline.ingest import html
+from plumbline.ingest import boe, html
 from plumbline.ingest.vision import VisionReader
 
 log = logging.getLogger(__name__)
 
 DOCLING_VERSION: Final = "1.37.0"  # the docling image in compose.yaml; a test keeps them equal
 DOCLING: Final = f"docling-serve {DOCLING_VERSION}"
+# Bump when the page logic below changes what it makes of docling's output (the coverage
+# check, the furniture rule): parses made before are then stale, though docling's is not.
+PAGE_LOGIC: Final = 2
+PDF_PARSER: Final = f"{DOCLING}, page logic {PAGE_LOGIC}"
 DOCLING_OPTIONS: Final = {
     "from_formats": ["pdf"],
     "to_formats": ["md"],
@@ -148,6 +153,16 @@ class DoclingClient:
         return markdown
 
 
+def parser_for(source: Source) -> str:
+    """The `parser` string a parse of this source carries today: a parse made by an older
+    reader (or an older docling) is stale, whatever the source's hash says."""
+    readers = {"html": html.READER, "xml": boe.READER, "pdf": PDF_PARSER}
+    try:
+        return readers[source.format]
+    except KeyError:
+        raise ParseError(f"{source.id}: no reader for {source.format} sources") from None
+
+
 def parse_source(
     source: Source, data: bytes, docling: DoclingClient, vision: VisionReader | None = None
 ) -> ParsedDocument:
@@ -157,19 +172,18 @@ def parse_source(
         raise ParseError(
             f"{source.id}: the file's sha256 is {sha256}, the manifest's {source.sha256}"
         )
+    parser = parser_for(source)
     if source.format == "html":
         text = html.to_markdown(html.decode(data), html.profile_for(str(source.url)))
         pages = [ParsedPage(number=1, method=ParseMethod.HTML, markdown=text)]
-        parser = html.READER
-    elif source.format == "pdf":
+    elif source.format == "xml":
+        pages = [ParsedPage(number=1, method=ParseMethod.HTML, markdown=boe.to_markdown(data))]
+    else:  # a PDF: parser_for refused every other format
         pdf_pages = read_pdf(data)
         repeated = furniture(pdf_pages)
         pages = [
             _pdf_page(source, data, sha256, page, repeated, docling, vision) for page in pdf_pages
         ]
-        parser = DOCLING
-    else:
-        raise ParseError(f"{source.id}: no reader for {source.format} sources")
     return ParsedDocument(
         source_id=source.id,
         law=source.law,
