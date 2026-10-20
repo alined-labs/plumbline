@@ -204,6 +204,20 @@ class QueryRow(Base):
     created_at: Mapped[datetime] = _now()
 
 
+class FeedbackRow(Base):
+    """A reader's verdict on one answer, tied to it by the trace's request_id."""
+
+    __tablename__ = "feedback"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"))
+    request_id: Mapped[str] = mapped_column(index=True)
+    helpful: Mapped[bool]
+    reasons: Mapped[TextList] = mapped_column(server_default=sql("'{}'"))
+    note: Mapped[str | None]
+    created_at: Mapped[datetime] = _now()
+
+
 class EvalRunRow(Base):
     """rag_eval.schema.EvalRun without its results."""
 

@@ -9,11 +9,14 @@ from importlib.metadata import version
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from plumbline.api.schemas import AskRequest, Health
+from plumbline.api.schemas import AskRequest, FeedbackRequest, Health
 from plumbline.api.stream import HEADERS, ui_message_stream
 from plumbline.api.tier import tier_store
 from plumbline.core.stream import AnswerPipeline, Question
+from plumbline.db.models import PUBLIC_TENANT, FeedbackRow
+from plumbline.db.session import tenant_session
 from plumbline.settings import Settings
 
 router = APIRouter(prefix="/api")
@@ -57,3 +60,20 @@ async def ask(body: AskRequest, request: Request) -> StreamingResponse:
     pipeline: AnswerPipeline = request.app.state.pipeline
     stream = ui_message_stream(pipeline.stream(question), message_id=f"msg_{request_id[4:]}")
     return StreamingResponse(stream, media_type="text/event-stream", headers=HEADERS)
+
+
+@router.post("/feedback", tags=["answers"], status_code=204)
+async def feedback(body: FeedbackRequest, request: Request) -> None:
+    """Store a reader's verdict on an answer. Anonymous readers' feedback belongs to the
+    public tenant until visitors have their own (task D7)."""
+    sessions: async_sessionmaker[AsyncSession] = request.app.state.sessions
+    async with tenant_session(sessions, PUBLIC_TENANT) as session:
+        session.add(
+            FeedbackRow(
+                tenant_id=PUBLIC_TENANT,
+                request_id=body.request_id,
+                helpful=body.helpful,
+                reasons=list(body.reasons),
+                note=body.note,
+            )
+        )

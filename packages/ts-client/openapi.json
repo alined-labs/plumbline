@@ -275,6 +275,55 @@
         "title": "DemoTier",
         "type": "string"
       },
+      "FeedbackRequest": {
+        "additionalProperties": false,
+        "description": "A reader's verdict on one answer. The note is free text and may hold personal data:\nit is stored, never sent to a model, and never logged.",
+        "properties": {
+          "helpful": {
+            "title": "Helpful",
+            "type": "boolean"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "reasons": {
+            "items": {
+              "enum": [
+                "wrong_citation",
+                "missed_statute",
+                "outdated_law",
+                "hard_to_follow",
+                "something_else"
+              ],
+              "type": "string"
+            },
+            "maxItems": 5,
+            "title": "Reasons",
+            "type": "array"
+          },
+          "request_id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "helpful"
+        ],
+        "title": "FeedbackRequest",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1152,6 +1201,41 @@
           }
         },
         "summary": "Ask",
+        "tags": [
+          "answers"
+        ]
+      }
+    },
+    "/api/feedback": {
+      "post": {
+        "description": "Store a reader's verdict on an answer. Anonymous readers' feedback belongs to the\npublic tenant until visitors have their own (task D7).",
+        "operationId": "feedback_api_feedback_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Feedback",
         "tags": [
           "answers"
         ]

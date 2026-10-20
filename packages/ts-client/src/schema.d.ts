@@ -92,6 +92,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Feedback
+         * @description Store a reader's verdict on an answer. Anonymous readers' feedback belongs to the
+         *     public tenant until visitors have their own (task D7).
+         */
+        post: operations["feedback_api_feedback_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -278,6 +299,21 @@ export interface components {
          * @enum {string}
          */
         DemoTier: "full" | "free" | "static";
+        /**
+         * FeedbackRequest
+         * @description A reader's verdict on one answer. The note is free text and may hold personal data:
+         *     it is stored, never sent to a model, and never logged.
+         */
+        FeedbackRequest: {
+            /** Helpful */
+            helpful: boolean;
+            /** Note */
+            note?: string | null;
+            /** Reasons */
+            reasons?: ("wrong_citation" | "missed_statute" | "outdated_law" | "hard_to_follow" | "something_else")[];
+            /** Request Id */
+            request_id: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -679,6 +715,37 @@ export interface operations {
                 content: {
                     "text/event-stream": string;
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    feedback_api_feedback_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeedbackRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

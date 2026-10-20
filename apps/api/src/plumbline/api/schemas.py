@@ -5,9 +5,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 
 from plumbline.core.stream import MAX_QUESTION_CHARS
 from plumbline.core.types import CacheMode, DemoTier, Jurisdiction
@@ -91,3 +91,27 @@ class JobEventView(BaseModel):
     message: str
     data: dict[str, Any]
     created_at: datetime
+
+
+FeedbackReason = Literal[
+    "wrong_citation", "missed_statute", "outdated_law", "hard_to_follow", "something_else"
+]
+
+
+class FeedbackRequest(BaseModel):
+    """A reader's verdict on one answer. The note is free text and may hold personal data:
+    it is stored, never sent to a model, and never logged."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    request_id: Annotated[str, StringConstraints(min_length=1, max_length=64)]
+    helpful: bool
+    reasons: list[FeedbackReason] = Field(default_factory=list, max_length=5)
+    note: Annotated[str, StringConstraints(max_length=1000)] | None = None
+
+    @field_validator("reasons")
+    @classmethod
+    def _no_repeats(cls, reasons: list[FeedbackReason]) -> list[FeedbackReason]:
+        if len(set(reasons)) != len(reasons):
+            raise ValueError("a reason appears twice")
+        return reasons
