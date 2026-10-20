@@ -83,10 +83,22 @@ def statistics(items: Sequence[GoldenItem]) -> str:
         ("source type", lambda item: item.source_type.value),
         ("difficulty", lambda item: item.difficulty.value),
         ("added in", lambda item: item.added_in),
+        ("second source", second_source_of),
     ):
         tables.append(_counts(title, items, key))
     dated = sum(1 for item in items if item.as_of or item.signed_on)
     return "\n".join(tables) + f"\n{len(items)} items, {dated} of them dated.\n"
+
+
+def second_source_of(item: GoldenItem) -> str:
+    """Whether the item's verification names an official second source, for the card's count.
+    An out-of-scope item has none to name; any other item without one is counted as such, so
+    the card says how many answers rest on the statute alone."""
+    if item.verification is None:
+        return "not verified"
+    if item.verification.second_source:
+        return "found"
+    return "not applicable (out of scope)" if item.expected_abstain else "none found"
 
 
 def _counts(title: str, items: Sequence[GoldenItem], key: Callable[[GoldenItem], str]) -> str:
