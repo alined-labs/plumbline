@@ -58,6 +58,9 @@ class LLMRequest(Frozen):
     temperature: float | None = Field(default=0.0, ge=0, le=2)  # Claude's current models take none
     json_schema: dict[str, Any] | None = None  # structured output: the text is JSON of this schema
     cache_system: bool = True  # mark the system prompt as a cacheable prefix where that is explicit
+    # How much the model may think before it answers; None leaves the model's default, and is
+    # not sent, so a request without it keeps the key it always had.
+    thinking: Literal["minimal", "low", "medium", "high"] | None = None
 
 
 @dataclass(frozen=True)
@@ -353,6 +356,8 @@ class GeminiClient(BaseClient):
         if request.json_schema is not None:
             config["response_mime_type"] = "application/json"
             config["response_json_schema"] = request.json_schema
+        if request.thinking is not None:
+            config["thinking_config"] = {"thinking_level": request.thinking.upper()}
         contents = [
             {"role": "model" if m.role == "assistant" else "user", "parts": [{"text": m.content}]}
             for m in request.messages
@@ -403,6 +408,10 @@ def _gemini_stop(response: genai_types.GenerateContentResponse | None) -> str | 
     return str(response.candidates[0].finish_reason.value)
 
 
+# Claude's effort has no "minimal": its lowest level stands in for it.
+_CLAUDE_EFFORT: Final = {"minimal": "low", "low": "low", "medium": "medium", "high": "high"}
+
+
 class AnthropicClient(BaseClient):
     """Claude takes no sampling parameters, so `temperature` is not sent; the system prompt
     is marked as a 5-minute cache breakpoint (a no-op under the model's minimum length)."""
@@ -424,10 +433,13 @@ class AnthropicClient(BaseClient):
             if request.cache_system:
                 block["cache_control"] = {"type": "ephemeral"}
             body["system"] = [block]
+        output: dict[str, Json] = {}
         if request.json_schema is not None:
-            body["output_config"] = {
-                "format": {"type": "json_schema", "schema": request.json_schema}
-            }
+            output["format"] = {"type": "json_schema", "schema": request.json_schema}
+        if request.thinking is not None:
+            output["effort"] = _CLAUDE_EFFORT[request.thinking]
+        if output:
+            body["output_config"] = output
         return body
 
     def _client(self) -> anthropic.AsyncAnthropic:
@@ -506,6 +518,8 @@ class OpenAICompatibleClient(BaseClient):
         if request.json_schema is not None:
             schema = {"name": "response", "schema": request.json_schema, "strict": True}
             body["response_format"] = {"type": "json_schema", "json_schema": schema}
+        if request.thinking is not None:
+            body["reasoning_effort"] = request.thinking
         return body
 
     def _client(self) -> openai.AsyncOpenAI:

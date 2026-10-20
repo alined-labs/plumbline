@@ -304,3 +304,18 @@ def test_openai_compatible_payload_usage_and_key(tmp_path: Path) -> None:
     assert fake.seen["response_format"]["json_schema"]["strict"] is True
     assert result.usage == Usage(input_tokens=44, cache_read_tokens=256, output_tokens=20)
     assert client.cache_request({"model": "m"})["base_url"] == "http://llm.lan/v1"
+
+
+def test_thinking_is_sent_only_when_asked_for(tmp_path: Path) -> None:
+    calm = REQUEST.model_copy(update={"thinking": "minimal"})
+    gemini = GeminiClient(sdk=object(), cache=ResponseCache(CacheMode.LIVE, tmp_path))  # type: ignore[arg-type]
+    assert "thinking_config" not in gemini.payload(REQUEST)["config"]
+    assert gemini.payload(calm)["config"]["thinking_config"] == {"thinking_level": "MINIMAL"}
+    claude = AnthropicClient(sdk=object(), cache=ResponseCache(CacheMode.LIVE, tmp_path))  # type: ignore[arg-type]
+    assert claude.payload(REQUEST)["output_config"] == {
+        "format": {"type": "json_schema", "schema": {"type": "object"}}
+    }
+    assert claude.payload(calm)["output_config"]["effort"] == "low"  # Claude's lowest
+    compatible = OpenAICompatibleClient(sdk=object(), cache=ResponseCache(CacheMode.LIVE, tmp_path))  # type: ignore[arg-type]
+    assert "reasoning_effort" not in compatible.payload(REQUEST)
+    assert compatible.payload(calm)["reasoning_effort"] == "minimal"
