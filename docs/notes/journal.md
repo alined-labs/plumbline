@@ -9,6 +9,14 @@ Dated working notes: what was tried, what was learned, what changed course. Newe
 - At 10 candidates: p50 16.1 s, p95 36.3 s (`benchmark-10.json`), half the 20-candidate time and still 24 times the budget. Neither of the plan's fallbacks reaches 1.5 s here, so ADR-0005 proposes reranking offline only (recorded once per pair) and answering online with Cohere on the full tier or the hybrid order without reranking.
 - The benchmark took 32 minutes of MX3's CPU; a dev-split recording for one reranked configuration will take about 70.
 
+## 2026-10-20: the sources behind the golden set (Lane B)
+
+- At 10:58 UTC every one of the nine pinned sources still served its pinned text (`plumbline.corpus.fetch --check`): both Florida chapters, the LAU and the LPH from the BOE, the two Dubai laws and the DLD guide, and both Colombian laws.
+- The BOE's daily summaries from 2 to 20 October hold no vote by Congress on Real Decreto-ley 28/2026 or 29/2026; it validated only RDLs 24 and 25 on 16 October. So the LAU's wording since 8 October can still lapse; the golden items rest on wording that is the same either way, or carry a date before October.
+- The LAU's open-data file leaves one version undated: art. 10's last, which carries RDL 28/2026's id but RDL 29/2026's wording. Its date (8 October) is only in the version's note, so a reader that skips undated versions serves the 2 October text. The review sheet now reads the date from the note.
+- Official pages change under us. The Ministerio de Vivienda's ten-question FAQ, read for the drafts, now answers 403 to automated reading, and the Internet Archive's copies of it are the 403 page too. Función Pública's compilation of Colombian law serves an incomplete certificate chain, so it cannot be read with verification on; nothing was fetched from it.
+- Second sources: 142 of the 155 answerable items have an official one (a ministry or regional guide, a court's or land department's FAQ, a legislature's bill analysis, a bar pamphlet). Law-firm pages dominate search results for every jurisdiction; none is used.
+
 ## 2026-10-19: models, prices and the first answers (Lane C)
 
 - Pinned from the providers' model pages: `gemini-3.5-flash-lite` for the fast route (the Flash-Lite Google points new projects to), `gemini-3.8-flash` for the strong and lease routes (the newest stable Flash; Google has no stable Pro yet), `claude-sonnet-5-5` for premium and `claude-haiku-5-5` for the judge. Their prices, read the same day, are in `generation/llm.py`; Gemini 3.8 Flash doubles on 2027-01-01, and the table already holds both prices.
