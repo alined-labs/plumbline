@@ -138,3 +138,55 @@ if __name__ == "__main__":
     for clause in extraction.clauses:
         print(clause.number, "|", clause.heading, "|", clause.text[:70].replace("\n", " "))
     print("dropped", extraction.dropped, "cost", extraction.cost_usd)
+
+
+MARKDOWN: Final = """# Lease
+
+## Clause 1. Term
+
+The lease lasts one year from 1 February 2026.
+
+## Clause 2. Rent
+
+The rent is EUR 1,150 a month, paid within the first seven days.
+Late payment is a breach.
+
+Clause 3 - Deposit
+
+The Tenant pays a deposit of one month's rent.
+
+## Signatures
+"""
+
+
+def test_a_clause_ends_before_the_next_clause_s_heading() -> None:
+    clauses, dropped = cut(
+        MARKDOWN,
+        ClauseMarks(
+            language="en",
+            clauses=[
+                ClauseMark(number="1", heading="Term", starts_with="The lease lasts one year"),
+                ClauseMark(number="2", heading="Rent", starts_with="The rent is EUR 1,150"),
+                ClauseMark(number="3", heading="Deposit", starts_with="The Tenant pays a deposit"),
+            ],
+            ends_before=None,
+        ),
+    )
+    assert dropped == 0
+    assert [c.text for c in clauses] == [
+        "The lease lasts one year from 1 February 2026.",  # not "## Clause 2. Rent"
+        "The rent is EUR 1,150 a month, paid within the first seven days.\n"
+        "Late payment is a breach.",  # a plain line naming clause 3 goes too
+        "The Tenant pays a deposit of one month's rent.",  # and the signatures' heading
+    ]
+
+
+def test_a_clause_keeps_its_own_last_line_even_when_short() -> None:
+    text = "1. Pets. One cat is allowed.\nNo dogs.\n2. Repairs. The Landlord repairs the roof."
+    clauses, _ = cut(
+        text,
+        marks(
+            mark("1", "1. Pets. One cat"), mark("2", "2. Repairs. The Landlord"), ends_before=None
+        ),
+    )
+    assert clauses[0].text == "1. Pets. One cat is allowed.\nNo dogs."
