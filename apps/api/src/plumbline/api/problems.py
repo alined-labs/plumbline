@@ -5,6 +5,11 @@ fields that failed validation, so the browser handles all of them one way.
 An unexpected exception answers 500 with a fixed detail and is logged in full: its
 message may hold internals and never reaches the client. Validation errors list each
 field's location and message, never the exception's text, which can carry file paths.
+
+An error a client has to tell apart from others with the same status carries a `code`
+(ApiError): the chat words its quota state from one, and the lease page words a 413 and a
+422, or a paused tier and a busy server, each its own way. The codes are part of the API,
+so they are listed, and each branch that returns one adds it.
 """
 
 from __future__ import annotations
@@ -12,9 +17,9 @@ from __future__ import annotations
 import logging
 from collections.abc import Mapping
 from http import HTTPStatus
-from typing import Final
+from typing import Final, Literal
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -23,6 +28,9 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 log = logging.getLogger(__name__)
 
 MEDIA_TYPE: Final = "application/problem+json"
+ProblemCode = Literal[
+    "quota_reached",  # 429: today's allowance is used up; Retry-After says until when
+]
 
 
 class FieldError(BaseModel):
@@ -37,6 +45,21 @@ class Problem(BaseModel):
     status: int
     detail: str | None = None
     errors: list[FieldError] | None = None  # for a 422, one per field that failed
+    code: ProblemCode | None = None  # which case this is, where the status alone does not say
+
+
+class ApiError(HTTPException):
+    """An error with a code that clients can branch on."""
+
+    def __init__(
+        self,
+        status_code: int,
+        code: ProblemCode,
+        detail: str,
+        headers: Mapping[str, str] | None = None,
+    ) -> None:
+        super().__init__(status_code=status_code, detail=detail, headers=dict(headers or {}))
+        self.code = code
 
 
 def problem(
@@ -44,8 +67,11 @@ def problem(
     detail: str | None = None,
     errors: list[FieldError] | None = None,
     headers: Mapping[str, str] | None = None,
+    code: ProblemCode | None = None,
 ) -> JSONResponse:
-    body = Problem(title=HTTPStatus(status).phrase, status=status, detail=detail, errors=errors)
+    body = Problem(
+        title=HTTPStatus(status).phrase, status=status, detail=detail, errors=errors, code=code
+    )
     return JSONResponse(
         body.model_dump(mode="json", exclude_none=True),
         status_code=status,
@@ -60,7 +86,8 @@ async def _http_error(request: Request, exc: Exception) -> JSONResponse:
     detail = exc.detail if isinstance(exc.detail, str) and exc.detail else None
     if detail == HTTPStatus(exc.status_code).phrase:
         detail = None  # Starlette's own 404 and 405 repeat the title
-    return problem(exc.status_code, detail, headers=exc.headers)
+    code = exc.code if isinstance(exc, ApiError) else None
+    return problem(exc.status_code, detail, headers=exc.headers, code=code)
 
 
 async def _invalid(request: Request, exc: Exception) -> JSONResponse:
