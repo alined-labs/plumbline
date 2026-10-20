@@ -92,6 +92,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/check-lease": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start */
+        post: operations["start_api_check_lease_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/check-lease/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Result */
+        get: operations["result_api_check_lease__run_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/check-lease/{run_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Events */
+        get: operations["events_api_check_lease__run_id__events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/chunks/{chunk_id}": {
         parameters: {
             query?: never;
@@ -385,20 +436,14 @@ export interface components {
         Citation: {
             /** Chunk Id */
             chunk_id: string;
-            /**
-             * Gloss
-             * @default null
-             */
+            /** Gloss */
             gloss: string | null;
             /** Label */
             label: string;
             language: components["schemas"]["Language"];
             /** N */
             n: number;
-            /**
-             * Page
-             * @default null
-             */
+            /** Page */
             page: number | null;
             /** Quote */
             quote: string;
@@ -436,6 +481,25 @@ export interface components {
             msg: string;
             /** Type */
             type: string;
+        };
+        /** Finding */
+        Finding: {
+            /** Citations */
+            citations: components["schemas"]["Citation"][];
+            clause_language: components["schemas"]["Language"];
+            /** Clause Number */
+            clause_number: string;
+            /** Clause Text */
+            clause_text: string;
+            /** Confidence */
+            confidence: number;
+            /** N */
+            n: number;
+            severity: components["schemas"]["Severity"];
+            /** Title */
+            title: string;
+            /** Why */
+            why: string;
         };
         /** Health */
         Health: {
@@ -531,6 +595,75 @@ export interface components {
          * @enum {string}
          */
         Language: "en" | "es";
+        /**
+         * LeaseDoneEvent
+         * @description Data of the `done` event, the last of a check that worked.
+         */
+        LeaseDoneEvent: {
+            /** Findings */
+            findings: number;
+            language: components["schemas"]["Language"];
+        };
+        /**
+         * LeaseFailedEvent
+         * @description Data of the `failed` event, the last of a check that did not work.
+         */
+        LeaseFailedEvent: {
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "redaction_refused" | "jurisdiction_unknown" | "no_clauses" | "timed_out" | "interrupted" | "internal";
+            /** Message */
+            message: string;
+        };
+        /**
+         * LeaseResult
+         * @description A check as it stands, for a page that was reloaded: `findings` are those so far.
+         */
+        LeaseResult: {
+            failure: components["schemas"]["LeaseFailedEvent"] | null;
+            /** Findings */
+            findings: components["schemas"]["Finding"][];
+            /** Id */
+            id: string;
+            language: components["schemas"]["Language"] | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "running" | "done" | "failed";
+        };
+        /**
+         * LeaseStageEvent
+         * @description Data of a `stage` event: where the check is. While checking, `done` and `total`
+         *     count the lease's clauses.
+         */
+        LeaseStageEvent: {
+            /**
+             * Done
+             * @default null
+             */
+            done: number | null;
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "uploaded" | "redacting" | "reading" | "checking";
+            /**
+             * Total
+             * @default null
+             */
+            total: number | null;
+        };
+        /**
+         * LeaseStarted
+         * @description A lease check that was accepted.
+         */
+        LeaseStarted: {
+            /** Id */
+            id: string;
+        };
         /** PageBox */
         PageBox: {
             /** X0 */
@@ -548,7 +681,7 @@ export interface components {
              * Code
              * @default null
              */
-            code: "quota_reached" | null;
+            code: ("unsupported_type" | "too_large" | "unreadable" | "quota_reached" | "not_found" | "lease_checks_paused" | "busy") | null;
             /**
              * Detail
              * @default null
@@ -656,6 +789,12 @@ export interface components {
                 [key: string]: number;
             };
         };
+        /**
+         * Severity
+         * @description The four groups the lease page shows, most pressing first.
+         * @enum {string}
+         */
+        Severity: "conflict" | "check" | "note" | "match";
         /** SourceLink */
         SourceLink: {
             /** Id */
@@ -1002,6 +1141,195 @@ export interface operations {
             429: {
                 headers: {
                     "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description An error, as problem details (RFC 9457). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    start_api_check_lease_post: {
+        parameters: {
+            query?: {
+                /** @description The governing jurisdiction, when the reader knows. */
+                jurisdiction?: components["schemas"]["Jurisdiction"] | null;
+                /** @description When the lease was signed: the law in force then. */
+                signed_on?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The lease itself, not a form: a PDF, a Word document (DOCX) or plain text, up to 10 MB. The type is read from the bytes, whatever the Content-Type says. */
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+                "application/pdf": string;
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document": string;
+                "text/plain": string;
+            };
+        };
+        responses: {
+            /** @description The check started. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaseStarted"];
+                };
+            };
+            /** @description `too_large`: the file is over the size or length limit. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `unsupported_type`: not a PDF, a Word document or text (or sent as a form). */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `unreadable`: no text could be read from the file (a scan, a broken file). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `quota_reached`: today's lease checks are used up; Retry-After gives the seconds until 00:00 UTC. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `lease_checks_paused` (the demo tier does not run them) or `busy` (too many checks are running; Retry-After gives the seconds). */
+            503: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description An error, as problem details (RFC 9457). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    result_api_check_lease__run_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaseResult"];
+                };
+            };
+            /** @description `not_found`: no such check, it expired, or it is another visitor's. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The request is not valid. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description An error, as problem details (RFC 9457). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    events_api_check_lease__run_id__events_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "last-event-id"?: number | null;
+            };
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The check's events as server-sent events: `event` is `stage` (LeaseStageEvent), `finding` (Finding), `done` (LeaseDoneEvent) or `failed` (LeaseFailedEvent); `id` numbers them from 1, and sending the last one back as Last-Event-ID resumes after it. The stream ends after `done` or `failed`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": unknown;
+                };
+            };
+            /** @description `not_found`: no such check, it expired, or it is another visitor's. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The request is not valid. */
+            422: {
+                headers: {
                     [name: string]: unknown;
                 };
                 content: {

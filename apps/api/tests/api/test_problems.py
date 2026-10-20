@@ -100,4 +100,12 @@ def test_the_schema_lists_the_codes(client: TestClient) -> None:
         for branch in code["anyOf"]
         for value in [*branch.get("enum", []), *([branch["const"]] if "const" in branch else [])]
     }
-    assert listed == {"quota_reached"}
+    assert listed == {
+        "quota_reached",
+        "unsupported_type",
+        "too_large",
+        "unreadable",
+        "not_found",
+        "lease_checks_paused",
+        "busy",
+    }

@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from importlib.metadata import version
 from typing import Any
 
@@ -10,10 +12,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from plumbline.api import admin, chunks, problems, search, tier
+from plumbline.api import admin, chunks, leases, problems, search, tier
+from plumbline.api.lease_stub import StubLeaseChecker
+from plumbline.api.leases import LeaseChecker
 from plumbline.api.openapi import build_openapi
 from plumbline.api.quota import Counter, Quota, RedisCounter
 from plumbline.api.routes import router
+from plumbline.api.runs import Runs
 from plumbline.api.search import RetrievalFactory
 from plumbline.api.sources import Corpus
 from plumbline.api.sources import router as sources_router
@@ -24,6 +29,12 @@ from plumbline.generation.stub import StubPipeline
 from plumbline.settings import ROOT, Settings, get_settings
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    yield
+    await app.state.runs.close()  # lease checks still going end as interrupted
+
+
 def create_app(
     settings: Settings | None = None,
     pipeline: AnswerPipeline | None = None,
@@ -31,6 +42,7 @@ def create_app(
     corpus: Corpus | None = None,
     retrieval: RetrievalFactory | None = None,
     counter: Counter | None = None,
+    lease_checker: LeaseChecker | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
     app = FastAPI(
@@ -40,10 +52,13 @@ def create_app(
         docs_url="/api/docs",
         openapi_url="/api/openapi.json",
         redoc_url=None,
+        lifespan=lifespan,
     )
     app.state.settings = settings
     app.state.pipeline = pipeline or StubPipeline(delay_ms=settings.stub_delay_ms)
     app.state.retrieval = retrieval  # Lane A's retrieval, when the server has it
+    app.state.lease_checker = lease_checker or StubLeaseChecker(delay_ms=settings.stub_delay_ms)
+    app.state.runs = Runs(leases.failure)
     # The engine connects on first use, so an app that never touches the database (the
     # stub, the OpenAPI export) runs without one.
     app.state.sessions = sessions or make_sessionmaker(make_engine(settings.database_url))
@@ -58,6 +73,7 @@ def create_app(
         allow_methods=["GET", "POST"],
         allow_headers=["content-type"],
         allow_credentials=True,  # the visitor cookie travels with the front end's requests
+        expose_headers=["Retry-After", "Location"],  # a cross-origin page reads these too
     )
     problems.install(app)
     app.include_router(router)
@@ -66,6 +82,7 @@ def create_app(
     app.include_router(sources_router)
     app.include_router(search.router)
     app.include_router(chunks.router)
+    app.include_router(leases.router)
 
     def openapi() -> dict[str, Any]:
         if app.openapi_schema is None:

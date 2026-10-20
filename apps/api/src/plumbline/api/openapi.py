@@ -1,5 +1,5 @@
-"""The OpenAPI schema, plus the payloads of the event streams (the answer's data parts and
-an ingestion job's events) as components, so the browser's types come from one generated
+"""The OpenAPI schema, plus the payloads of the event streams (the answer's data parts, an
+ingestion job's events and a lease check's) as components, so the browser's types come from one generated
 file (packages/ts-client).
 
     uv run python -m plumbline.api.openapi > packages/ts-client/openapi.json
@@ -18,14 +18,26 @@ from fastapi.openapi.utils import get_openapi
 from pydantic.json_schema import models_json_schema
 
 from plumbline.api.problems import MEDIA_TYPE, Problem
-from plumbline.api.schemas import JobEventView
+from plumbline.api.schemas import JobEventView, LeaseDoneEvent, LeaseFailedEvent, LeaseStageEvent
 from plumbline.core.stream import AnswerSummary, StatusEvent, StreamError, TraceSummary
 from plumbline.core.types import Citation
+from plumbline.leases.schema import Finding
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
-STREAM_MODELS = (StatusEvent, Citation, AnswerSummary, TraceSummary, StreamError, JobEventView)
+STREAM_MODELS = (
+    StatusEvent,
+    Citation,
+    AnswerSummary,
+    TraceSummary,
+    StreamError,
+    JobEventView,
+    LeaseStageEvent,
+    Finding,
+    LeaseDoneEvent,
+    LeaseFailedEvent,
+)
 PROBLEM_REF = {"$ref": "#/components/schemas/Problem"}
 # FastAPI documents its own validation error body, which plumbline.api.problems replaces.
 FASTAPI_ERRORS = ("HTTPValidationError", "ValidationError")
@@ -57,8 +69,14 @@ def _problems_everywhere(schema: dict[str, Any]) -> None:
     for operations in schema.get("paths", {}).values():
         for operation in operations.values():
             responses = operation.setdefault("responses", {})
-            if "422" in responses:
-                responses["422"] = {"description": "The request is not valid.", "content": content}
+            if "422" in responses:  # FastAPI's own text is replaced; a route's own is kept
+                own = responses["422"].get("description", "")
+                responses["422"] = {
+                    "description": own
+                    if own != "Validation Error"
+                    else "The request is not valid.",
+                    "content": content,
+                }
             responses["default"] = {
                 "description": "An error, as problem details (RFC 9457).",
                 "content": content,
