@@ -8,8 +8,10 @@ import zipfile
 
 import pytest
 
+from plumbline.core.types import Language
 from plumbline.ingest import upload
-from plumbline.ingest.upload import UploadError, read_upload
+from plumbline.ingest.render import PDFIUM_LOCK
+from plumbline.ingest.upload import UploadError, guess_language, read_upload
 
 from .pdfs import make_pdf
 
@@ -137,3 +139,28 @@ def test_the_limits_are_413_and_a_near_empty_file_is_422(monkeypatch: pytest.Mon
     monkeypatch.setattr(upload, "MAX_CHARS", 500)
     assert _refused(("A clause of the lease. " * 40).encode(), "too_large").status == 413
     assert _refused(b"Too short.", "unreadable").status == 422
+
+
+def test_the_language_is_guessed_from_the_words_a_lease_uses() -> None:
+    spanish = (
+        "El arrendador entrega la vivienda de la calle Ejemplo y el arrendatario paga la renta."
+    )
+    assert guess_language(LEASE) is Language.EN
+    assert guess_language(spanish) is Language.ES
+    assert guess_language("The landlord lets the flat. " + spanish[:30]) is Language.EN
+    assert guess_language("") is Language.EN  # nothing to go on
+    assert guess_language("عقد إيجار") is Language.EN
+
+
+def test_a_pdf_is_read_under_the_lock_the_page_routes_use(monkeypatch: pytest.MonkeyPatch) -> None:
+    held: list[bool] = []
+    read_pdf = upload._pdf
+
+    def spy(data: bytes) -> tuple[str, int]:
+        held.append(PDFIUM_LOCK.locked())
+        return read_pdf(data)
+
+    monkeypatch.setattr(upload, "_pdf", spy)
+    read_upload(make_pdf([CLAUSES]))
+    assert held == [True]
+    assert not PDFIUM_LOCK.locked()

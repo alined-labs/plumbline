@@ -21,7 +21,9 @@ from typing import Final, Literal
 
 import pypdfium2 as pdfium
 
+from plumbline.core.types import Language
 from plumbline.ingest.parse import has_text_layer
+from plumbline.ingest.render import PDFIUM_LOCK
 
 MAX_BYTES: Final = 10 * 1024 * 1024  # the upload as received
 MAX_PAGES: Final = 80  # a lease is a few pages; this is a book
@@ -29,6 +31,16 @@ MAX_CHARS: Final = 300_000  # the text we will read, about 100 pages
 MAX_XML_BYTES: Final = 30 * 1024 * 1024  # a DOCX's document.xml once inflated
 MIN_CHARS: Final = 200  # fewer characters of text than this is not a lease
 WORD_NS: Final = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+
+# Words that are common in a lease in one of the two languages and not in the other.
+ENGLISH: Final = frozenset(
+    {"the", "and", "of", "to", "shall", "tenant", "landlord", "rent", "lease", "this", "that"}
+    | {"is", "in", "for"}
+)
+SPANISH: Final = frozenset(
+    {"el", "la", "los", "las", "de", "del", "y", "que", "en", "arrendador", "arrendatario"}
+    | {"contrato"}
+)
 
 Code = Literal["unsupported_type", "too_large", "unreadable"]
 STATUS: Final[dict[Code, int]] = {"unsupported_type": 415, "too_large": 413, "unreadable": 422}
@@ -58,11 +70,22 @@ def read_upload(data: bytes) -> UploadedText:
     if len(data) > MAX_BYTES:
         raise UploadError("too_large", f"The file is over {MAX_BYTES // (1024 * 1024)} MB.")
     if data.startswith(b"%PDF-"):
-        text, pages = _pdf(data)
+        with PDFIUM_LOCK:  # PDFium is not thread-safe, and the API's page routes use it too
+            text, pages = _pdf(data)
         return _checked(text, "pdf", pages)
     if data.startswith(b"PK\x03\x04"):
         return _checked(_docx(data), "docx", None)
     return _checked(_plain(data), "text", None)
+
+
+def guess_language(text: str) -> Language:
+    """English or Spanish, by which language's common words the start of the text uses
+    more; English when it is a tie or there is nothing to go on. The redactor needs a
+    language before any model has read the lease."""
+    words = re.findall(r"[a-záéíóúñü]+", text[:5000].lower())
+    spanish = sum(word in SPANISH for word in words)
+    english = sum(word in ENGLISH for word in words)
+    return Language.ES if spanish > english else Language.EN
 
 
 def _checked(text: str, kind: Literal["pdf", "docx", "text"], pages: int | None) -> UploadedText:
