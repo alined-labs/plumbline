@@ -73,7 +73,15 @@ Model calls are recorded once, while a lane builds, and replayed at zero cost by
 
 | Task | Calls recorded | Cost | Provider |
 | --- | --- | --- | --- |
-| *to fill* | | | |
+| C1 to C10, CB1, CB2 (Lane C, 19 October): clients, answer prompt, pipeline, judge, lease checker, injection sets | 29 | US$0.0392 | Gemini (3.5 Flash-Lite, 3.8 Flash) |
+| | 8 | US$0.0013 | Anthropic (Haiku 5.5) |
+| C11, the golden cross-check: 180 drafts and 12 planted errors, Batch API (88 calls fetch-only) | 192 | US$0.2309 | Gemini (3.8 Flash) |
+| C9, the judge on constructed labels: 105 rows written, 200 verdicts (56 calls fetch-only) | 305 | US$0.1176 | Anthropic (Haiku 5.5) |
+| C9, the second judge on the same rows, Batch API (56 calls fetch-only) | 200 | US$0.0747 | Gemini (3.5 Flash-Lite) |
+| C7b, one long-context answer from the Florida index, traced | 1 | US$0.0357 | Gemini (3.8 Flash) |
+| CB3, the injection set against the lease checker | 26 | US$0.3260 | Anthropic (Sonnet 5.5) |
+
+Spent but not recorded, so missing from the tally (`python -m plumbline.observability.spend`): about US$0.05 of Gemini on 20 October (a pilot whose replies ignored the schema, two diagnostic batches that found why, and a long-context answer cut off by its thinking, each deleted with the request it answered) and about US$0.05 of Haiku (two builds of C9's rows, replaced). The tally reads the working tree, so a checkout sees only the recordings of the branch it is on; run it on `main` plus your own branch.
 
 ## 7. Load and latency
 
