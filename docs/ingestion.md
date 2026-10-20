@@ -60,6 +60,17 @@ On the committed Florida chapters, `make ingest` (A0 and A2) writes four units f
 
 The 28 and 3 chunks without a vector are the articles whose numbered paragraphs carry theirs. Recording them took about 27 minutes of MX3's CPU, once; replaying them takes no model.
 
+Spain and Colombia joined A2 on 20 October (Lane D, D4b), indexed on MX1 with embeddings from MX3's TEI. The run took about 39 minutes, most of it waiting on a busy embedding server:
+
+| variant | source | chunks | with a vector | articles | unique texts embedded |
+| --- | --- | --- | --- | --- | --- |
+| A2 | `es-lau-boe-2026-10-13` | 929 | 762 | 232 | 334 |
+| A2 | `es-lph-boe-2026-10-05` | 447 | 393 | 92 | 183 |
+| A2 | `co-ley-820-senado-2026-10-15` | 153 | 136 | 43 | 131 |
+| A2 | `co-ley-675-senado-2026-10-15` | 264 | 221 | 87 | 221 |
+
+The "articles" are top-level chunks, versions included: the chunker keeps each dated version of a Spanish article apart. Spain's 517 embeddings are committed under `cache/embed`, so a fresh clone indexes Spain with no model server. Colombia's embeddings hold its text, which is fetch-only, so they are recorded only in the git-ignored `data/corpus/fetched/cache`. A clone without that cache reports the Colombian sources and skips them. Dubai and the A0 variant of every new source wait for Lane A's A3c.
+
 ## The index
 
 `chunks` is keyed `(variant, id)`. Every query names its variant. The vector is exact cosine distance (`vector(1024)`, no HNSW: the corpus is a few thousand rows). BM25 (`pg_search`) has one field per language over that language's rows, with `unicode_words`, which keeps `83.49` as one token. `tests/db/test_search_index.py` is the reference for querying both. Row-level security applies to every table with a `tenant_id`; the statutes belong to a fixed public tenant that every tenant reads, and the application reaches them only through `tenant_session` (async) or `tenant_session_sync` (a worker thread).
