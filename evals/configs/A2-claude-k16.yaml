@@ -1,0 +1,6 @@
+name: A2-claude-k16
+description: A2-claude reading 16 articles instead of 8 (top_k 16), to see whether correctness follows recall. The first dev run found the gold article in the top 20 three times in four, but in the top 5 half the time. About twice the input of A2-claude a question.
+chunker: {kind: article, merge_parent: true}
+retrieval: {mode: hybrid, rrf_k: 60, candidates: 50, top_k: 16, rerank: none, headers: none}
+generation: {route: premium}
+judged: true
