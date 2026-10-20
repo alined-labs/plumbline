@@ -10,14 +10,15 @@ Every control is backed by a test (run by `make check` and CI) or by a manual ch
 
 | Control | Where | Checked by |
 | --- | --- | --- |
-| No published port in production; the API is reached only through the Cloudflare Tunnel | `deploy/compose.prod.yaml` | `deploy/prod ps` shows no `->` mapping; rehearsal of 2026-10-20 (`docs/runbook.md`) |
+| No published port in production; the API is reached only through the Cloudflare Tunnel | `deploy/compose.prod.yaml` | `apps/api/tests/security/test_production_compose.py`; `deploy/prod ps` shows no `->` mapping; rehearsal of 2026-10-20 (`docs/runbook.md`) |
 | Postgres and Redis on an internal network with no route out | `deploy/compose.prod.yaml` | manual, 2026-10-20: `redis` cannot connect to 1.1.1.1 |
 | Forwarded headers trusted only from cloudflared's address | `FORWARDED_ALLOW_IPS` in `deploy/compose.prod.yaml` | manual, 2026-10-20: `X-Forwarded-For` honoured from 172.30.42.10, ignored from 172.30.42.77 |
+| The quota counts a visitor by `CF-Connecting-IP`, which Cloudflare sets and no visitor can: only cloudflared reaches the API | `api/quota.py` (Lane D), `deploy/compose.prod.yaml` | `apps/api/tests/security/test_production_compose.py` (no published port, the API's networks) |
 | The server's exposure: published ports, listeners, clock, updates, secret files | `deploy/preflight.sh` | run before each deploy; findings in `docs/runbook.md` |
-| Containers: no new privileges; the API and cloudflared read-only with every capability dropped; the API image runs as an unprivileged user | `deploy/compose.prod.yaml`, `deploy/api/Dockerfile` | CI migrates a fresh database with the image under `--read-only --cap-drop ALL` |
+| Containers: no new privileges; the API and cloudflared read-only with every capability dropped; the API image runs as an unprivileged user | `deploy/compose.prod.yaml`, `deploy/api/Dockerfile` | `apps/api/tests/security/test_production_compose.py`; CI migrates a fresh database with the image under `--read-only --cap-drop ALL` |
 | Browser headers: CSP (fetches only to the site and the API, no framing), HSTS, nosniff, referrer and permissions policies | `deploy/pages/_headers` | manual, 2026-10-20: a local export with these headers, only Zod's guarded `eval` probe reported |
 | CORS limited to the web origin, with credentials | `CORS_ORIGINS` | Lane D's API tests |
-| Rate limits at the edge on `/api/ask` and `/api/check-lease` | Cloudflare (P7a) | *planned* |
+| Rate limits at the edge on `/api/ask` and `/api/check-lease`: 5 requests per 10 s per address | Cloudflare, the rule in `deploy/cloudflare/rate-limit.md` | `deploy/edge-check.sh` once live (a burst must meet a 429) *planned* |
 
 ### Secrets
 
@@ -35,9 +36,11 @@ Every control is backed by a test (run by `make check` and CI) or by a manual ch
 | Daily question and lease-check quotas per visitor and per address | `api/quota.py` (Lane D) | `apps/api/tests/api/test_quota.py` |
 | Daily spend caps per provider; the premium route only under Anthropic's cap | `generation/router.py` (Lane C) | Lane C's router tests |
 | Kill switch: Gemini or Anthropic at 80% of its cap drops the tier to `free`, either at its cap drops it to `static`, the next UTC day restores it | `security/killswitch.py`, the `killswitch` service | `apps/api/tests/security/test_killswitch.py`; manual, 2026-10-20 (below) |
-| Uploads at most 10 MB, PDF, DOCX or text only, read in memory, zip bombs refused | `ingest/upload.py` (Lane D) | `apps/api/tests/ingest/test_upload.py` |
+| Uploads at most 10 MB, PDF, DOCX or text only, read in memory, zip bombs refused | `ingest/upload.py` (Lane D) | `apps/api/tests/ingest/test_upload.py`, `apps/api/tests/api/test_check_lease.py` |
+| A Word document's XML neither expands entities nor reads a file it points to; a lease's text never reaches a log line, a header or the start response | `ingest/upload.py`, `api/leases.py` (Lane D) | `apps/api/tests/security/test_uploads.py` |
 | Errors as problem details that say nothing about internals | `api/problems.py` (Lane D) | `apps/api/tests/api/test_problems.py` |
-| Quotas, an output-token cap and the cross-tenant test hardened | P3 | *planned* |
+| Every model configuration caps output at 1,024 tokens, and each provider's request carries the cap | `evals/configs/`, `generation/llm.py` | `apps/api/tests/security/test_output_cap.py` |
+| Row-level security forced on every tenant table, keyed on the current tenant; the application role cannot bypass it; the only untenanted tables it writes are settings, eval_runs and eval_results | migrations (Lane D) | `apps/api/tests/security/test_isolation.py` |
 
 ### Personal data and content
 
@@ -47,7 +50,7 @@ Every control is backed by a test (run by `make check` and CI) or by a manual ch
 | Lease checks only on the full tier, whose billed key's inputs are not used for training | `generation/router.py` | Lane C's router tests |
 | Sources whose terms forbid republishing show only the quoted passage | `api/restricted.py` (Lane D) | `apps/api/tests/api/test_chunks.py` |
 | Retrieved passages and uploads are data, never instructions: prompts carry them in delimited blocks | Lane C's prompts | Lane C's recorded prompt-injection set; the red team (P4) *planned* |
-| Model output rendered as text, never as HTML | Lane E's answer components | P3's test *planned* |
+| Model output rendered as text, never as HTML: the API serves only JSON, problem details and event streams; the web app writes markup only in its theme script, and every Markdown renderer skips HTML | Lane E's answer components | `apps/api/tests/security/test_no_html.py` |
 
 ## The kill switch, triggered by hand (2026-10-20)
 
@@ -66,7 +69,7 @@ To repeat it on production, run the same commands through `deploy/prod exec redi
 | Database password | `/etc/plumbline/db_password`, and inside `DATABASE_URL` in `api.env` | Postgres, the API, the kill switch | `ALTER USER plumbline PASSWORD ...` in `db`, then the same value in both files, then `deploy/prod up -d` |
 | `ADMIN_TOKEN` | `api.env` | the admin routes (tier, jobs) | a new `openssl rand -hex 32` in `api.env`, then `deploy/prod up -d api` |
 | `GEMINI_API_KEY` | `api.env` | generation | a new key in Google AI Studio, revoke the old one |
-| `ANTHROPIC_API_KEY` | `api.env` | the premium route | a new key in the Claude Console, revoke the old one |
+| `ANTHROPIC_API_KEY` | `api.env` | every answer and lease check (the site is served on Claude), the nightly online evaluation's judge | a new key in the Claude Console, revoke the old one |
 | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` | `api.env` | traces | a new key pair in Langfuse |
 | Tunnel credentials | `/etc/plumbline/tunnel.json` | cloudflared | `cloudflared tunnel delete` and create again, or rotate in the dashboard; then `secrets-init.sh --tunnel` |
 | `CLOUDFLARE_API_TOKEN` | GitHub, the `production` environment | `deploy.yml` (Pages only) | a new token scoped to Pages: Edit; delete the old one |
