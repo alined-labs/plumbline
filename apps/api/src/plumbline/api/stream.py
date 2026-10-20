@@ -49,7 +49,9 @@ async def ui_message_stream(
     events: AsyncIterator[StreamEvent], *, message_id: str
 ) -> AsyncIterator[str]:
     """The whole response body, part by part. A pipeline exception becomes an error part,
-    so the browser always sees a well-formed, finished stream."""
+    so the browser always sees a well-formed, finished stream. The events are closed once
+    read, even after a StreamError cuts them short, so whatever wraps the pipeline (the
+    query log) finishes its work."""
     yield sse({"type": "start", "messageId": message_id})
     yield sse({"type": "start-step"})
     text_open = False
@@ -71,6 +73,10 @@ async def ui_message_stream(
         log.exception("answer pipeline failed (message %s)", message_id)
         yield sse({"type": "error", "errorText": "Something went wrong while answering."})
         failed = True
+    finally:
+        close = getattr(events, "aclose", None)  # an async generator stopped early
+        if close is not None:
+            await close()
     if text_open:
         yield sse({"type": "text-end", "id": TEXT_ID})
     yield sse({"type": "finish-step"})
