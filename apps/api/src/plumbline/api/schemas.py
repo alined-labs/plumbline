@@ -3,8 +3,9 @@ from the OpenAPI schema these produce (`make openapi`)."""
 
 from __future__ import annotations
 
-from datetime import date
-from typing import Literal
+import uuid
+from datetime import date, datetime
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -54,3 +55,39 @@ class AskRequest(BaseModel):
                 text = "".join(p.text or "" for p in message.parts if p.type == "text")
                 return text.strip()[: MAX_QUESTION_CHARS + 1]
         return ""
+
+
+JobStatus = Literal["queued", "running", "succeeded", "failed"]
+JobEventKind = Literal["queued", "requeued", "started", "progress", "succeeded", "failed"]
+
+
+class JobView(BaseModel):
+    """An ingestion job as the admin routes show it."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    kind: str
+    source_id: str
+    content_hash: str
+    status: JobStatus
+    attempts: int
+    worker: str | None
+    error: str | None
+    result: dict[str, Any] | None
+    created_at: datetime
+    started_at: datetime | None
+    finished_at: datetime | None
+
+
+class JobEventView(BaseModel):
+    """One step of a job: the data of each event on its stream."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    job_id: uuid.UUID
+    kind: JobEventKind
+    message: str
+    data: dict[str, Any]
+    created_at: datetime
