@@ -1,12 +1,18 @@
 """A seeded, stratified split of a golden file into dev and test (Gate 2).
 
     uv run python -m plumbline.corpus.split data/golden/drafts/golden_v1.jsonl
-    uv run python -m plumbline.corpus.split FILE OUTPUT [--test 60] [--seed TEXT]
+    uv run python -m plumbline.corpus.split FILE OUTPUT [--test 60] [--seed TEXT] [--drop ID ...]
 
 The split is applied when the human freezes a version, not while the file is a draft: the freeze
 branch runs this on the verified draft and commits OUTPUT as `data/golden/golden_v<N>.jsonl`.
 Once frozen, the `split` field is part of the file and never changes. Without OUTPUT the command
 only prints how the items would fall.
+
+Items dropped at the freeze (`--drop`) are left out after the split, not before: every item is
+assigned as if none were dropped, so an item that was dev in the draft is dev in the frozen file.
+Other lanes build on the dev items before the freeze (the judge's labels, for one), and a split
+recomputed without the dropped items could move some of those into test. The price is that the
+frozen file keeps the strata only as closely as the drops allow.
 
 A third of the items go to test (60 of 180). They are spread so that each category keeps its
 share of test; inside a category each place (one jurisdiction, several, or none) keeps its share,
@@ -121,6 +127,15 @@ def _rank(seed: str, name: str) -> str:
     return hashlib.sha256(f"{seed}/{name}".encode()).hexdigest()
 
 
+def drop_after_split(items: Sequence[GoldenItem], dropped: Sequence[str]) -> list[GoldenItem]:
+    """The split items without the dropped ones. An id that is not in the file is refused, so
+    a mistyped id cannot leave an item in that was meant to go."""
+    unknown = sorted(set(dropped) - {item.id for item in items})
+    if unknown:
+        raise ValueError(f"cannot drop items that are not in the file: {', '.join(unknown)}")
+    return [item for item in items if item.id not in set(dropped)]
+
+
 def report(items: Sequence[GoldenItem]) -> str:
     """Markdown tables of how many items of each category, place and language are in dev and test."""
     lines = []
@@ -149,11 +164,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--test", type=int, help="items for test (default: a third of the file)")
     parser.add_argument("--seed", default=SEED, help=f"the seed text (default: {SEED})")
+    parser.add_argument(
+        "--drop",
+        action="append",
+        default=[],
+        metavar="ID",
+        help="leave this item out after splitting (repeatable); the others keep their side",
+    )
     args = parser.parse_args(argv)
     try:
         items = load_golden(args.file)
         test_size = args.test if args.test is not None else round(len(items) / 3)
-        split = assign_splits(items, test_size, args.seed)
+        split = drop_after_split(assign_splits(items, test_size, args.seed), args.drop)
     except (GoldenFileError, ValueError) as exc:
         print(f"{args.file}: {exc}", file=sys.stderr)
         return 1

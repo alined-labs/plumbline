@@ -12,6 +12,7 @@ from plumbline.corpus.split import (
     SEED,
     assign_splits,
     category_of,
+    drop_after_split,
     language_of,
     main,
     place_of,
@@ -190,3 +191,31 @@ def test_the_v1_draft_splits_into_120_and_60_with_every_category_in_both() -> No
             group = [item for item in split if key(item) == name]
             test = sum(item.split is Split.TEST for item in group)
             assert abs(test - len(group) / 3) <= 3, name
+
+
+def test_dropped_items_leave_after_the_split_so_the_others_keep_their_side() -> None:
+    items = make_items()
+    split = assign_splits(items, 30)
+    gone = [split[0].id, split[1].id]
+    kept = drop_after_split(split, gone)
+    assert [item.id for item in kept] == [item.id for item in split[2:]]
+    assert {item.id: item.split for item in kept} == {item.id: item.split for item in split[2:]}
+    with pytest.raises(ValueError, match="not in the file: zz-0001"):
+        drop_after_split(split, ["zz-0001"])
+
+
+def test_the_command_drops_after_splitting(tmp_path: Path) -> None:
+    from rag_eval.schema import dump_golden
+
+    source, whole, frozen = tmp_path / "in.jsonl", tmp_path / "all.jsonl", tmp_path / "out.jsonl"
+    items = make_items()
+    dump_golden(items, source)
+    assert main([str(source), str(whole), "--test", "30"]) == 0
+    gone = [items[0].id, items[5].id]
+    args = [str(source), str(frozen), "--test", "30", "--drop", gone[0], "--drop", gone[1]]
+    assert main(args) == 0
+    sides = {item.id: item.split for item in load_golden(whole)}
+    written = load_golden(frozen)
+    assert len(written) == len(items) - 2
+    assert all(item.split is sides[item.id] for item in written)
+    assert main([str(source), str(frozen), "--drop", "zz-0001"]) == 1
