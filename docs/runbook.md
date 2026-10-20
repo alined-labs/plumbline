@@ -71,10 +71,13 @@ bash deploy/preflight.sh                               # checks owner, group and
    and embeddings exist only on MX1 and MX2), so it arrives as a file: Lane D writes a
    data-only custom-format dump of `documents` and `chunks` to
    `~/plumbline-index/index-<date>.dump` on MX1 and posts its sha256, size and row
-   counts per variant in the brain. On MX3:
+   counts per variant in the brain. MX1 runs no SSH server, so Lane D serves the file
+   for ten minutes on the LAN only (`timeout 600 python3 -m http.server 8765 --bind
+   <MX1's LAN address>` in `~/plumbline-index`), and on MX3:
 
    ```sh
-   scp <mx1>:plumbline-index/index-<date>.dump ~/plumbline-index/
+   mkdir -p -m 700 ~/plumbline-index
+   curl -fsS -o ~/plumbline-index/index-<date>.dump http://<MX1's LAN address>:8765/index-<date>.dump
    sha256sum ~/plumbline-index/index-<date>.dump            # must match Lane D's note
    deploy/prod exec -T db pg_restore -U plumbline -d plumbline --data-only --disable-triggers \
      < ~/plumbline-index/index-<date>.dump
@@ -82,7 +85,10 @@ bash deploy/preflight.sh                               # checks owner, group and
      "select variant, jurisdiction, count(*) from chunks group by 1, 2 order by 1, 2"
    ```
 
-   The counts must match Lane D's. A newer index replaces the old one: truncate
+   The counts must match Lane D's. The dump holds Colombia's fetch-only text: it moves
+   only between our machines, never into git, a release or a public bucket, and is
+   deleted from `~/plumbline-index` once the index is restored (the nightly backups keep
+   a copy inside the database dump). A newer index replaces the old one: truncate
    `chunks` and `documents` first (`truncate chunks, documents cascade`), with the API
    stopped, since a question asked in between would find no law.
 
