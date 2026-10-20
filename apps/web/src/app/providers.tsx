@@ -5,11 +5,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 
 import { PanelProvider } from "@/components/answer/panel-context";
+import { LeaseJobProvider } from "@/components/lease/lease-job";
 import { ToastProvider } from "@/components/ui/toast";
 
 /** The JSON routes' cache (TanStack Query), the tooltips' shared 400 ms delay (Toast spec:
- * Tooltip), the toasts and the source panel's state. The query client lives in state, so a
- * re-render never drops its cache. */
+ * Tooltip), the toasts, the source panel's state and the lease check, which goes on while the
+ * reader is on another page. The query client lives in state, so a re-render never drops its
+ * cache. */
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
     () => new QueryClient({ defaultOptions: { queries: { staleTime: 60_000 } } }),
@@ -18,7 +20,9 @@ export function Providers({ children }: { children: ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <Tooltip.Provider delay={400}>
         <ToastProvider>
-          <PanelProvider>{children}</PanelProvider>
+          <PanelProvider>
+            <LeaseJobProvider>{children}</LeaseJobProvider>
+          </PanelProvider>
         </ToastProvider>
       </Tooltip.Provider>
     </QueryClientProvider>

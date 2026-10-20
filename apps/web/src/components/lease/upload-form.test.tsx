@@ -94,4 +94,19 @@ describe("UploadForm", () => {
     expect(click).toHaveBeenCalledOnce();
     click.mockRestore();
   });
+
+  it("starts from the file and answers the reader already gave, and can put the cursor on the jurisdiction", async () => {
+    const lease = file("contrato.pdf", "application/pdf");
+    render(
+      <UploadForm
+        onSubmit={vi.fn()}
+        initial={{ file: lease, jurisdiction: "spain", signedOn: "2024-03-01" }}
+        focusJurisdiction
+      />,
+    );
+    expect(await screen.findByText("contrato.pdf")).toBeInTheDocument();
+    expect(screen.getByLabelText("Where is the property?")).toHaveDisplayValue("Spain (ES)");
+    expect(screen.getByLabelText("Date signed")).toHaveValue("2024-03-01");
+    await waitFor(() => expect(screen.getByLabelText("Where is the property?")).toHaveFocus());
+  });
 });

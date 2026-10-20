@@ -139,8 +139,9 @@ export function failureCopy(failure: JobFailure, now: Date): FailureCopy {
   };
 }
 
-/** Failures that are not a view that broke but a state of the demo or the input: shown as a
- * callout above the form, which stays, instead of replacing the page. */
-export function isStateNotice(failure: JobFailure): boolean {
-  return failure.code === "quota_reached" || failure.code === "lease_checks_paused";
+/** Failures that are not a view that broke but a state of the demo or a missing answer: shown
+ * as a callout above the form, which stays with the reader's file, instead of replacing the
+ * page. */
+export function showsOnForm(failure: JobFailure): boolean {
+  return ["quota_reached", "lease_checks_paused", "jurisdiction_unknown"].includes(failure.code);
 }
