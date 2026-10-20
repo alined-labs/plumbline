@@ -149,6 +149,8 @@
   --pl-sidebar-rail: 56px;
   --pl-content-max: 720px;
   --pl-panel-width: 440px;
+  --pl-panel-min-width: 360px;
+  --pl-panel-max-width: 640px;
   --pl-topbar-height: 52px;
   --pl-control-sm: 28px;
   --pl-control-md: 36px;

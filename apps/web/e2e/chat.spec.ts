@@ -223,3 +223,62 @@ test("over the demo quota, the composer waits for the reset", async ({ page }) =
   ).toBeVisible();
   await expectNoAxeViolations(page);
 });
+
+test("on a desktop the source panel sits beside the conversation and resizes from the keyboard", async ({
+  page,
+}, info) => {
+  test.skip(info.project.name !== "desktop", "the panel is a third pane from 1024px");
+  await answerWithStub(page);
+  await page.goto("/");
+  await ask(page, "Can my landlord keep my deposit?");
+  const marker = page.getByRole("button", { name: "Source 1: Stub Act, s. 1", exact: true });
+  await marker.click();
+  const panel = page.getByRole("dialog", { name: "Stub Act, s. 1" });
+  await expect(panel.getByRole("heading", { name: "Stub Act, s. 1" })).toBeFocused();
+
+  // Beside the page, not over it: the conversation narrows to make room, and nothing dims.
+  const viewport = page.viewportSize();
+  const box = await panel.boundingBox();
+  const main = await page.locator("main").boundingBox();
+  expect(box && viewport && Math.round(box.x + box.width)).toBe(viewport?.width);
+  expect(box && main && main.x + main.width).toBeLessThanOrEqual(box?.x ?? 0);
+  await expect(page.locator("[class*=bg-overlay]")).toBeHidden();
+
+  // Its edge is a window splitter within the panel-width tokens.
+  const splitter = panel.getByRole("separator", { name: "Resize source panel" });
+  await expect(splitter).toHaveAttribute("aria-valuemin", "360");
+  await expect(splitter).toHaveAttribute("aria-valuemax", "640");
+  await splitter.focus();
+  const start = Number(await splitter.getAttribute("aria-valuenow"));
+  await page.keyboard.press("ArrowLeft");
+  await expect(splitter).toHaveAttribute("aria-valuenow", String(start + 16));
+  await page.keyboard.press("End");
+  await expect(splitter).toHaveAttribute("aria-valuenow", "640");
+  expect((await panel.boundingBox())?.width).toBe(640);
+  await page.keyboard.press("Home");
+  await expect(splitter).toHaveAttribute("aria-valuenow", "360");
+  await expectNoAxeViolations(page);
+
+  await page.keyboard.press("Escape");
+  await expect(panel).toHaveCount(0);
+  await expect(marker).toBeFocused();
+});
+
+test("the sidebar folds to its rail while the panel is open between 1024 and 1279px", async ({
+  page,
+}, info) => {
+  test.skip(info.project.name !== "desktop", "the panel is a third pane from 1024px");
+  await page.setViewportSize({ width: 1100, height: 760 });
+  await answerWithStub(page);
+  await page.goto("/");
+  // The sidebar's box, which holds the nav inside its padding and edge. While the panel is open
+  // the rest of the page is hidden from the accessibility tree, so this is found by CSS.
+  const sidebar = page.locator('nav[aria-label="Plumbline"]').locator("..");
+  expect((await sidebar.boundingBox())?.width).toBe(248);
+  await ask(page, "Can my landlord keep my deposit?");
+  await page.getByRole("button", { name: "Source 1: Stub Act, s. 1", exact: true }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect.poll(async () => (await sidebar.boundingBox())?.width).toBe(56);
+  await page.keyboard.press("Escape");
+  await expect.poll(async () => (await sidebar.boundingBox())?.width).toBe(248);
+});

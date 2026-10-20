@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useId, useMemo, useState, type ReactNode } from "react";
 
 import { CheckIcon, CircleCheckIcon, CopyIcon } from "@/components/icons";
 import { Badge } from "@/components/ui/badge";
@@ -13,8 +13,8 @@ import { seconds, type Run } from "@/lib/run";
 import { Abstention, AnswerGap } from "./abstention";
 import { AnswerBody } from "./answer-body";
 import { AnswerSkeleton } from "./answer-skeleton";
+import { usePanel } from "./panel-context";
 import { SourceCard } from "./source-card";
-import { SourcePanel } from "./source-panel";
 import { StatusSteps } from "./status-steps";
 
 /** Answer spec: the meta line (the status steps while it streams), Plumbline's explanation with
@@ -34,13 +34,13 @@ export function Answer({
   streaming?: boolean;
 }) {
   const view = useMemo(() => answerView(message), [message]);
-  const [open, setOpen] = useState<number | null>(null);
-  const opener = useRef<HTMLElement | null>(null);
+  const panel = usePanel();
+  // The source open in the panel, if it is one of this answer's.
+  const open = panel.subject?.messageId === message.id ? panel.subject.n : null;
   const status = view.summary?.status;
 
   function openSource(n: number, from: HTMLElement) {
-    opener.current = from;
-    setOpen(n);
+    panel.open({ messageId: message.id, n, citations: view.citations }, from);
   }
 
   return (
@@ -87,11 +87,6 @@ export function Answer({
         </>
       )}
       {!streaming && !failure && view.summary && <AnswerActions view={view} />}
-      <SourcePanel
-        citation={view.citations.find((citation) => citation.n === open) ?? null}
-        onClose={() => setOpen(null)}
-        opener={opener}
-      />
     </article>
   );
 }

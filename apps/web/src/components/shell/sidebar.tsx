@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ComponentType } from "react";
 
+import { usePanel } from "@/components/answer/panel-context";
 import { Logo, LogoMark } from "@/components/brand/logo";
 import {
   BookOpenIcon,
@@ -46,14 +47,17 @@ export function SidebarContent({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname() ?? "/";
-  // The rail hides the names, so only there do the tooltips carry them.
+  // The rail hides the names, so only there do the tooltips carry them. It is the sidebar below
+  // 1024px, and from 1024 to 1279px while the source panel is open.
   const wide = useMediaQuery("(min-width: 1024px)", true);
-  const rail = mode === "aside" && !wide;
-  // In the aside, the names hide by CSS below 1024px so the static HTML is right before
+  const xl = useMediaQuery("(min-width: 1280px)", true);
+  const panelOpen = usePanel().subject !== null;
+  const rail = mode === "aside" && (!wide || (panelOpen && !xl));
+  // In the aside, the names hide by CSS (the rail: variant) so the static HTML is right before
   // hydration; they stay in the accessibility tree either way.
-  const nameClass = mode === "aside" ? "max-lg:sr-only" : "";
+  const nameClass = mode === "aside" ? "rail:sr-only" : "";
   const target = mode === "drawer" ? "min-h-11" : "h-8.5";
-  const centred = mode === "aside" ? "max-lg:justify-center max-lg:px-0" : "";
+  const centred = mode === "aside" ? "rail:justify-center rail:px-0" : "";
 
   return (
     <nav aria-label="Plumbline" className="flex flex-1 flex-col gap-0.5">
@@ -63,8 +67,8 @@ export function SidebarContent({
         onClick={onNavigate}
         className={`mb-2 flex items-center rounded-sm px-2 text-fg ${target} ${centred}`}
       >
-        {mode === "aside" && <LogoMark className="size-6 lg:hidden" />}
-        <Logo className={`h-5.5 w-auto ${mode === "aside" ? "max-lg:hidden" : ""}`} />
+        {mode === "aside" && <LogoMark className="hidden size-6 rail:block" />}
+        <Logo className={`h-5.5 w-auto ${mode === "aside" ? "rail:hidden" : ""}`} />
       </Link>
       <Tip label="New question" side="right" enabled={rail}>
         <Link

@@ -25,9 +25,11 @@ const citation: Citation = {
   page: null,
 };
 
+const subject = { messageId: "m1", n: citation.n, citations: [citation] };
+
 describe("SourcePanel", () => {
   it("names the source, quotes the law and links the official text", async () => {
-    render(<SourcePanel citation={citation} onClose={() => {}} opener={createRef()} />);
+    render(<SourcePanel subject={subject} onClose={() => {}} opener={createRef()} slot={null} />);
     const panel = await screen.findByRole("dialog", { name: "Fla. Stat. § 83.49(3)(a)" });
     expect(panel).toHaveTextContent("Source 2");
     expect(panel).toHaveTextContent("Florida Statutes 2026, chapter 83");
@@ -39,7 +41,7 @@ describe("SourcePanel", () => {
 
   it("copies the reference with the edition and the link", async () => {
     const user = userEvent.setup();
-    render(<SourcePanel citation={citation} onClose={() => {}} opener={createRef()} />);
+    render(<SourcePanel subject={subject} onClose={() => {}} opener={createRef()} slot={null} />);
     await user.click(await screen.findByRole("button", { name: "Copy reference" }));
     const copied = await navigator.clipboard.readText();
     expect(copied).toMatch(
@@ -50,7 +52,7 @@ describe("SourcePanel", () => {
 
   it("closes on Escape", async () => {
     const onClose = vi.fn();
-    render(<SourcePanel citation={citation} onClose={onClose} opener={createRef()} />);
+    render(<SourcePanel subject={subject} onClose={onClose} opener={createRef()} slot={null} />);
     await screen.findByRole("dialog");
     await userEvent.setup().keyboard("{Escape}");
     expect(onClose).toHaveBeenCalledOnce();
