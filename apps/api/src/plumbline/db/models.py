@@ -11,11 +11,13 @@ from typing import Any, ClassVar, Final
 from pgvector.sqlalchemy import VECTOR
 from sqlalchemy import (
     ARRAY,
+    BigInteger,
     Boolean,
     Date,
     DateTime,
     Double,
     ForeignKey,
+    Identity,
     Index,
     Integer,
     Text,
@@ -142,6 +144,21 @@ class IngestionJob(Base):
     created_at: Mapped[datetime] = _now()
     started_at: Mapped[datetime | None]
     finished_at: Mapped[datetime | None]
+
+
+class IngestionJobEvent(Base):
+    """One step of a job, appended as it happens: what its event stream sends."""
+
+    __tablename__ = "ingestion_job_events"
+    __table_args__ = (Index("ix_ingestion_job_events_job_id_id", "job_id", "id"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    job_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("ingestion_jobs.id", ondelete="CASCADE"))
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"))
+    kind: Mapped[str]
+    message: Mapped[str] = mapped_column(server_default=sql("''"))
+    data: Mapped[Json] = mapped_column(server_default=sql("'{}'"))
+    created_at: Mapped[datetime] = _now()
 
 
 class QueryRow(Base):
