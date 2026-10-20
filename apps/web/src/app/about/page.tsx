@@ -123,15 +123,15 @@ export default function AboutPage() {
         <p>
           The statutes are fetched from their official publishers, pinned by hash and split by
           article. A question is matched against them two ways at once, by meaning and by exact
-          words such as article numbers, inside Postgres; the best passages are re-ranked, and a
-          language model writes the answer from them alone, citing each claim. A verifier then
-          checks every quotation against the passage it cites, and Plumbline declines when no
-          passage supports an answer.
+          words such as article numbers, inside Postgres; the two rankings are fused into one, and a
+          language model writes the answer from the best passages alone, citing each claim. A
+          verifier then checks every quotation against the passage it cites, and Plumbline declines
+          when no passage supports an answer.
         </p>
         <p>
           It was built evaluation first: a golden set of questions over the statutes exists before
-          the system does, every change passes an evaluation gate, and every model output is
-          recorded so the published numbers rebuild at no cost. The details are in the{" "}
+          the system does, every change passes an evaluation gate, and every model call in the
+          evaluation is recorded so the published numbers rebuild at no cost. The details are in the{" "}
           <ExternalLink href={`${REPO}/blob/main/docs/architecture.md`}>
             architecture notes
           </ExternalLink>
