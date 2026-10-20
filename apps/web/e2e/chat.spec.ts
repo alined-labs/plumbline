@@ -40,7 +40,7 @@ async function answerWithStub(page: Page, body = stubStream) {
 
 async function ask(page: Page, question: string) {
   await page.getByLabel("Your question").fill(question);
-  await page.getByRole("button", { name: "Ask" }).click();
+  await page.getByRole("button", { name: "Send question" }).click();
 }
 
 test("the home page is accessible", async ({ page }) => {
@@ -91,5 +91,30 @@ test("an abstention is calm, says what was checked and shows no sources", async 
   await expect(abstention).toContainText("Texas is not in the corpus.");
   await expect(abstention).toContainText("What you can do");
   await expect(page.getByRole("list", { name: "Sources" })).toHaveCount(0);
+  await expectNoAxeViolations(page);
+});
+
+test("the jurisdiction filter and as-of date travel in the request body", async ({ page }) => {
+  let body: { as_of?: unknown; jurisdictions?: unknown; messages?: unknown[] } = {};
+  await page.route("**/api/ask", (route) => {
+    body = route.request().postDataJSON() as typeof body;
+    return route.fulfill({
+      status: 200,
+      headers: { "content-type": "text/event-stream", "x-vercel-ai-ui-message-stream": "v1" },
+      body: stubStream,
+    });
+  });
+  await page.goto("/");
+  await page.getByRole("combobox", { name: "Jurisdictions" }).click();
+  await page.getByRole("option", { name: /Spain/ }).click();
+  await page.keyboard.press("Escape");
+  await page.getByLabel("Law as of").fill("2024-03-01");
+  await page.getByLabel("Your question").fill("How long can a lease in Madrid last?");
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("article", { name: "Answer" })).toContainText("stub answer");
+  expect(body.jurisdictions).toEqual(["spain"]);
+  expect(body.as_of).toBe("2024-03-01");
+  expect(body.messages).toHaveLength(1);
+  await expect(page.getByLabel("Your question")).toHaveValue("");
   await expectNoAxeViolations(page);
 });
