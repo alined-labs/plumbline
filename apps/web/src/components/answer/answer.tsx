@@ -13,6 +13,7 @@ import { seconds, type Run } from "@/lib/run";
 import { Abstention, AnswerGap } from "./abstention";
 import { AnswerBody } from "./answer-body";
 import { AnswerSkeleton } from "./answer-skeleton";
+import { FeedbackButtons, FeedbackPanel, useFeedback } from "./feedback";
 import { usePanel } from "./panel-context";
 import { SourceCard } from "./source-card";
 import { StatusSteps } from "./status-steps";
@@ -158,10 +159,13 @@ function AnswerMeta({ view, run }: { view: AnswerView; run: Run | undefined }) {
   );
 }
 
-/** Answer spec, actions: copy the answer with its sources and the disclaimer. Feedback joins
- * them when the API has a route to send it to. */
+/** Answer spec, actions: copy the answer with its sources and the disclaimer, and say whether it
+ * helped. A "not helpful" opens the reasons under the row. */
 function AnswerActions({ view }: { view: AnswerView }) {
   const [copied, setCopied] = useState(false);
+  const requestId = view.trace?.request_id;
+  const feedback = useFeedback(requestId ?? "");
+  const panelId = useId();
 
   async function copy() {
     try {
@@ -174,20 +178,25 @@ function AnswerActions({ view }: { view: AnswerView }) {
   }
 
   return (
-    <div className="flex items-center gap-0.5">
-      <Tip label={copied ? "Copied" : "Copy answer"}>
-        <button
-          type="button"
-          onClick={copy}
-          aria-label={copied ? "Answer copied" : "Copy answer"}
-          className={buttonClass({ variant: "ghost", size: "sm", icon: true })}
-        >
-          {copied ? <CheckIcon /> : <CopyIcon />}
-        </button>
-      </Tip>
-      <p aria-live="polite" className="sr-only">
-        {copied ? "Answer copied with its sources" : ""}
-      </p>
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-0.5">
+        <Tip label={copied ? "Copied" : "Copy answer"}>
+          <button
+            type="button"
+            onClick={copy}
+            aria-label={copied ? "Answer copied" : "Copy answer"}
+            className={buttonClass({ variant: "ghost", size: "sm", icon: true })}
+          >
+            {copied ? <CheckIcon /> : <CopyIcon />}
+          </button>
+        </Tip>
+        {/* An answer with no trace has no request to attach a verdict to. */}
+        {requestId && <FeedbackButtons feedback={feedback} panelId={panelId} />}
+        <p aria-live="polite" className="sr-only">
+          {copied ? "Answer copied with its sources" : ""}
+        </p>
+      </div>
+      {requestId && <FeedbackPanel feedback={feedback} id={panelId} />}
     </div>
   );
 }
