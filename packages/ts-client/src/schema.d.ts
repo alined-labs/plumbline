@@ -126,6 +126,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sources/{source_id}/pages/{n}.png": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Page Image */
+        get: operations["page_image_api_sources__source_id__pages__n__png_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sources/{source_id}/pages/{n}/boxes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Page Boxes */
+        get: operations["page_boxes_api_sources__source_id__pages__n__boxes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -343,6 +377,30 @@ export interface components {
          * @enum {string}
          */
         Language: "en" | "es";
+        /** PageBox */
+        PageBox: {
+            /** X0 */
+            x0: number;
+            /** X1 */
+            x1: number;
+            /** Y0 */
+            y0: number;
+            /** Y1 */
+            y1: number;
+        };
+        /** QuoteBoxes */
+        QuoteBoxes: {
+            /** Available */
+            available: boolean;
+            /** Boxes */
+            boxes: components["schemas"]["PageBox"][];
+            /** Found */
+            found: boolean;
+            /** Page */
+            page: number;
+            /** Source Id */
+            source_id: string;
+        };
         /**
          * Stage
          * @enum {string}
@@ -669,6 +727,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TierState"];
+                };
+            };
+        };
+    };
+    page_image_api_sources__source_id__pages__n__png_get: {
+        parameters: {
+            query?: {
+                /** @description 1, 2 or 3: 150, 300 or 450 dpi */
+                scale?: number;
+            };
+            header?: never;
+            path: {
+                source_id: string;
+                n: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The page as a PNG; a labelled placeholder when the source is not on this server. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    page_boxes_api_sources__source_id__pages__n__boxes_get: {
+        parameters: {
+            query: {
+                quote: string;
+            };
+            header?: never;
+            path: {
+                source_id: string;
+                n: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuoteBoxes"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
