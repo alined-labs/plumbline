@@ -79,3 +79,36 @@ def test_the_interval_brackets_the_mean(values: list[float], seed: int) -> None:
     assert result.low <= result.mean + 1e-9
     assert result.mean <= result.high + 1e-9
     assert not math.isnan(result.mean)
+
+
+@pytest.mark.parametrize("n", [1, 2, 3, 7, 10, 49, 50, 100, 120, 1000, 99991])
+def test_wilson_interval_is_exactly_closed_at_zero_and_n(n: int) -> None:
+    low, high = wilson_interval(0, n)
+    assert low == 0.0
+    assert 0.0 < high < 1.0
+    low, high = wilson_interval(n, n)
+    assert high == 1.0
+    assert 0.0 < low < 1.0
+    # The two ends mirror each other.
+    assert wilson_interval(0, n)[1] == pytest.approx(1 - wilson_interval(n, n)[0])
+
+
+@pytest.mark.parametrize(("k", "n"), [(-1, 5), (6, 5)])
+def test_wilson_interval_refuses_impossible_counts(k: int, n: int) -> None:
+    with pytest.raises(ValueError, match="0 <= k <= n"):
+        wilson_interval(k, n)
+
+
+@given(
+    st.integers(min_value=0, max_value=500).flatmap(
+        lambda n: st.tuples(st.integers(0, n), st.just(n))
+    )
+)
+def test_the_wilson_interval_holds_its_estimate(counts: tuple[int, int]) -> None:
+    k, n = counts
+    low, high = wilson_interval(k, n)
+    assert 0.0 <= low <= high <= 1.0
+    if n:
+        assert low <= k / n <= high
+        assert (low == 0.0) == (k == 0)
+        assert (high == 1.0) == (k == n)

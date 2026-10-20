@@ -36,7 +36,16 @@ def clopper_pearson_upper(k: int, n: int, alpha: float = 0.05) -> float:
 
 
 def wilson_interval(k: int, n: int, confidence: float = 0.95) -> tuple[float, float]:
-    """Wilson score interval for a proportion; well behaved near 0 and 1."""
+    """Wilson score interval for a proportion; well behaved near 0 and 1.
+
+    Wilson, "Probable inference, the law of succession, and statistical inference",
+    JASA 22 (1927). At k = 0 the lower bound is exactly 0, and at k = n the upper bound
+    exactly 1. The formula gives both algebraically, but in floating point centre - half
+    lands a rounding error away for many n (for 587 and 933 of n = 1..2999), and a
+    perfect score whose interval stops at 0.9999999999999999 is wrong on its face.
+    """
+    if not 0 <= k <= n:
+        raise ValueError(f"need 0 <= k <= n, got k={k}, n={n}")
     if n == 0:
         return (0.0, 1.0)
     z = _z(confidence)
@@ -44,7 +53,9 @@ def wilson_interval(k: int, n: int, confidence: float = 0.95) -> tuple[float, fl
     denominator = 1 + z * z / n
     centre = (p + z * z / (2 * n)) / denominator
     half = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / denominator
-    return (max(0.0, centre - half), min(1.0, centre + half))
+    low = 0.0 if k == 0 else max(0.0, centre - half)
+    high = 1.0 if k == n else min(1.0, centre + half)
+    return (low, high)
 
 
 def percentile(values: Sequence[float], q: float) -> float | None:
