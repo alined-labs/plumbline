@@ -105,3 +105,32 @@ test("the dark theme passes axe on the recorded list", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Recorded questions" })).toBeVisible();
   await expectNoAxeViolations(page);
 });
+
+test("before any answer is recorded, nothing points at an empty list", async ({ page }) => {
+  await page.route("**/api/settings/tier", (route) => route.abort("connectionrefused"));
+  await page.route("**/api/ask", (route) => route.abort("connectionrefused"));
+  await page.route("**/replay.json", (route) =>
+    route.fulfill({ json: { config: null, config_hash: null, items: [] } }),
+  );
+  await page.goto("/");
+  await page.getByLabel("Your question").fill("Can my landlord keep my deposit?");
+  await page.getByRole("button", { name: "Send question" }).click();
+  await expect(page.getByText("Plumbline couldn't finish this answer.")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "read the answers Plumbline recorded" }),
+  ).toHaveCount(0);
+});
+
+test("a static tier with nothing recorded says it is paused, and no more", async ({ page }) => {
+  await page.route("**/api/settings/tier", (route) =>
+    route.fulfill({ json: { tier: "static", updated_at: null } }),
+  );
+  await page.route("**/replay.json", (route) =>
+    route.fulfill({ json: { config: null, config_hash: null, items: [] } }),
+  );
+  await page.goto("/");
+  await expect(page.getByText("The live demo is paused.")).toBeVisible();
+  await expect(page.getByText("The live demo is paused for now.")).toBeVisible();
+  await expect(page.getByText(/recorded questions above/)).toHaveCount(0);
+  await expectNoAxeViolations(page);
+});

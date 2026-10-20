@@ -7,8 +7,10 @@ import { useRef, useState } from "react";
 import { AnswerSkeleton } from "@/components/answer/answer-skeleton";
 import type { AskValues } from "@/lib/ask-form";
 import { prefetchAnswerChunks } from "@/lib/prefetch";
+import { replayQuery } from "@/lib/replay";
 import { useDemoMode } from "@/lib/tier";
 import { usageView, useUsage } from "@/lib/usage";
+import { useQuery } from "@tanstack/react-query";
 
 import type { EngineControls, EngineState } from "./chat-engine";
 import { ChatProfiler } from "./chat-profiler";
@@ -45,6 +47,9 @@ export function Chat() {
   // The reader may also choose the recorded answers when a live question fails.
   const [replayChosen, setReplayChosen] = useState(false);
   const replay = (mode === "replay" && first === null) || replayChosen;
+  // Whether the export holds recorded answers, read with the replay itself.
+  const { data: recorded } = useQuery({ ...replayQuery(), enabled: replay });
+  const hasRecorded = (recorded?.items.length ?? 0) > 0;
   const { data: usage, dataUpdatedAt } = useUsage();
   const spent = usage ? usageView(usage, new Date(dataUpdatedAt)) : undefined;
 
@@ -82,7 +87,9 @@ export function Chat() {
             onStop={() => controlsRef.current?.stop()}
             disabledReason={
               replay
-                ? "The live demo is paused: choose one of the recorded questions above."
+                ? hasRecorded
+                  ? "The live demo is paused: choose one of the recorded questions above."
+                  : "The live demo is paused for now."
                 : (engine?.quotaReason ?? (spent?.exhausted ? spent.composerReason : undefined))
             }
           />

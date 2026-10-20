@@ -1,7 +1,7 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { APICallError, DefaultChatTransport } from "ai";
 import { useEffect, useRef, useState, type RefObject } from "react";
 
@@ -16,6 +16,7 @@ import { apiUrl, WITH_COOKIE } from "@/lib/api";
 import { askBody, type AskBody, type AskValues } from "@/lib/ask-form";
 import { untilUtcMidnight } from "@/lib/dates";
 import { messageText, type PlumblineMessage } from "@/lib/messages";
+import { replayQuery } from "@/lib/replay";
 import { addStatus, finishRun, startRun, type Run } from "@/lib/run";
 
 // The chat's engine: the AI SDK's useChat, its transport and the conversation it streams. It is
@@ -103,6 +104,9 @@ export function ChatEngine({
     },
   });
   const busy = status === "submitted" || status === "streaming";
+  // A failed answer may offer the recorded answers, when the export holds any.
+  const { data: recorded } = useQuery({ ...replayQuery(), enabled: status === "error" });
+  const canReplay = (recorded?.items.length ?? 0) > 0;
   const last = messages.at(-1);
   const quotaReason = isQuotaReached(error)
     ? `Demo questions reset at 00:00 UTC${resetIn ? `, in ${resetIn}` : ""}.`
@@ -160,15 +164,21 @@ export function ChatEngine({
         }
       >
         {streamErrorText(error) ?? "The search service didn't answer."} Your question is kept; try
-        again in a moment, or{" "}
-        <button
-          type="button"
-          onClick={onReplay}
-          className="text-accent underline underline-offset-2 hover:text-accent-hover"
-        >
-          read the answers Plumbline recorded
-        </button>{" "}
-        for the benchmark&apos;s questions.
+        again in a moment
+        {canReplay && (
+          <>
+            , or{" "}
+            <button
+              type="button"
+              onClick={onReplay}
+              className="text-accent underline underline-offset-2 hover:text-accent-hover"
+            >
+              read the answers Plumbline recorded
+            </button>{" "}
+            for the benchmark&apos;s questions
+          </>
+        )}
+        .
       </Callout>
     );
 

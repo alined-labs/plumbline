@@ -423,9 +423,6 @@ test("an answer the API stopped in its stream says why, in the API's words", asy
   await expect(page.getByText("Plumbline couldn't finish this answer.")).toBeVisible();
   await expect(page.getByText(/Today's budget for live answers is used up\./)).toBeVisible();
   await expect(page.getByText("The search service didn't answer.")).toHaveCount(0);
-  await expect(
-    page.getByRole("button", { name: "read the answers Plumbline recorded" }),
-  ).toBeVisible();
   await expectNoAxeViolations(page);
 });
 
