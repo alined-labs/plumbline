@@ -1,6 +1,7 @@
 import a2 from "@/test/fixtures/evals/results/A2/dev.json";
 
 import {
+  baseConfig,
   byConfigOrder,
   chartPoints,
   estimate,
@@ -155,15 +156,18 @@ describe("secondJudge", () => {
 });
 
 describe("byConfigOrder", () => {
-  it("puts each Claude twin right after its configuration", () => {
-    const names = ["LC-claude", "A2-claude", "LC", "A0", "A2"].map((config_name) => ({
-      ...run,
-      config_name,
-    }));
+  it("puts each Claude twin right after its configuration, and a top_k variant after it", () => {
+    const names = ["LC-claude", "A2-claude-k16", "A2-claude", "LC", "A0", "A2"].map(
+      (config_name) => ({
+        ...run,
+        config_name,
+      }),
+    );
     expect(names.sort(byConfigOrder).map((r) => r.config_name)).toEqual([
       "A0",
       "A2",
       "A2-claude",
+      "A2-claude-k16",
       "LC",
       "LC-claude",
     ]);
@@ -213,5 +217,14 @@ describe("chartPoints and takeaway", () => {
     expect(
       takeaway([point("A2", 0.2, 0.1, 0.3), point("LC", 0.05, 0.01, 0.15)], "false_abstention"),
     ).toMatch(/^LC scores lowest, 0.05/);
+  });
+});
+
+describe("baseConfig", () => {
+  it("reads a configuration's base, its Claude twin and its top_k from the name", () => {
+    expect(baseConfig("A2")).toEqual({ base: "A2", claude: false, topK: null });
+    expect(baseConfig("A2-claude")).toEqual({ base: "A2", claude: true, topK: null });
+    expect(baseConfig("A2-claude-k16")).toEqual({ base: "A2", claude: true, topK: 16 });
+    expect(baseConfig("A2-llm")).toEqual({ base: "A2-llm", claude: false, topK: null });
   });
 });

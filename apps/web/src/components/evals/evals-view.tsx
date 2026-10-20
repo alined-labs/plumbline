@@ -45,6 +45,7 @@ const CONFIGS: Record<string, string> = {
   A0: "Naive baseline: fixed chunks, dense search",
   A1: "Article-aware chunks",
   A2: "Hybrid search: dense and keyword, fused",
+  "A2-llm": "A2 with written contextual headers alone, for the replication",
   A3: "A2 with the local reranker",
   A4: "A3 with a context header per chunk",
   A5: "A4 with written contextual headers",
@@ -56,10 +57,15 @@ const CONFIGS: Record<string, string> = {
 
 /** A configuration's words: its own, or its base's with who writes the answers. */
 function describe(name: string): string | undefined {
-  const { base, claude } = baseConfig(name);
+  const { base, claude, topK } = baseConfig(name);
   const words = CONFIGS[base];
   if (!words) return undefined;
-  return claude ? `${words}, answered by Claude Sonnet as the public site is` : words;
+  const parts = [
+    words,
+    claude ? "answered by Claude Sonnet as the public site is" : null,
+    topK === null ? null : `reading ${topK} passages`,
+  ];
+  return parts.filter(Boolean).join(", ");
 }
 
 /** Per-jurisdiction columns: one retrieval number and the answer numbers that matter most. */
