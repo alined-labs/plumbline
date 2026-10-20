@@ -104,7 +104,7 @@ def article_text(
         return _boe_article(path, source, article, as_of)
     text = _text(path, "cp1252" if law.startswith("co-ley-") else "utf-8")
     if law.startswith("co-ley-"):
-        return _senado_article(html.unescape(text), article)
+        return _senado_article(text, article)
     if law == "dubai-dld-tenancy-guide":
         named = GUIDE_ARTICLE.match(article)
         start = text.find(f"Decree No. ({named['number']}) of {named['year']}") if named else -1
@@ -143,6 +143,9 @@ def _boe_article(path: Path, source: Source, article: str, as_of: date | None) -
 
 
 def _senado_article(text: str, article: str) -> str | None:
+    """The article as the page prints it. Tags go first and entities after, so a validity note
+    the page writes as `&lt;Artículo derogado ...&gt;` stays in the text instead of being
+    stripped as if it were a tag."""
     text = re.sub(r"(?is)<table\b.*?</table>", " ", text)
     text = html.unescape(re.sub(r"<[^>]+>", " ", re.sub(r"(?i)</p>|<br\s*/?>", "\n", text)))
     for label in (
@@ -156,7 +159,10 @@ def _senado_article(text: str, article: str) -> str | None:
     following = re.search(r"\n\s*ART[ÍI]CULO[\s\xa0]+\d+[oº°]?\.", text[start.end() :])
     end = start.end() + following.start() if following else len(text)
     block = text[start.start() : end]
-    # A chapter heading sits between two articles: it belongs to the next one, not to this.
+    # The last article of a page is followed by the page's own footer (a "Siguiente" link and
+    # the publisher's copyright notice), and a chapter heading sits between two articles: neither
+    # belongs to the article.
+    block = re.split(r"\n\s*(?:Siguiente|Anterior|Disposiciones analizadas por)\b", block)[0]
     return _tidy(re.split(r"\n\s*CAP[ÍI]TULO\s+[IVXLC]+\.?\s*\n", block)[0])
 
 
@@ -170,7 +176,7 @@ def _pdf_article(text: str, article: str) -> str | None:
     return "\n---\n".join(found) or None
 
 
-MARKER: Final = re.compile(r"\([0-9a-z]+\)|[0-9]+|[a-z]\)")
+MARKER: Final = re.compile(r"\([0-9a-z]+\)|[0-9]+|[a-z][).]")
 
 
 def paragraph_text(text: str, paragraph: str) -> str | None:
@@ -191,10 +197,17 @@ def paragraph_text(text: str, paragraph: str) -> str | None:
 
 
 def _opens(line: str, marker: str) -> str | None:
-    """What follows `marker` when the line opens with it, or None."""
+    """What follows `marker` when the line opens with it, or None. A lettered paragraph cited
+    as "(d)" is also found where the source sets it as "d)" or "d." (the DLD guide does)."""
     if marker[0] == "(":
-        return line[len(marker) :] if line.startswith(marker) else None
-    if marker.endswith(")"):
+        if line.startswith(marker):
+            return line[len(marker) :]
+        letter = marker[1:-1]
+        for style in (f"{letter}.", f"{letter})") if len(letter) == 1 and letter.isalpha() else ():
+            if line.startswith(style):
+                return line[len(style) :]
+        return None
+    if marker[0].isalpha():
         return line[len(marker) :] if line.startswith(marker) else None
     opened = re.match(rf"{re.escape(marker)}(?=[.)\s]|$)[.)]?", line)
     return line[opened.end() :] if opened else None
@@ -221,9 +234,10 @@ def _excerpt(lines: list[str], chain: list[str]) -> str | None:
 
 
 def _kind(marker: str) -> str:
+    """The kind of list a marker belongs to: "(1)", "(a)" (also "a)" and "a.") or "1."."""
     if marker[0] == "(":
         return "(n)" if marker[1:-1].isdigit() else "(a)"
-    return "a)" if marker.endswith(")") else "1."
+    return "(a)" if marker[0].isalpha() else "1."
 
 
 def _kind_of_line(line: str) -> str | None:
