@@ -187,3 +187,23 @@ async def test_lease_checks_run_on_claude_and_keep_the_tier_rule() -> None:
     assert route.model.startswith("claude-")
     with pytest.raises(RouteRefused):
         await checker.route(DemoTier.FREE)
+    await meter.add("gemini", 5.0)  # another provider's spend changes nothing
+    assert (await checker.route(DemoTier.FULL)).provider == "anthropic"
+    await meter.add("anthropic", 1.0)  # the default cap, spent
+    with pytest.raises(RouteRefused, match="budget for live answers is used up"):
+        await checker.route(DemoTier.FULL)
+
+
+@pytest.mark.anyio
+async def test_no_live_answer_once_claude_has_spent_its_daily_cap() -> None:
+    fake = _Fake()
+    meter = MemorySpendMeter()
+    pipeline = ServedPipeline(lambda: fake, answering.router_for(_settings(), meter))
+    await meter.add("anthropic", 0.99)
+    assert await _collect(pipeline, DemoTier.FULL) == [TextDelta(text="answered")]
+    await meter.add("anthropic", 0.01)
+    [refused] = await _collect(pipeline, DemoTier.FULL)
+    assert isinstance(refused, StreamError)
+    assert refused.message == answering.SPENT
+    assert not refused.retryable
+    assert fake.questions == 1
