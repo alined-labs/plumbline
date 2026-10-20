@@ -603,3 +603,28 @@ def test_a_stalled_answer_does_not_hold_up_another_readers(slow: str) -> None:
         assert stalled_answer.status is AnswerStatus.ANSWERED
 
     asyncio.run(run())
+
+
+class Refusing(Model):
+    """A provider that refuses every request, as one does when its key's limit is spent."""
+
+    async def stream(self, request: LLMRequest) -> AsyncIterator[str | LLMResult]:
+        raise PermissionError("the provider refused: spend limit reached")
+        yield  # pragma: no cover
+
+
+def test_a_provider_refusal_escapes_the_pipeline() -> None:
+    """The kill switch (#218) counts answers that end in '<ExceptionType> in the pipeline',
+    which the query log writes only for an exception that escapes the pipeline. A provider
+    error must therefore never be turned into a StreamError here, which the log would
+    record as one of the API's own refusals, invisible to the switch."""
+    p = Pipeline(
+        config(rerank="none", threshold=None),
+        search=Search(),
+        detect=florida,
+        reranker=None,
+        indexed={FLORIDA},
+        client=Refusing(reply()),
+    )
+    with pytest.raises(PermissionError, match="spend limit"):
+        events(p)
