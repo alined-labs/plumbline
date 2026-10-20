@@ -1,0 +1,21 @@
+{
+  "source_id": "dubai-law-26-2007-fixture",
+  "law": "dubai-law-26-2007",
+  "jurisdiction": "dubai",
+  "language": "en",
+  "edition": "fixture",
+  "sha256": "35101f0a1d6f491f9d1cd8c462aec4aca75dd3a1383e66b003f6d734e9f71e55",
+  "parser": "fixture: invented text in the layout of https://dlp.dubai.gov.ae/ (Law No. (26) of 2007)",
+  "pages": [
+    {
+      "number": 1,
+      "method": "text_layer",
+      "markdown": "Invented fixture text in the layout of Law No. (26) of 2007\nEvery word below is invented. It copies the layout of the Dubai Legislation Portal's English translation (a heading above each \"Article (n)\", clauses numbered 1. and a.), never its text: the law itself is fetched at build time and never committed.\nTitle\nArticle (1)\nThis invented article gives an invented name to an invented law.\nLease Contract\nArticle (4)\n1. An invented clause on how a lease contract is written and signed.\n2. An invented clause on how a lease contract is registered.\nTerm of Lease Contract\nArticle (5)\nAn invented article without clauses, on an invented term.\nArticle (6)\nAn invented article that sits under the same heading as the one above it."
+    },
+    {
+      "number": 2,
+      "method": "text_layer",
+      "markdown": "Termination\nArticle (25)\n1. In these invented cases a landlord may ask for an invented eviction:\na. an invented first case;\nb. an invented second case.\n2. An invented clause with an invented notice of ninety (90) days."
+    }
+  ]
+}
