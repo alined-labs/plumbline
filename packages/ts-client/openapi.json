@@ -1038,6 +1038,90 @@
         "title": "LeaseStarted",
         "type": "object"
       },
+      "OnlineNight": {
+        "description": "One night's judged sample of the previous day's answers.",
+        "properties": {
+          "answered": {
+            "minimum": 0.0,
+            "title": "Answered",
+            "type": "integer"
+          },
+          "config_name": {
+            "title": "Config Name",
+            "type": "string"
+          },
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "faithful": {
+            "minimum": 0.0,
+            "title": "Faithful",
+            "type": "integer"
+          },
+          "faithfulness": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Faithfulness"
+          },
+          "interval_95": {
+            "anyOf": [
+              {
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "maximum": 1.0,
+                    "minimum": 0.0,
+                    "type": "number"
+                  },
+                  {
+                    "maximum": 1.0,
+                    "minimum": 0.0,
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interval 95"
+          },
+          "judged": {
+            "minimum": 0.0,
+            "title": "Judged",
+            "type": "integer"
+          },
+          "sampled": {
+            "minimum": 0.0,
+            "title": "Sampled",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "day",
+          "config_name",
+          "answered",
+          "sampled",
+          "judged",
+          "faithful",
+          "faithfulness",
+          "interval_95"
+        ],
+        "title": "OnlineNight",
+        "type": "object"
+      },
       "PageBox": {
         "properties": {
           "x0": {
@@ -2748,6 +2832,84 @@
         "summary": "Chunk Article",
         "tags": [
           "sources"
+        ]
+      }
+    },
+    "/api/evals/online": {
+      "get": {
+        "operationId": "online_api_evals_online_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "examples": {
+                  "example": {
+                    "summary": "Two nights of judged production answers, newest first",
+                    "value": [
+                      {
+                        "answered": 212,
+                        "config_name": "A2-claude",
+                        "day": "2026-10-24",
+                        "faithful": 19,
+                        "faithfulness": 0.95,
+                        "interval_95": [
+                          0.7639,
+                          0.9911
+                        ],
+                        "judged": 20,
+                        "sampled": 21
+                      },
+                      {
+                        "answered": 96,
+                        "config_name": "A2-claude",
+                        "day": "2026-10-23",
+                        "faithful": 9,
+                        "faithfulness": 0.9,
+                        "interval_95": [
+                          0.5958,
+                          0.9821
+                        ],
+                        "judged": 10,
+                        "sampled": 10
+                      }
+                    ]
+                  }
+                },
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OnlineNight"
+                  },
+                  "title": "Response Online Api Evals Online Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The results cannot be read right now (the database is down)."
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "An error, as problem details (RFC 9457)."
+          }
+        },
+        "summary": "Online",
+        "tags": [
+          "evals"
         ]
       }
     },
