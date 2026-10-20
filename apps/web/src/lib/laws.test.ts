@@ -34,12 +34,19 @@ describe("lawsByJurisdiction", () => {
           id: "es-lau-boe",
           title: "Ley 29/1994",
           jurisdiction: "spain",
+          language: "es",
           consolidated_on: "2025-03-26",
         },
       ],
     });
     expect(groups[1]?.laws).toEqual([
-      { id: "es-lau-boe", title: "Ley 29/1994", edition: "2026", updatedOn: "2025-03-26" },
+      {
+        id: "es-lau-boe",
+        title: "Ley 29/1994",
+        language: "es",
+        edition: "2026",
+        updatedOn: "2025-03-26",
+      },
     ]);
     expect(groups[3]?.laws[0]?.updatedOn).toBe("2026-10-01");
   });
