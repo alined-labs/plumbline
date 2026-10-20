@@ -87,7 +87,7 @@ describe("startLeaseCheck", () => {
       new Response("<html>nope</html>", { status: 415 }),
       problem(429, { title: "Too many requests" }, { "Retry-After": "120" }),
     );
-    const request = { file: lease, jurisdiction: "", signedOn: "" };
+    const request = { file: lease, jurisdiction: "", signedOn: "" } as const;
     expect(await failureOf(startLeaseCheck(request, { fetch: send }))).toMatchObject({
       code: "unsupported_type",
     });

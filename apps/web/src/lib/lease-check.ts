@@ -1,3 +1,4 @@
+import type { Jurisdiction } from "@plumbline/ts-client";
 import { z } from "zod";
 
 import { apiUrl } from "./api";
@@ -79,7 +80,7 @@ const CODE_BY_STATUS: Partial<Record<number, FailureCode>> = {
 };
 
 /** What the page sends for a lease: the form's values, "" for an optional one left empty. */
-export type LeaseRequest = { file: File; jurisdiction: string; signedOn: string };
+export type LeaseRequest = { file: File; jurisdiction: "" | Jurisdiction; signedOn: string };
 
 /** `fetch` and an abort signal, so a test can answer and a reader can cancel. */
 export type Transport = { fetch?: typeof fetch; signal?: AbortSignal };
