@@ -7,7 +7,7 @@ import pytest
 
 from plumbline.corpus.manifest import Manifest, Source, load_manifest
 from plumbline.corpus.refs import article_exists, article_text, paragraph_text
-from plumbline.corpus.validate import check_golden, check_leases
+from plumbline.corpus.validate import check_frozen, check_golden, check_leases, check_versions
 from plumbline.settings import ROOT
 
 SOURCES = {source.law: source for source in load_manifest().sources}
@@ -58,6 +58,24 @@ def test_colombian_articles_read_entities_and_skip_scripts(tmp_path: Path) -> No
     assert article_exists(source, "16", tmp_path) is True
     assert article_exists(source, "8", tmp_path) is True  # "8o."
     assert article_exists(source, "40", tmp_path) is False  # only an earlier wording, in a script
+
+
+def test_a_colombian_validity_note_is_kept_in_the_article_text(tmp_path: Path) -> None:
+    """The Senado writes "<Artículo derogado ...>" as an entity-escaped note beside the heading.
+    A reviewer needs it, so it must survive the removal of tags."""
+    page = (
+        "<p><a name='39'>ART&Iacute;CULO 39. TR&Aacute;MITE PREFERENTE.</a> "
+        "&lt;Art&iacute;culo derogado por el literal c) del art&iacute;culo 626 de la Ley 1564 "
+        "de 2012&gt;</p><p>Siguiente</p><p>Disposiciones analizadas por Avance Jur&iacute;dico</p>"
+        "<p>ART&Iacute;CULO 40. OTRO.</p>"
+    )
+    source = fetch_only("co-ley-820", tmp_path, "ley.html", page.encode("cp1252"))
+    text = article_text(source, "39", None, tmp_path)
+    assert text is not None
+    assert "<Artículo derogado por el literal c) del artículo 626 de la Ley 1564 de 2012>" in text
+    assert "ARTÍCULO 40" not in text
+    assert "Siguiente" not in text
+    assert "Avance" not in text
 
 
 def test_dubai_articles_are_found_in_the_fetched_pdfs_when_they_are_here() -> None:
@@ -281,3 +299,116 @@ def test_paragraphs_may_be_listed_and_may_be_absent() -> None:
     assert "(6) A landlord who violates" in both
     assert paragraph_text(text, "(99)") is None
     assert paragraph_text(text, "") is None
+
+
+def test_a_bracketed_letter_also_finds_a_list_set_as_letter_and_full_stop() -> None:
+    """The DLD guide sets Decree 43/2013's bands as "a.", "c.", "d." (and a stray "b." that is
+    really the end of a's sentence), while a reference cites "(d)"."""
+    text = (
+        "Article (1)\n"
+        "a. no rent increase, where the rent is up to ten percent\n(10%)\n"
+        "b. less than the average;\n"
+        "c. five percent of the rent, where it is eleven\npercent less;\n"
+        "d. ten percent of the rent,\nwhere it is 21% to 30% less;\n"
+        "e. fifteen percent of the rent."
+    )
+    assert (
+        paragraph_text(text, "(d)") == "d. ten percent of the rent,\nwhere it is 21% to 30% less;"
+    )
+    assert (
+        paragraph_text(text, "(a)")
+        == "a. no rent increase, where the rent is up to ten percent\n(10%)"
+    )
+    assert paragraph_text(text, "(a), (b)") is not None
+    assert paragraph_text(text, "(z)") is None
+
+
+def drafts_root(tmp_path: Path, **files: list[str]) -> Path:
+    drafts = tmp_path / "data" / "golden" / "drafts"
+    drafts.mkdir(parents=True)
+    for name, lines in files.items():
+        (drafts / f"{name}.jsonl").write_text("".join(f"{line}\n" for line in lines))
+    return tmp_path
+
+
+def test_a_later_draft_keeps_the_items_of_an_earlier_one(tmp_path: Path) -> None:
+    one, two = golden_line(id="es-9001"), golden_line(id="es-9002", added_in="v1")
+    root = drafts_root(tmp_path, golden_v0=[one], golden_v1=[one, two])
+    assert check_versions(root) == []
+
+
+def test_the_split_and_the_verification_may_differ_between_drafts(tmp_path: Path) -> None:
+    signed = {
+        "quoted_text": "x",
+        "second_source": "y",
+        "checked_on": "2026-10-20",
+        "checked_by": "h",
+    }
+    plain = golden_line()
+    marked = golden_line(split="test", verification=signed)
+    assert check_versions(drafts_root(tmp_path, golden_v0=[plain], golden_v1=[marked])) == []
+
+
+@pytest.mark.parametrize(
+    ("later", "problem"),
+    [
+        (
+            golden_line(reference_answer="Two months' rent."),
+            "es-9001 differs from golden_v0.jsonl in reference_answer",
+        ),
+        (golden_line(difficulty="hard", added_in="v1"), "in added_in, difficulty"),
+        (golden_line(id="es-9002", added_in="v1"), "es-9001 from golden_v0.jsonl is missing"),
+    ],
+)
+def test_a_later_draft_that_changes_or_drops_an_earlier_item_is_refused(
+    tmp_path: Path, later: str, problem: str
+) -> None:
+    root = drafts_root(tmp_path, golden_v0=[golden_line()], golden_v1=[later])
+    [found] = check_versions(root)
+    assert problem in found
+
+
+SIGNED = {"quoted_text": "x", "second_source": "y", "checked_on": "2026-10-20", "checked_by": "h"}
+
+
+def frozen_root(tmp_path: Path, name: str, *lines: str) -> Path:
+    folder = tmp_path / "data" / "golden"
+    folder.mkdir(parents=True)
+    (folder / name).write_text("".join(f"{line}\n" for line in lines), encoding="utf-8")
+    return tmp_path
+
+
+def test_a_finished_frozen_file_passes(tmp_path: Path) -> None:
+    line = golden_line(verification=SIGNED, split="dev", added_in="v1")
+    assert check_frozen(frozen_root(tmp_path, "golden_v1.jsonl", line)) == []
+
+
+@pytest.mark.parametrize(
+    ("name", "fields", "problem"),
+    [
+        ("golden_v0.jsonl", {}, "frozen but not verified"),
+        ("golden_v1.jsonl", {"verification": SIGNED}, "frozen without a dev or test split"),
+        (
+            "golden_v1.jsonl",
+            {"verification": SIGNED, "split": "dev", "added_in": "v2"},
+            "added in v2, after this version",
+        ),
+    ],
+)
+def test_an_unfinished_frozen_file_is_refused(
+    tmp_path: Path, name: str, fields: dict[str, Any], problem: str
+) -> None:
+    [found] = check_frozen(frozen_root(tmp_path, name, golden_line(**fields)))
+    assert problem in found
+
+
+def test_a_frozen_v0_may_have_no_split(tmp_path: Path) -> None:
+    line = golden_line(verification=SIGNED, added_in="v0")
+    assert check_frozen(frozen_root(tmp_path, "golden_v0.jsonl", line)) == []
+
+
+def test_a_draft_is_not_held_to_a_frozen_files_promises(tmp_path: Path) -> None:
+    folder = tmp_path / "data" / "golden" / "drafts"
+    folder.mkdir(parents=True)
+    (folder / "golden_v1.jsonl").write_text(golden_line() + "\n", encoding="utf-8")
+    assert check_frozen(tmp_path) == []

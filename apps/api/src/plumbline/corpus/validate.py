@@ -1,6 +1,6 @@
 """Validate the data `make check` depends on: the corpus manifest, every committed source's
 hash, the licence row of every source, the synthetic leases' expected findings and their
-scanned pages, and every golden-set file.
+scanned pages, every golden-set file, and that the golden drafts agree with each other.
 
     uv run python -m plumbline.corpus.validate
 """
@@ -13,6 +13,7 @@ import sys
 from collections import Counter
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 from pydantic import ValidationError
 
@@ -26,6 +27,7 @@ from rag_eval.schema import (
     GoldenFileError,
     GoldenItem,
     Jurisdiction,
+    Split,
     load_golden,
 )
 
@@ -203,6 +205,68 @@ def check_golden(root: Path = ROOT, manifest: Manifest | None = None) -> list[st
     return problems
 
 
+def check_versions(root: Path = ROOT) -> list[str]:
+    """A later draft keeps every item of an earlier draft, unchanged. While v0 is still being
+    verified, a fix made to one of its items has to be made in the v1 draft too, or the two
+    would quietly say different things. The `split` and `verification` fields are left out:
+    the freeze sets the first and the verifier the second."""
+    drafts: dict[int, dict[str, dict[str, Any]]] = {}
+    names: dict[int, str] = {}
+    for path in sorted((root / "data" / "golden" / "drafts").glob("golden_v*.jsonl")):
+        named = re.fullmatch(r"golden_v(\d+)\.jsonl", path.name)
+        if named is None:
+            continue
+        try:
+            items = load_golden(path)
+        except GoldenFileError:
+            continue  # check_golden reports it
+        number = int(named[1])
+        names[number] = path.name
+        drafts[number] = {
+            item.id: item.model_dump(exclude={"split", "verification"}) for item in items
+        }
+    problems = []
+    for earlier, before in drafts.items():
+        for later, kept in drafts.items():
+            if later <= earlier:
+                continue
+            for item_id, content in before.items():
+                if item_id not in kept:
+                    problems.append(f"{names[later]}: {item_id} from {names[earlier]} is missing")
+                elif kept[item_id] != content:
+                    changed = sorted(key for key in content if content[key] != kept[item_id][key])
+                    problems.append(
+                        f"{names[later]}: {item_id} differs from {names[earlier]} in "
+                        f"{', '.join(changed)}"
+                    )
+    return problems
+
+
+def check_frozen(root: Path = ROOT) -> list[str]:
+    """A frozen `golden_v<N>.jsonl` keeps what freezing promises: every item is verified, none
+    was added in a later version, and from v1 on every item is in dev or test. The merge queue
+    holds the file until the human has read every line; this stops an unfinished one reaching it."""
+    problems: list[str] = []
+    for path in sorted((root / "data" / "golden").glob("golden_v*.jsonl")):
+        named = re.fullmatch(r"golden_v(\d+)\.jsonl", path.name)
+        if named is None:
+            continue
+        number = int(named[1])
+        try:
+            items = load_golden(path)
+        except GoldenFileError:
+            continue  # check_golden reports it
+        for item in items:
+            where = f"{path.name} {item.id}"
+            if item.verification is None:
+                problems.append(f"{where}: frozen but not verified")
+            if int(item.added_in[1:]) > number:
+                problems.append(f"{where}: added in {item.added_in}, after this version")
+            if number >= 1 and item.split is Split.UNASSIGNED:
+                problems.append(f"{where}: frozen without a dev or test split")
+    return problems
+
+
 def _expected(root: Path) -> dict[str, tuple[date, set[str]]]:
     """Each lease's signing date and the article keys its expected findings cite."""
     file = root / "data" / "leases" / "expected_findings.json"
@@ -249,6 +313,8 @@ def main() -> int:
         + check_leases(manifest)
         + check_scans()
         + check_golden(manifest=manifest)
+        + check_versions()
+        + check_frozen()
     )
     for problem in problems:
         print(problem, file=sys.stderr)
