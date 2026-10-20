@@ -23,6 +23,7 @@ setup: ## once per clone or worktree: git hooks, Python and JavaScript dependenc
 check: check-py check-web ## everything, for branches that touch both sides or the tooling
 
 check-py: export CACHE_MODE = replay
+check-py: export DEEPEVAL_DISABLE_DOTENV = 1
 check-py: ## Python: lint, format, strict types, tests, data validation, contract drift
 	$(UV) sync --locked --all-extras --quiet
 	$(UV) run ruff check .
@@ -52,6 +53,7 @@ fmt: ## format and autofix Python and the front end
 	$(PNPM) $(WEB) run format
 
 test: export CACHE_MODE = replay
+test: export DEEPEVAL_DISABLE_DOTENV = 1
 test: ## Python tests only
 	$(UV) run pytest
 
@@ -91,10 +93,12 @@ eval: ## Lane A: retrieval and judged generation metrics for CONFIG on SPLIT
 	$(UV) run python -m plumbline.eval.run --config $(CONFIG) --split $(SPLIT)
 
 eval-gate: export CACHE_MODE = replay
+eval-gate: export DEEPEVAL_DISABLE_DOTENV = 1
 eval-gate: ## Lane A: the CI eval gate, against evals/baseline.json
 	$(UV) run python -m plumbline.eval.gate
 
 reproduce: export CACHE_MODE = replay
+reproduce: export DEEPEVAL_DISABLE_DOTENV = 1
 reproduce: ## every number in the README, rebuilt from committed recordings at zero API cost
 	$(MAKE) up
 	$(UV) run python -m plumbline.ingest

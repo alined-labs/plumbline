@@ -53,7 +53,7 @@ warn_required_dynamic_aliases = true
 
 [tool.pytest.ini_options]
 testpaths = ["apps/api/tests", "packages/rag-eval/tests"]
-addopts = ["-q", "--import-mode=importlib", "-m", "not live", "--strict-markers"]
+addopts = ["-q", "--import-mode=importlib", "-m", "not live", "--strict-markers", "-p", "no:deepeval"]
 markers = [
   "db: needs the local Postgres; skipped when unreachable unless PLUMBLINE_REQUIRE_DB=1",
   "live: calls a real model API; never part of make check",
