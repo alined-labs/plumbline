@@ -68,6 +68,57 @@
       "committed": true,
       "path": "data/corpus/raw/es-lph-boe-2026-10-05.xml",
       "notes": "The BOE's consolidated-legislation open-data record: metadata (with the update date), analysis, and the text, every block with all its versions and their dates. A consolidated text is informational; only the BOE's official editions are authentic. Reading copy: https://www.boe.es/buscar/act.php?id=BOE-A-1960-10906. Holds art. 10 and the third additional provision as reworded by Ley 4/2026, in force from 2026-10-23."
+    },
+    {
+      "id": "dubai-law-26-2007-dlp-2024-12-20",
+      "law": "dubai-law-26-2007",
+      "title": "Law No. (26) of 2007 Regulating the Relationship between Landlords and Tenants in the Emirate of Dubai (English translation)",
+      "jurisdiction": "dubai",
+      "language": "en",
+      "url": "https://dlp.dubai.gov.ae/Legislation%20Reference/2007/Law%20No.%20(26)%20of%202007%20Regarding%20regulation%20between%20the%20lessor%20and%20the%20lessee.pdf",
+      "edition": "dlp-2024-12-20",
+      "consolidated_on": null,
+      "retrieved_on": "2026-10-20",
+      "sha256": "746bdf4dfc37619b354890ff3bb198c20d00e703a849ce1cf40737ebcb84d77b",
+      "format": "pdf",
+      "license_basis": "Dubai Legislation Portal terms: personal and research use only, no redistribution",
+      "committed": false,
+      "path": "data/corpus/fetched/dubai-law-26-2007-dlp-2024-12-20.pdf",
+      "notes": "The law as enacted: Law No. (33) of 2008 supersedes its arts. 2, 3, 4, 9, 13, 14, 15, 25, 26, 29 and 36, so the two are read together. The Supreme Legislation Committee's English translation: the Arabic text prevails in case of conflict. The edition is the date the portal produced this PDF (its metadata)."
+    },
+    {
+      "id": "dubai-law-33-2008-dlp-2023-08-07",
+      "law": "dubai-law-33-2008",
+      "title": "Law No. (33) of 2008 Amending Law No. (26) of 2007 Regulating the Relationship between Landlords and Tenants in the Emirate of Dubai (English translation)",
+      "jurisdiction": "dubai",
+      "language": "en",
+      "url": "https://dlp.dubai.gov.ae/Legislation%20Reference/2009/Law%20No.%20(33)%20of%202008%20Amending%20Law%20No.%20(26)%20of%202007.pdf",
+      "edition": "dlp-2023-08-07",
+      "consolidated_on": null,
+      "retrieved_on": "2026-10-20",
+      "sha256": "3405f6b2845519a3fcee03be190fb0ea678892cb5cc31c4ae29b382604ef7893",
+      "format": "pdf",
+      "license_basis": "Dubai Legislation Portal terms: personal and research use only, no redistribution",
+      "committed": false,
+      "path": "data/corpus/fetched/dubai-law-33-2008-dlp-2023-08-07.pdf",
+      "notes": "Its art. 1 restates arts. 2, 3, 4, 9, 13, 14, 15, 25, 26, 29 and 36 of Law No. (26) of 2007 under their original numbers; art. 2 brings it into force on publication (issued 1 December 2008). The Supreme Legislation Committee's English translation: the Arabic text prevails in case of conflict. The edition is the date the portal produced this PDF (its metadata)."
+    },
+    {
+      "id": "dubai-dld-tenancy-guide-2020-02-07",
+      "law": "dubai-dld-tenancy-guide",
+      "title": "Dubai Land Department, Tenancy Guide (English)",
+      "jurisdiction": "dubai",
+      "language": "en",
+      "url": "https://dubailand.gov.ae/media/051bem5a/tenancyguideen.pdf",
+      "edition": "dld-2020-02-07",
+      "consolidated_on": null,
+      "retrieved_on": "2026-10-20",
+      "sha256": "f21fc1b98241b12c704d54f30f48591df7b3efc90beaf1a5aec69b67d213c7bb",
+      "format": "pdf",
+      "license_basis": "Dubai Land Department publication: research use, no redistribution",
+      "committed": false,
+      "path": "data/corpus/fetched/dubai-dld-tenancy-guide-2020-02-07.pdf",
+      "notes": "Guidance from the regulator, not legislation: EJARI registration, then the texts of the tenancy legislation, including Decree No. (43) of 2013 Determining Rent Increases. The DLD lists it as of 25 September 2020; the edition is the PDF's own modification date."
     }
   ]
 }

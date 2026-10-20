@@ -228,3 +228,11 @@ def test_each_boe_record_is_the_edition_it_is_pinned_as() -> None:
         assert updated is not None
         assert row.consolidated_on == date(*map(int, updated.groups()))
         assert row.edition == f"boe-{row.consolidated_on.isoformat()}"
+
+
+def test_nothing_from_dubai_is_committed() -> None:
+    """The Dubai Legislation Portal's terms allow personal and research use only, with no
+    redistribution: its sources are fetched at build time and never enter git."""
+    dubai = [source for source in SOURCES if source.jurisdiction is Jurisdiction.DUBAI]
+    assert dubai
+    assert not any(source.committed for source in dubai)
