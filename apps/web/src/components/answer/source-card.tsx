@@ -2,6 +2,7 @@ import type { Citation } from "@plumbline/ts-client";
 
 import { CodeBadge } from "@/components/ui/badge";
 import { jurisdictionInfo } from "@/lib/jurisdictions";
+import { isWithheld } from "@/lib/replay";
 
 /** SourceCard spec: one cited passage under the answer, numbered like its markers; choosing it
  * opens the passage in the source panel, and it keeps a 2px accent edge while that is open.
@@ -40,9 +41,16 @@ export function SourceCard({
           <CodeBadge code={jurisdictionInfo(ref.jurisdiction).code} /> Edition {ref.edition}
           {page !== null && page !== undefined && ` · p. ${page}`}
         </span>
-        <span lang={language} className="line-clamp-3 font-serif text-quote-sm text-fg">
-          {quote}
-        </span>
+        {isWithheld(quote) ? (
+          // Serif is the statute's voice; a passage that is not republished has none here.
+          <span className="text-small text-fg-muted">
+            The publisher&apos;s terms do not let us republish this passage.
+          </span>
+        ) : (
+          <span lang={language} className="line-clamp-3 font-serif text-quote-sm text-fg">
+            {quote}
+          </span>
+        )}
         {gloss && <span className="text-small text-fg-muted">{gloss}</span>}
       </button>
     </li>

@@ -1,8 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-
-import { usageQuery, usageView, type Usage } from "@/lib/usage";
+import { usageView, useUsage, type Usage } from "@/lib/usage";
 
 /** UsageMeter spec: how much of the demo's daily allowance is left, so a limit never arrives as
  * a surprise. A label and the count, a 6px track on `bg-active` with an `accent` fill that turns
@@ -37,7 +35,7 @@ export function UsageMeterView({ usage, now }: { usage: Usage; now: Date }) {
 /** The meter for this visitor's day. Without an API to ask (the static tier, a server that is
  * down) there is nothing to show, so it shows nothing. */
 export function UsageMeter({ className }: { className?: string }) {
-  const { data, dataUpdatedAt } = useQuery(usageQuery());
+  const { data, dataUpdatedAt } = useUsage();
   if (!data) return null;
   return (
     <div className={className}>

@@ -1,8 +1,9 @@
 import type { Schemas } from "@plumbline/ts-client";
-import { queryOptions } from "@tanstack/react-query";
+import { queryOptions, useQuery } from "@tanstack/react-query";
 
 import { api, ApiError, type ApiClient } from "./api";
 import { formatClock, untilUtcMidnight } from "./dates";
+import { useDemoMode } from "./tier";
 
 export type Usage = Schemas["Usage"];
 
@@ -20,6 +21,12 @@ export function usageQuery(client: ApiClient = api) {
     staleTime: 30_000,
     retry: false,
   });
+}
+
+/** Today's count, asked only of a live demo: the static tier has no API to count with. */
+export function useUsage() {
+  const mode = useDemoMode();
+  return useQuery({ ...usageQuery(), enabled: mode === "live" });
 }
 
 /** From 80% of the allowance used, the meter turns to a warning and says how many are left. */

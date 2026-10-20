@@ -2,6 +2,7 @@ import type { AnswerSummary, Citation, TraceSummary } from "@plumbline/ts-client
 
 import { DISCLAIMER } from "./copy";
 import { dataParts, messageText, type PlumblineMessage } from "./messages";
+import { isWithheld } from "./replay";
 
 /** One assistant message, read for display. */
 export type AnswerView = {
@@ -83,8 +84,10 @@ export function answerAsText({ markdown, citations, summary }: AnswerView): stri
     return `I couldn't find a statute that answers this.${reason}\n\n${disclaimer}`;
   }
   const words = markdown.replace(/\[(\d+)\]\(#source-\d+\)/g, "[$1]").trim();
-  const sources = citations.map(
-    ({ n, label, quote, gloss }) => `[${n}] ${label}: "${quote}"${gloss ? ` (${gloss})` : ""}`,
+  const sources = citations.map(({ n, label, quote, gloss }) =>
+    isWithheld(quote)
+      ? `[${n}] ${label} (passage not republished here; see the official text)`
+      : `[${n}] ${label}: "${quote}"${gloss ? ` (${gloss})` : ""}`,
   );
   const gap =
     summary?.status === "partial"

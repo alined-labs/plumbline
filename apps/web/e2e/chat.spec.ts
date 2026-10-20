@@ -28,6 +28,13 @@ function stubStreamWith(answer: Record<string, unknown>, { citations = true } = 
   return `${parts.join("\n\n")}\n\n`;
 }
 
+// The live demo: without this the page would find no API and offer the static tier's replay.
+test.beforeEach(async ({ page }) => {
+  await page.route("**/api/settings/tier", (route) =>
+    route.fulfill({ json: { tier: "full", updated_at: null } }),
+  );
+});
+
 async function answerWithStub(page: Page, body = stubStream) {
   await page.route("**/api/ask", (route) =>
     route.fulfill({
