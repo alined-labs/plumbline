@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from plumbline.corpus.leases import EXPECTED, clauses, load_expected
+from plumbline.corpus.leases import EXPECTED, clauses, lease_disclaimer, load_expected
 from plumbline.corpus.manifest import Manifest, load_manifest
 from plumbline.corpus.validate import check_leases
 
@@ -141,3 +141,11 @@ def test_the_planted_violations_cover_the_plan() -> None:
     assert planned <= cited
     # The flood disclosure depends on facts a lease does not show: it is never planted.
     assert all(f.violates.article != "83.512" for lease in expected.leases for f in lease.findings)
+
+
+def test_the_lease_disclaimer_says_information_and_not_advice() -> None:
+    text = lease_disclaimer()
+    assert text.startswith("Legal information, not legal advice.")
+    assert "No lawyer has reviewed" in text
+    assert "ai lawyer" not in text.lower()
+    assert "\n" not in text

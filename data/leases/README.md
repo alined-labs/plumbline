@@ -28,3 +28,16 @@ Each lease is `<lease_id>.md`: a short header with its id, jurisdiction and sign
 | `dubai-lease-02`, Jumeirah Village Circle townhouse | 2026-03-01 | landlord ends the lease at any time on 30 days' notice (Law No. 26 of 2007, art. 7); the lease ends on sale (Law No. 26 of 2007, art. 28) | the tenant pays government fees for the use of the property (Law No. 26 of 2007, art. 22) |
 
 The flood disclosure (s. 83.512, Florida Statutes) is never planted: whether it applies depends on facts a lease does not show.
+
+## Scanned pages
+
+`scans/` holds four scanned-looking pages for the OCR path, made from two of the leases (`fl-lease-03`, in English, and `co-lease-01`, whose parties carry Spanish names and accents). Each lease is printed on US Letter pages, tilted by a fraction of a degree (between 0.6 and 1.3, in both directions), rasterized at 150 dpi in grayscale, and given scanner banding, specks and an edge shadow, so that no text layer survives:
+
+- `<lease_id>.pdf`: every page of the lease as an image-only PDF, as a scanner makes it.
+- `<lease_id>-p<n>.png`: page n as an image, and `<lease_id>-p<n>.txt`: the text printed on it, one printed line per line. A parser's output is compared with this text, ignoring line breaks.
+
+`uv run python -m plumbline.corpus.scans` rebuilds them from the leases with a seeded generator, so a lease's edit shows up as a changed scan, and `make check` fails until the scans are rebuilt. The pages need only pypdfium2 and the standard library.
+
+## The disclaimer
+
+`disclaimer.txt` is the text every lease check shows beside its findings (`plumbline.corpus.leases.lease_disclaimer()`), as `plumbline.core.stream.DISCLAIMER` is shown beside every answer: information and not advice, what a check cannot know, and that no lawyer has reviewed it.

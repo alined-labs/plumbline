@@ -1,6 +1,6 @@
 """Validate the data `make check` depends on: the corpus manifest, every committed source's
-hash, the licence row of every source, the synthetic leases' expected findings, and every
-golden-set file.
+hash, the licence row of every source, the synthetic leases' expected findings and their
+scanned pages, and every golden-set file.
 
     uv run python -m plumbline.corpus.validate
 """
@@ -8,6 +8,7 @@ golden-set file.
 from __future__ import annotations
 
 import hashlib
+import re
 import sys
 from collections import Counter
 from pathlib import Path
@@ -133,6 +134,32 @@ def check_leases(manifest: Manifest, root: Path = ROOT) -> list[str]:
     return problems
 
 
+def check_scans(root: Path = ROOT) -> list[str]:
+    """Every scanned page has its expected text, and every expected text its page, and each
+    belongs to a lease that exists, with the whole lease's scanned PDF beside them."""
+    folder = root / "data" / "leases" / "scans"
+    if not folder.is_dir():
+        return []
+    pages = re.compile(r"^(?P<lease>[a-z0-9-]+)-p(?P<page>\d+)\.(?P<kind>png|txt)$")
+    found: dict[tuple[str, str], set[str]] = {}
+    problems: list[str] = []
+    for path in sorted(folder.iterdir()):
+        match = pages.match(path.name)
+        if match is None:
+            if not path.name.endswith(".pdf"):
+                problems.append(f"data/leases/scans/{path.name}: not a scanned page")
+            continue
+        found.setdefault((match["lease"], match["page"]), set()).add(match["kind"])
+    for (lease, page), kinds in sorted(found.items()):
+        if kinds != {"png", "txt"}:
+            problems.append(f"{lease}-p{page}: needs both a .png and its expected .txt")
+        if not (root / "data" / "leases" / f"{lease}.md").is_file():
+            problems.append(f"{lease}-p{page}: there is no lease {lease}.md")
+        if not (folder / f"{lease}.pdf").is_file():
+            problems.append(f"{lease}: its scanned pages have no {lease}.pdf")
+    return problems
+
+
 def check_golden(root: Path = ROOT) -> list[str]:
     problems: list[str] = []
     for path in sorted((root / "data" / "golden").glob("**/*.jsonl")):
@@ -155,6 +182,7 @@ def main() -> int:
         + check_unlisted(manifest)
         + check_licences(manifest, LICENCES.read_text(encoding="utf-8"))
         + check_leases(manifest)
+        + check_scans()
         + check_golden()
     )
     for problem in problems:
