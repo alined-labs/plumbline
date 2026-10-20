@@ -29,7 +29,13 @@ log = logging.getLogger(__name__)
 
 MEDIA_TYPE: Final = "application/problem+json"
 ProblemCode = Literal[
+    "unsupported_type",  # 415: the upload is not a PDF, a Word document or text
+    "too_large",  # 413: the upload is over the size or length limit
+    "unreadable",  # 422: nothing in the upload can be read as a lease (a scan, a broken file)
     "quota_reached",  # 429: today's allowance is used up; Retry-After says until when
+    "not_found",  # 404: a check that does not exist, has expired or is another visitor's
+    "lease_checks_paused",  # 503: the demo tier does not run lease checks right now
+    "busy",  # 503: too many checks are running; Retry-After says when to try again
 ]
 
 

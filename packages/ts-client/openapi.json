@@ -460,7 +460,6 @@
                 "type": "null"
               }
             ],
-            "default": null,
             "title": "Gloss"
           },
           "label": {
@@ -472,21 +471,20 @@
             "$ref": "#/components/schemas/Language"
           },
           "n": {
-            "minimum": 1,
+            "minimum": 1.0,
             "title": "N",
             "type": "integer"
           },
           "page": {
             "anyOf": [
               {
-                "minimum": 1,
+                "minimum": 1.0,
                 "type": "integer"
               },
               {
                 "type": "null"
               }
             ],
-            "default": null,
             "title": "Page"
           },
           "quote": {
@@ -606,6 +604,70 @@
           "type"
         ],
         "title": "FieldError",
+        "type": "object"
+      },
+      "Finding": {
+        "additionalProperties": false,
+        "properties": {
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/Citation"
+            },
+            "minItems": 1,
+            "title": "Citations",
+            "type": "array"
+          },
+          "clause_language": {
+            "$ref": "#/components/schemas/Language"
+          },
+          "clause_number": {
+            "minLength": 1,
+            "title": "Clause Number",
+            "type": "string"
+          },
+          "clause_text": {
+            "minLength": 1,
+            "title": "Clause Text",
+            "type": "string"
+          },
+          "confidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "n": {
+            "minimum": 1.0,
+            "title": "N",
+            "type": "integer"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/Severity"
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "why": {
+            "minLength": 1,
+            "title": "Why",
+            "type": "string"
+          }
+        },
+        "required": [
+          "n",
+          "clause_number",
+          "clause_text",
+          "clause_language",
+          "severity",
+          "title",
+          "why",
+          "citations",
+          "confidence"
+        ],
+        "title": "Finding",
         "type": "object"
       },
       "Health": {
@@ -819,6 +881,163 @@
         "title": "Language",
         "type": "string"
       },
+      "LeaseDoneEvent": {
+        "description": "Data of the `done` event, the last of a check that worked.",
+        "properties": {
+          "findings": {
+            "title": "Findings",
+            "type": "integer"
+          },
+          "language": {
+            "$ref": "#/components/schemas/Language"
+          }
+        },
+        "required": [
+          "findings",
+          "language"
+        ],
+        "title": "LeaseDoneEvent",
+        "type": "object"
+      },
+      "LeaseFailedEvent": {
+        "description": "Data of the `failed` event, the last of a check that did not work.",
+        "properties": {
+          "code": {
+            "enum": [
+              "redaction_refused",
+              "jurisdiction_unknown",
+              "no_clauses",
+              "timed_out",
+              "interrupted",
+              "internal"
+            ],
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "LeaseFailedEvent",
+        "type": "object"
+      },
+      "LeaseResult": {
+        "description": "A check as it stands, for a page that was reloaded: `findings` are those so far.",
+        "properties": {
+          "failure": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LeaseFailedEvent"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Language"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "running",
+              "done",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "language",
+          "findings",
+          "failure"
+        ],
+        "title": "LeaseResult",
+        "type": "object"
+      },
+      "LeaseStageEvent": {
+        "description": "Data of a `stage` event: where the check is. While checking, `done` and `total`\ncount the lease's clauses.",
+        "properties": {
+          "done": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Done"
+          },
+          "stage": {
+            "enum": [
+              "uploaded",
+              "redacting",
+              "reading",
+              "checking"
+            ],
+            "title": "Stage",
+            "type": "string"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Total"
+          }
+        },
+        "required": [
+          "stage"
+        ],
+        "title": "LeaseStageEvent",
+        "type": "object"
+      },
+      "LeaseStarted": {
+        "description": "A lease check that was accepted.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "LeaseStarted",
+        "type": "object"
+      },
       "PageBox": {
         "properties": {
           "x0": {
@@ -860,7 +1079,15 @@
           "code": {
             "anyOf": [
               {
-                "const": "quota_reached",
+                "enum": [
+                  "unsupported_type",
+                  "too_large",
+                  "unreadable",
+                  "quota_reached",
+                  "not_found",
+                  "lease_checks_paused",
+                  "busy"
+                ],
                 "type": "string"
               },
               {
@@ -1236,6 +1463,17 @@
         ],
         "title": "SearchResult",
         "type": "object"
+      },
+      "Severity": {
+        "description": "The four groups the lease page shows, most pressing first.",
+        "enum": [
+          "conflict",
+          "check",
+          "note",
+          "match"
+        ],
+        "title": "Severity",
+        "type": "string"
       },
       "SourceLink": {
         "properties": {
@@ -1913,6 +2151,325 @@
         "summary": "Ask",
         "tags": [
           "answers"
+        ]
+      }
+    },
+    "/api/check-lease": {
+      "post": {
+        "operationId": "start_api_check_lease_post",
+        "parameters": [
+          {
+            "description": "The governing jurisdiction, when the reader knows.",
+            "in": "query",
+            "name": "jurisdiction",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Jurisdiction"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The governing jurisdiction, when the reader knows.",
+              "title": "Jurisdiction"
+            }
+          },
+          {
+            "description": "When the lease was signed: the law in force then.",
+            "in": "query",
+            "name": "signed_on",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "When the lease was signed: the law in force then.",
+              "title": "Signed On"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "format": "binary",
+                "type": "string"
+              }
+            },
+            "application/pdf": {
+              "schema": {
+                "format": "binary",
+                "type": "string"
+              }
+            },
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {
+              "schema": {
+                "format": "binary",
+                "type": "string"
+              }
+            },
+            "text/plain": {
+              "schema": {
+                "format": "binary",
+                "type": "string"
+              }
+            }
+          },
+          "description": "The lease itself, not a form: a PDF, a Word document (DOCX) or plain text, up to 10 MB. The type is read from the bytes, whatever the Content-Type says.",
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaseStarted"
+                }
+              }
+            },
+            "description": "The check started."
+          },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`too_large`: the file is over the size or length limit."
+          },
+          "415": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`unsupported_type`: not a PDF, a Word document or text (or sent as a form)."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`unreadable`: no text could be read from the file (a scan, a broken file)."
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`quota_reached`: today's lease checks are used up; Retry-After gives the seconds until 00:00 UTC.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`lease_checks_paused` (the demo tier does not run them) or `busy` (too many checks are running; Retry-After gives the seconds).",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "An error, as problem details (RFC 9457)."
+          }
+        },
+        "summary": "Start",
+        "tags": [
+          "leases"
+        ]
+      }
+    },
+    "/api/check-lease/{run_id}": {
+      "get": {
+        "operationId": "result_api_check_lease__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaseResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`not_found`: no such check, it expired, or it is another visitor's."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The request is not valid."
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "An error, as problem details (RFC 9457)."
+          }
+        },
+        "summary": "Result",
+        "tags": [
+          "leases"
+        ]
+      }
+    },
+    "/api/check-lease/{run_id}/events": {
+      "get": {
+        "operationId": "events_api_check_lease__run_id__events_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "last-event-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last-Event-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "itemSchema": {
+                  "properties": {
+                    "data": {
+                      "type": "string"
+                    },
+                    "event": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "retry": {
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The check's events as server-sent events: `event` is `stage` (LeaseStageEvent), `finding` (Finding), `done` (LeaseDoneEvent) or `failed` (LeaseFailedEvent); `id` numbers them from 1, and sending the last one back as Last-Event-ID resumes after it. The stream ends after `done` or `failed`."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "`not_found`: no such check, it expired, or it is another visitor's."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The request is not valid."
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "An error, as problem details (RFC 9457)."
+          }
+        },
+        "summary": "Events",
+        "tags": [
+          "leases"
         ]
       }
     },

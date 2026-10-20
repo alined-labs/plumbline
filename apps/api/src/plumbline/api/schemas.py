@@ -10,7 +10,8 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 
 from plumbline.core.stream import MAX_QUESTION_CHARS
-from plumbline.core.types import CacheMode, DemoTier, Jurisdiction
+from plumbline.core.types import CacheMode, DemoTier, Jurisdiction, Language
+from plumbline.leases.schema import Finding
 
 
 class Health(BaseModel):
@@ -115,3 +116,52 @@ class FeedbackRequest(BaseModel):
         if len(set(reasons)) != len(reasons):
             raise ValueError("a reason appears twice")
         return reasons
+
+
+class LeaseStarted(BaseModel):
+    """A lease check that was accepted."""
+
+    id: str
+
+
+class LeaseStageEvent(BaseModel):
+    """Data of a `stage` event: where the check is. While checking, `done` and `total`
+    count the lease's clauses."""
+
+    stage: Literal["uploaded", "redacting", "reading", "checking"]
+    done: int | None = None
+    total: int | None = None
+
+
+class LeaseDoneEvent(BaseModel):
+    """Data of the `done` event, the last of a check that worked."""
+
+    findings: int
+    language: Language
+
+
+LeaseFailureCode = Literal[
+    "redaction_refused",  # the lease cannot be redacted yet, so it is not sent to a model
+    "jurisdiction_unknown",  # the lease names no jurisdiction, or several, and none was given
+    "no_clauses",  # no numbered clauses were found in the lease
+    "timed_out",  # the check took too long and was stopped
+    "interrupted",  # the server stopped while the check was running
+    "internal",  # an error on our side
+]
+
+
+class LeaseFailedEvent(BaseModel):
+    """Data of the `failed` event, the last of a check that did not work."""
+
+    code: LeaseFailureCode
+    message: str  # for the reader
+
+
+class LeaseResult(BaseModel):
+    """A check as it stands, for a page that was reloaded: `findings` are those so far."""
+
+    id: str
+    status: Literal["running", "done", "failed"]
+    language: Language | None  # known once the check is done
+    findings: list[Finding]
+    failure: LeaseFailedEvent | None
