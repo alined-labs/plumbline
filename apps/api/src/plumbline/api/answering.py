@@ -4,8 +4,9 @@ checker, wired to the index in Postgres, and the rule for when the stand-ins may
 The configuration is the settings' `answer_config`. One that retrieves needs a retrieval
 factory (Lane A's Retriever, task A5b); until the server has one, the API answers with the
 long-context baseline (LC) instead, which reads the whole law of the question's
-jurisdictions from the index (Lane C's SqlLawSource), and the answer's trace names LC, so nobody mistakes it for
-the configured one. The lease checker needs a search, so without retrieval it is paused.
+jurisdictions from the index (Lane C's SqlLawSource), and the answer's trace names LC, so
+nobody mistakes it for the configured one. Either way the API serves the configuration's
+Claude twin from evals/configs (`served_config`). The lease checker needs a search, so without retrieval it is paused.
 
 The stand-ins (generation/stub.py, api/lease_stub.py) serve in dev and test, so the tests
 and a front-end developer's `make api` stay instant and free; ENVIRONMENT=prod answers for
@@ -18,7 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Iterable, Mapping
 from datetime import date
 from typing import Final
 
@@ -34,7 +35,7 @@ from plumbline.core.types import DemoTier, Jurisdiction
 from plumbline.db import make_sync_engine, make_sync_sessionmaker
 from plumbline.generation.lawsource import SqlLawSource
 from plumbline.generation.llm import client_for
-from plumbline.generation.pipeline import MODELS, Pipeline
+from plumbline.generation.pipeline import MODELS, LawSource, Pipeline
 from plumbline.generation.router import (
     ROUTES,
     Kind,
@@ -51,6 +52,7 @@ from plumbline.generation.stub import StubPipeline
 from plumbline.leases.checker import LeaseEvent
 from plumbline.leases.service import LeaseChecker as RealLeaseChecker
 from plumbline.retrieval.index import variant_key
+from plumbline.retrieval.jurisdiction import detect as detect_jurisdictions
 from plumbline.settings import Settings
 
 log = logging.getLogger(__name__)
@@ -60,10 +62,19 @@ LONG_CONTEXT: Final = "LC"
 # the golden cross-check and nothing else, while Claude's spend is not the constraint.
 SERVED_ROUTE: Final = "premium"
 PAUSED: Final = "Lease checks are not available on this server yet."
+# The most law the long-context path sends in one call. Claude counted Florida's whole law
+# (208,467 characters) as 69,257 input tokens, about 3 characters a token; 150k tokens keeps
+# an answer well inside the context window, at about US$0.30 on Sonnet.
+MAX_LAW_TOKENS: Final = 150_000
+CHARS_PER_TOKEN: Final = 3
+TOO_MUCH_LAW: Final = (
+    "This question would need the whole law of {names} at once, more than Plumbline reads in"
+    " one answer for now. Please ask about one jurisdiction at a time."
+)
 
 
 class StubRefused(RuntimeError):
-    """Production was handed a stand-in."""
+    """Production was handed a stand-in, or a configuration nobody evaluated on Claude."""
 
 
 def wants_real(settings: Settings) -> bool:
@@ -104,13 +115,12 @@ def default_pipeline(
 ) -> AnswerPipeline:
     if not wants_real(settings):
         return StubPipeline(delay_ms=settings.stub_delay_ms)
-    config = load_config(CONFIGS / f"{settings.answer_config}.yaml")
+    config = served_config(settings.answer_config)
     if _retrieves(config) and retrieval is None:
         log.warning(
             "no retrieval on this server: answering with %s, not %s", LONG_CONTEXT, config.name
         )
-        config = load_config(CONFIGS / f"{LONG_CONTEXT}.yaml")
-    config = on_claude(config)
+        config = served_config(LONG_CONTEXT)
     return ServedPipeline(
         lambda: _build(config, retrieval, sessions, meter), router_for(settings, meter)
     )
@@ -126,7 +136,7 @@ def default_lease_checker(
     if retrieval is None:
         log.warning("no retrieval on this server: lease checks are paused")
         return PausedLeaseChecker()
-    search = retrieval(load_config(CONFIGS / f"{settings.answer_config}.yaml")).search
+    search = retrieval(served_config(settings.answer_config)).search
     # Real uploads stay refused until Presidio's redactor (P2) replaces this one.
     return ClaudeLeaseChecker(
         router=router_for(settings, meter),
@@ -136,13 +146,19 @@ def default_lease_checker(
     )
 
 
-def on_claude(config: EvalConfig) -> EvalConfig:
-    """The configuration on SERVED_ROUTE, renamed so the trace says what answered: its hash
-    covers the route, and "-claude" keeps it from passing for the evaluated original."""
+def served_config(name: str) -> EvalConfig:
+    """The evaluated configuration the API serves for `name`: the file itself when it is on
+    SERVED_ROUTE, otherwise its Claude twin (Lane A's `<name>-claude.yaml`), so the trace's
+    hash is exactly the one /evals reports. A configuration with no twin refuses to start."""
+    config = load_config(CONFIGS / f"{name}.yaml")
     if config.generation.route == SERVED_ROUTE:
         return config
-    generation = config.generation.model_copy(update={"route": SERVED_ROUTE})
-    return config.model_copy(update={"name": f"{config.name}-claude", "generation": generation})
+    twin = CONFIGS / f"{name}-claude.yaml"
+    if twin.exists():
+        config = load_config(twin)
+        if config.generation.route == SERVED_ROUTE:
+            return config
+    raise StubRefused(f"{name} has no configuration on the {SERVED_ROUTE} route to serve")
 
 
 class ClaudeLeaseChecker(RealLeaseChecker):
@@ -171,10 +187,10 @@ class ServedPipeline:
     index which jurisdictions it holds, and an app that never answers, such as the OpenAPI
     export, must not need a database), behind the tier: on the static tier it refuses."""
 
-    def __init__(self, build: Callable[[], Pipeline], router: Router) -> None:
+    def __init__(self, build: Callable[[], AnswerPipeline], router: Router) -> None:
         self._build = build
         self._router = router
-        self._pipeline: Pipeline | None = None
+        self._pipeline: AnswerPipeline | None = None
         self._lock = asyncio.Lock()
 
     async def stream(self, question: Question) -> AsyncIterator[StreamEvent]:
@@ -190,6 +206,38 @@ class ServedPipeline:
             yield event
 
 
+class LawBudget:
+    """The long-context path behind a size check: a question whose jurisdictions' whole law
+    is over MAX_LAW_TOKENS ends with an error before any model call, instead of a slow,
+    costly call that may overflow the context window. The sizes are measured once, when the
+    pipeline is built (the law changes only on a new ingest, which restarts nothing yet: a
+    larger law is caught by the model's own limit, as before)."""
+
+    def __init__(
+        self,
+        pipeline: AnswerPipeline,
+        chars: Mapping[Jurisdiction, int],
+        detect: Callable[[str], list[Jurisdiction]] = detect_jurisdictions,
+    ) -> None:
+        self.pipeline = pipeline
+        self.chars = chars
+        self.detect = detect
+
+    async def stream(self, question: Question) -> AsyncIterator[StreamEvent]:
+        # The pipeline's own rule: named jurisdictions, else detected ones (all, when none).
+        asked = question.jurisdictions or self.detect(question.text)
+        if sum(self.chars.get(j, 0) for j in asked) > MAX_LAW_TOKENS * CHARS_PER_TOKEN:
+            names = ", ".join(j.value.title() for j in asked if j in self.chars)
+            yield StreamError(message=TOO_MUCH_LAW.format(names=names), retryable=False)
+            return
+        async for event in self.pipeline.stream(question):
+            yield event
+
+
+def law_chars(law: LawSource, jurisdictions: Iterable[Jurisdiction]) -> dict[Jurisdiction, int]:
+    return {j: sum(len(c.text) for c in law.articles([j], None)) for j in jurisdictions}
+
+
 def _retrieves(config: EvalConfig) -> bool:
     return not (config.generation.long_context or config.retrieval.mode == "none")
 
@@ -199,11 +247,13 @@ def _build(
     retrieval: RetrievalFactory | None,
     sessions: sessionmaker[Session],
     meter: SpendMeter,
-) -> Pipeline:
+) -> AnswerPipeline:
     client = MeteredClient(client_for(MODELS[config.generation.route]), meter)
     if not _retrieves(config):
         law = SqlLawSource(sessions, variant_key(config))
-        return Pipeline(config, law=law, reranker=None, indexed=law.jurisdictions(), client=client)
+        indexed = law.jurisdictions()
+        pipeline = Pipeline(config, law=law, reranker=None, indexed=indexed, client=client)
+        return LawBudget(pipeline, law_chars(law, indexed))
     if retrieval is None:  # default_pipeline falls back to LC before this can happen
         raise ValueError(f"{config.name} retrieves and the server has no retrieval")
     parts: Retrieval = retrieval(config)

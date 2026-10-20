@@ -5,12 +5,14 @@ Lane C's (tests/generation/test_lawsource.py)."""
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
 
 from plumbline.api import answering
 from plumbline.api.answering import (
+    LawBudget,
     PausedLeaseChecker,
     ServedPipeline,
     StubRefused,
@@ -20,7 +22,7 @@ from plumbline.api.lease_stub import StubLeaseChecker
 from plumbline.api.search import CONFIGS
 from plumbline.core.config import load_config
 from plumbline.core.stream import Question, StreamError, StreamEvent, TextDelta
-from plumbline.core.types import CacheMode, DemoTier
+from plumbline.core.types import CacheMode, DemoTier, Jurisdiction
 from plumbline.db import make_sync_engine, make_sync_sessionmaker
 from plumbline.generation.router import MemorySpendMeter, RouteRefused, SyntheticOnlyRedactor
 from plumbline.generation.stub import StubPipeline
@@ -116,19 +118,59 @@ async def test_the_served_pipeline_is_built_once_and_refuses_on_the_static_tier(
     assert fake.questions == 2
 
 
+@pytest.mark.anyio
+async def test_the_whole_law_path_refuses_more_law_than_one_answer_reads() -> None:
+    fake = _Fake()
+    limit = answering.MAX_LAW_TOKENS * answering.CHARS_PER_TOKEN
+    chars = {Jurisdiction.FLORIDA: 208_467, Jurisdiction.SPAIN: limit - 100_000}
+    budget = LawBudget(fake, chars, detect=lambda text: list(Jurisdiction))
+
+    def ask(*jurisdictions: Jurisdiction) -> Question:
+        return Question(text="Deposit?", request_id="req_1", jurisdictions=list(jurisdictions))
+
+    one = [event async for event in budget.stream(ask(Jurisdiction.FLORIDA))]
+    assert one == [TextDelta(text="answered")]
+    for question in (ask(Jurisdiction.FLORIDA, Jurisdiction.SPAIN), ask()):  # ask(): detected
+        events = [event async for event in budget.stream(question)]
+        assert len(events) == 1
+        assert isinstance(events[0], StreamError)
+        assert not events[0].retryable
+        assert "Spain, Florida" in events[0].message or "Florida, Spain" in events[0].message
+    assert fake.questions == 1  # nothing over the budget reaches the model
+
+
+def test_the_law_is_measured_per_jurisdiction() -> None:
+    class Law:
+        def articles(self, jurisdictions: object, as_of: object) -> list[SimpleNamespace]:
+            assert as_of is None
+            return {
+                (Jurisdiction.FLORIDA,): [SimpleNamespace(text="ab"), SimpleNamespace(text="c")]
+            }.get(tuple(jurisdictions), [])
+
+    assert answering.law_chars(Law(), [Jurisdiction.FLORIDA, Jurisdiction.DUBAI]) == {
+        Jurisdiction.FLORIDA: 3,
+        Jurisdiction.DUBAI: 0,
+    }
+
+
 def test_the_lc_configuration_reads_the_whole_law() -> None:
     config = load_config(CONFIGS / "LC.yaml")
     assert not answering._retrieves(config)
     assert answering._retrieves(load_config(CONFIGS / "A2.yaml"))
 
 
-def test_the_api_answers_on_claude_and_says_so() -> None:
-    lc = load_config(CONFIGS / "LC.yaml")
-    served = answering.on_claude(lc)
-    assert (served.name, served.generation.route) == ("LC-claude", "premium")
-    assert served.config_hash() != lc.config_hash()  # never passes for the evaluated LC
-    assert served.retrieval == lc.retrieval
-    assert answering.on_claude(served) is served
+def test_the_api_serves_the_evaluated_claude_configuration() -> None:
+    for name in ("LC", "A2", "A0", "LC-claude"):
+        served = answering.served_config(name)
+        twin = load_config(CONFIGS / f"{name.removesuffix('-claude')}-claude.yaml")
+        assert served.generation.route == "premium"
+        # The same hash /evals reports for the row, so the trace names what was measured.
+        assert served.config_hash() == twin.config_hash()
+
+
+def test_a_configuration_with_no_claude_twin_refuses_to_start() -> None:
+    with pytest.raises(StubRefused, match="A3 has no configuration"):
+        answering.served_config("A3")
 
 
 @pytest.mark.anyio
