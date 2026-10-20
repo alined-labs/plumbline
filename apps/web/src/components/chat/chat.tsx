@@ -2,6 +2,7 @@
 
 import { useChat } from "@ai-sdk/react";
 import type { Jurisdiction } from "@plumbline/ts-client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { APICallError, DefaultChatTransport } from "ai";
 import { useRef, useState } from "react";
 
@@ -18,6 +19,7 @@ import { untilUtcMidnight } from "@/lib/dates";
 import { messageText, type PlumblineMessage } from "@/lib/messages";
 import { prefetchAnswerChunks } from "@/lib/prefetch";
 import { addStatus, finishRun, startRun, type Run } from "@/lib/run";
+import { usageQuery, usageView } from "@/lib/usage";
 
 import { ChatProfiler } from "./chat-profiler";
 import { Composer } from "./composer";
@@ -39,6 +41,11 @@ export function Chat() {
   const [resetIn, setResetIn] = useState<string | null>(null);
   // The filters of the last question, so Try again asks it the same way.
   const lastBody = useRef<AskBody>({ as_of: null, jurisdictions: [] });
+  // The day's allowance: read again after each answer, and when none is left the composer says
+  // so and when it resets before a question is typed.
+  const queryClient = useQueryClient();
+  const { data: usage, dataUpdatedAt } = useQuery(usageQuery());
+  const spent = usage ? usageView(usage, new Date(dataUpdatedAt)) : undefined;
 
   function setLive(run: Run | null) {
     live.current = run;
@@ -62,9 +69,11 @@ export function Chat() {
       // One announcement per answer, once it is complete, instead of every token. A failure
       // announces itself through its callout.
       setAnnounced(isError ? "" : isAbort ? "Answer stopped." : announcement(answerView(message)));
+      void queryClient.invalidateQueries({ queryKey: ["usage"] });
     },
     onError: (failure) => {
       if (isQuotaReached(failure)) setResetIn(untilUtcMidnight(new Date()));
+      void queryClient.invalidateQueries({ queryKey: ["usage"] });
     },
   });
   const busy = status === "submitted" || status === "streaming";
@@ -157,7 +166,9 @@ export function Chat() {
             disabledReason={
               isQuotaReached(error)
                 ? `Demo questions reset at 00:00 UTC${resetIn ? `, in ${resetIn}` : ""}.`
-                : undefined
+                : spent?.exhausted
+                  ? spent.composerReason
+                  : undefined
             }
           />
         </div>

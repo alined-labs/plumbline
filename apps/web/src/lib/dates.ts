@@ -24,6 +24,11 @@ export function formatDateTime(value: Date): string {
   return `${day.format(value)}, ${minute.format(value)} UTC`;
 }
 
+/** An ISO moment → "00:00 UTC": the time of day, for when a daily allowance resets. */
+export function formatClock(value: string | Date): string {
+  return `${minute.format(typeof value === "string" ? new Date(value) : value)} UTC`;
+}
+
 /** "3 h 12 min" until the next 00:00 UTC, when the demo's daily questions reset. */
 export function untilUtcMidnight(now: Date): string {
   const midnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
