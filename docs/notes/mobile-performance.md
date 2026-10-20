@@ -21,15 +21,27 @@ Accessibility, best practices and SEO were 100 everywhere. In a real browser the
 
 The two lazy chunks use `next/dynamic` with `ssr: false`; without it Next lists their scripts in every page's HTML. Total JavaScript shipped rose by about 10 KB (each chunk compresses on its own), so the budget moved from 365 to 375 kB; what a first paint loads fell by about 40 KB.
 
-## What is left
+## The chat engine on first use (E7c)
 
-The chat page stays near 80. An experiment that removed the AI SDK from it (a stub in place of `useChat`) scored 86 with 150 ms less blocking time, so the SDK and zod (which it needs) are a third of the gap. The rest is React's hydration of the shell and the composer (the form library and the combobox) and the framework's own runtime, which `/about` pays too and still reaches 93.
+The lever named here before is now pulled, without the two composers it seemed to need. The chat page is a light shell (the empty state, the composer and the usage meter) and a separate engine chunk (`components/chat/chat-engine.tsx`: `useChat`, the AI SDK's transport and the conversation). The shell owns the one composer; the engine mounts when the first question is sent, asks it, and from then on the composer drives it through a ref (`ask`, `stop`) while the engine reports back only what the composer shows (busy, the quota's words). The engine's chunk starts loading when the question box is focused, with the answer's other chunks, so in practice it has arrived before the question is sent; until it mounts, the question waits under the answer skeleton.
 
-The lever that would close it is loading the chat engine (`useChat` and its transport) on the first interaction, with the composer and the empty state rendered without it. That means two composers, one before and one after the engine loads, with the filters carried across and focus moved to the new text area: more moving parts than the gain justifies while the gate (desktop, 100) and three of four pages on mobile pass. It is the next step if the chat page's mobile score has to reach 90.
+The composer's validation moved from a zod schema through `@hookform/resolvers` to a plain resolver in `lib/ask-form.ts` (the same three rules and messages), so the page's first load carries no zod at all. The lease page still uses zod for its form; its transport was already loaded on the first check.
+
+Five mobile runs each, the chat page on the static export:
+
+| Build | Performance (runs) | Median | Total blocking time | LCP |
+| --- | --- | ---: | ---: | ---: |
+| main before E7c | 78, 79, 82, 83, 84 | 82 | 560 ms | 3.1 s |
+| the engine on first use | 84, 85, 85, 88, 89 | 85 | 412 ms | 2.9 s |
+| and no zod in the composer | 90, 90, 91, 91, 92 | 91 | 292 ms | 2.7 s |
+
+What a first load of the chat page fetches fell from 304 kB to 224 kB of JavaScript (brotli, the 18 scripts its HTML names, without the polyfills that only browsers without modules load). The total the export ships rose from 395.6 to 405.4 kB, because each lazy chunk compresses on its own and the engine now shares less with the rest; the size budget, which counts every chunk, moves from 400 to 410 kB for that reason.
+
+What remains is React's hydration of the shell (its single largest chunk, about 0.8 s of script on the 4× slowed CPU) and the framework's runtime, which every page pays.
 
 ## Reporting
 
-`pnpm run lighthouse` now runs two passes over every page: the desktop preset (`lighthouserc.json`), where all four categories must stay at or above 90, and Lighthouse's default phone emulation (`lighthouserc.mobile.json`), where accessibility, best practices and SEO must stay at or above 90 and performance is reported as a warning, so the chat page's 80 shows up in every run instead of being hidden.
+`pnpm run lighthouse` now runs two passes over every page: the desktop preset (`lighthouserc.json`), where all four categories must stay at or above 90, and Lighthouse's default phone emulation (`lighthouserc.mobile.json`), where accessibility, best practices and SEO must stay at or above 90 and performance is reported as a warning: single runs spread by about five points, so a hard 90 would fail on noise.
 
 ## Reproduce
 
