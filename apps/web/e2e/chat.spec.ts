@@ -166,6 +166,30 @@ test("the source panel shows the cited article with the passage marked", async (
   await expectNoAxeViolations(page);
 });
 
+test("the day's allowance shows in the sidebar", async ({ page, isMobile }) => {
+  test.skip(isMobile, "On a phone the meter is in the menu drawer.");
+  await page.route("**/api/usage", (route) =>
+    route.fulfill({ json: { used: 18, limit: 20, resets_at: "2026-10-20T00:00:00Z" } }),
+  );
+  await page.goto("/");
+  const meter = page.getByRole("meter", { name: "Demo questions used" });
+  await expect(meter).toHaveAttribute("aria-valuenow", "18");
+  await expect(meter).toHaveAttribute("aria-valuemax", "20");
+  await expect(page.getByText("18 of 20")).toBeVisible();
+  await expect(page.getByText("2 left today · resets at 00:00 UTC")).toBeVisible();
+  await expectNoAxeViolations(page);
+});
+
+test("a spent allowance disables the composer and says when it resets", async ({ page }) => {
+  await page.route("**/api/usage", (route) =>
+    route.fulfill({ json: { used: 20, limit: 20, resets_at: "2026-10-20T00:00:00Z" } }),
+  );
+  await page.goto("/");
+  await expect(page.getByLabel("Your question")).toBeDisabled();
+  await expect(page.getByText(/Demo questions reset at 00:00 UTC, in /)).toBeVisible();
+  await expectNoAxeViolations(page);
+});
+
 test("a reader says why an answer did not help", async ({ page }) => {
   await answerWithStub(page);
   const sent: unknown[] = [];

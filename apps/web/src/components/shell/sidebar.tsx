@@ -20,6 +20,7 @@ import { Tip } from "@/components/ui/tip";
 import { useMediaQuery } from "@/lib/use-media-query";
 
 import { ThemeSwitch } from "./theme-switch";
+import { UsageMeter } from "./usage-meter";
 
 export const DESTINATIONS: { href: Route; label: string; Icon: ComponentType<IconProps> }[] = [
   { href: "/", label: "Ask", Icon: MessageSquareIcon },
@@ -93,7 +94,9 @@ export function SidebarContent({
           </Link>
         </Tip>
       ))}
-      <div className="mt-auto pt-3">
+      <div className="mt-auto flex flex-col gap-4 pt-3">
+        {/* The rail has no room for it; the allowance shows again when the sidebar widens. */}
+        <UsageMeter className={mode === "aside" ? "px-2.5 rail:hidden" : "px-2.5"} />
         <ThemeSwitch compact={mode === "aside"} />
       </div>
     </nav>
