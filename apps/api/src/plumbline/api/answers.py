@@ -1,10 +1,9 @@
-"""HTTP routes (Lane D). Everything is under /api so one origin can serve the static front
-end and the API behind the tunnel."""
+"""The answer routes (Lane D): a question and its answer stream, the reader's feedback on
+an answer, and today's usage for the quota meter."""
 
 from __future__ import annotations
 
 import secrets
-from importlib.metadata import version
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -13,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from plumbline.api import querylog
 from plumbline.api.quota import Usage, set_visitor_cookie
-from plumbline.api.schemas import AskRequest, FeedbackRequest, Health
+from plumbline.api.schemas import AskRequest, FeedbackRequest
 from plumbline.api.stream import HEADERS, ui_message_stream
 from plumbline.api.tier import tier_store
 from plumbline.core.stream import AnswerPipeline, Question
@@ -27,13 +26,6 @@ router = APIRouter(prefix="/api")
 def _settings(request: Request) -> Settings:
     settings: Settings = request.app.state.settings
     return settings
-
-
-@router.get("/health", tags=["ops"])
-async def health(request: Request) -> Health:
-    settings = _settings(request)
-    tier = await tier_store(request).current()
-    return Health(version=version("plumbline"), tier=tier, cache_mode=settings.cache_mode)
 
 
 @router.post(
