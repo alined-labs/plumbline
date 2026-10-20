@@ -7,5 +7,6 @@ One file per decision, numbered, never rewritten: a reversal is a new record tha
 | [0001](0001-monorepo-and-postgres-only-hybrid-search.md) | One monorepo, and hybrid search inside Postgres | accepted |
 | [0002](0002-home-server-behind-a-tunnel-with-a-static-tier.md) | Serve from a home server behind a tunnel, with a static tier as the floor | accepted |
 | [0003](0003-parsing-and-the-vision-fallback.md) | Read HTML in code, PDFs page by page through docling, and scans with a vision model | proposed |
+| [0007](0007-routing-and-spend-caps.md) | Route each request by a rule, under the demo tier and daily spend caps | proposed |
 
-Planned, written when their evidence exists: 0004 local embeddings; 0005 the reranker, with its latency numbers; 0006 thin orchestration, no LangChain in the core path; 0007 routing and spend caps; 0008 the CI evaluation gate; 0009 the judge and its calibration; 0010 the retrieval configuration; 0011 security controls; 0012 what was not built, and why.
+Planned, written when their evidence exists: 0004 local embeddings; 0005 the reranker, with its latency numbers; 0006 thin orchestration, no LangChain in the core path; 0008 the CI evaluation gate; 0009 the judge and its calibration; 0010 the retrieval configuration; 0011 security controls; 0012 what was not built, and why.
