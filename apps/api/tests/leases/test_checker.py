@@ -202,6 +202,24 @@ def test_the_jurisdiction_is_the_one_the_lease_names_or_the_caller_s() -> None:
     assert run(unnamed, Model(), jurisdiction=Jurisdiction.FLORIDA)[-1].findings == 1
 
 
+class PlacesRedacted:
+    """A redactor that hides place names, as Presidio's location recognizer would."""
+
+    def redact(self, upload: Upload) -> str:
+        return upload.text.replace("Miami,\nFlorida", "<LOCATION>").replace("Miami", "<LOCATION>")
+
+
+def test_the_jurisdiction_survives_a_redactor_that_hides_place_names() -> None:
+    search = Search()
+
+    async def run() -> list[Any]:
+        events = stream_check(synthetic(), redactor=PlacesRedacted(), search=search, client=Model())
+        return [event async for event in events]
+
+    assert isinstance(asyncio.run(run())[-1], LeaseDone)
+    assert search.calls[0]["jurisdictions"] == [Jurisdiction.FLORIDA]
+
+
 @pytest.mark.parametrize(
     ("upload", "marks", "code"),
     [
