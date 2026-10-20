@@ -130,6 +130,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search */
+        get: operations["search_api_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/settings/tier": {
         parameters: {
             query?: never;
@@ -264,6 +281,59 @@ export interface components {
          * @enum {string}
          */
         CacheMode: "replay" | "record" | "live";
+        /**
+         * Chunk
+         * @description A retrievable unit of statute text: an article, or a numbered paragraph of one.
+         */
+        Chunk: {
+            /** Article */
+            article: string;
+            /**
+             * Context Header
+             * @default
+             */
+            context_header: string;
+            /** Context Header Llm */
+            context_header_llm: string | null;
+            /** Document Id */
+            document_id: string;
+            /** Edition */
+            edition: string;
+            /** Effective From */
+            effective_from: string | null;
+            /** Effective To */
+            effective_to: string | null;
+            /** Heading */
+            heading: string | null;
+            /** History */
+            history: string | null;
+            /** Id */
+            id: string;
+            jurisdiction: components["schemas"]["Jurisdiction"];
+            /** Label */
+            label: string;
+            language: components["schemas"]["Language"];
+            /** Law */
+            law: string;
+            /** Metadata */
+            metadata: {
+                [key: string]: string | number | boolean | null;
+            };
+            /** Page */
+            page: number | null;
+            /** Parent Id */
+            parent_id: string | null;
+            /** Path */
+            path: string[];
+            /** @default in_force */
+            status: components["schemas"]["ProvisionStatus"];
+            /** Text */
+            text: string;
+            /** Text For Search */
+            text_for_search: string;
+            /** Validity Note */
+            validity_note: string | null;
+        };
         /**
          * Citation
          * @description One [n] marker in an answer and the span it quotes.
@@ -450,6 +520,13 @@ export interface components {
              */
             type: string;
         };
+        /**
+         * ProvisionStatus
+         * @description Validity of a provision on the edition's date. Colombian "Nota de vigencia" and
+         *     INEXEQUIBLE markers map onto these values; the original note is kept in validity_note.
+         * @enum {string}
+         */
+        ProvisionStatus: "in_force" | "repealed" | "struck_down";
         /** QuoteBoxes */
         QuoteBoxes: {
             /** Available */
@@ -462,6 +539,53 @@ export interface components {
             page: number;
             /** Source Id */
             source_id: string;
+        };
+        /** RetrievalScores */
+        RetrievalScores: {
+            /** Bm25 */
+            bm25: number | null;
+            /** Bm25 Rank */
+            bm25_rank: number | null;
+            /** Dense */
+            dense: number | null;
+            /** Dense Rank */
+            dense_rank: number | null;
+            /** Rerank */
+            rerank: number | null;
+            /** Rrf */
+            rrf: number | null;
+        };
+        /** Retrieved */
+        Retrieved: {
+            chunk: components["schemas"]["Chunk"];
+            /** Rank */
+            rank: number;
+            /** Score */
+            score: number;
+            scores: components["schemas"]["RetrievalScores"];
+        };
+        /** SearchResult */
+        SearchResult: {
+            /** As Of */
+            as_of: string | null;
+            /** Candidates */
+            candidates: number;
+            /** Config */
+            config: string;
+            /** Config Hash */
+            config_hash: string;
+            /** Hits */
+            hits: components["schemas"]["Retrieved"][];
+            /** Jurisdictions */
+            jurisdictions: components["schemas"]["Jurisdiction"][];
+            /** K */
+            k: number;
+            /** Query */
+            query: string;
+            /** Timings Ms */
+            timings_ms: {
+                [key: string]: number;
+            };
         };
         /**
          * Stage
@@ -841,6 +965,53 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Health"];
+                };
+            };
+            /** @description An error, as problem details (RFC 9457). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    search_api_search_get: {
+        parameters: {
+            query: {
+                /** @description The question. */
+                q: string;
+                /** @description Hits to return; default: the configuration's top_k. */
+                k?: number | null;
+                jurisdictions?: components["schemas"]["Jurisdiction"][] | null;
+                as_of?: string | null;
+                /** @description A configuration of evals/configs. */
+                config?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchResult"];
+                };
+            };
+            /** @description The request is not valid. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description An error, as problem details (RFC 9457). */
