@@ -82,9 +82,11 @@ export default function AboutPage() {
         <p>
           The target is WCAG 2.2 level AA, in the light and the dark theme. Plumbline uses native
           HTML controls where they exist and Base UI&apos;s accessible headless primitives for the
-          rest: the phone menu is a Base UI Dialog that keeps focus inside it and returns it to the
-          menu button, the jurisdiction filter is a Base UI Combobox, and the names of the compact
-          sidebar&apos;s icons are Base UI Tooltips.
+          rest: the phone menu and the source panel are Base UI Dialogs that keep focus inside them
+          and return it to what opened them, the panel&apos;s Sources and Trace are Base UI Tabs,
+          the jurisdiction filter is a Base UI Combobox, the theme switch is a Base UI Switch, and
+          the names of the compact sidebar&apos;s icons are Base UI Tooltips. The panel&apos;s edge
+          is a keyboard-operable splitter, so its width can be set without a mouse.
         </p>
         <p>
           Everything works from the keyboard, with a visible focus ring. While an answer is written,

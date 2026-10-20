@@ -1,13 +1,15 @@
 "use client";
 
 import { Dialog } from "@base-ui/react/dialog";
-import type { Citation } from "@plumbline/ts-client";
+import { Tabs } from "@base-ui/react/tabs";
+import type { Citation, TraceSummary } from "@plumbline/ts-client";
 import {
   useEffect,
   useRef,
   useState,
   type KeyboardEvent,
   type PointerEvent,
+  type ReactNode,
   type RefObject,
 } from "react";
 
@@ -16,19 +18,30 @@ import { CodeBadge } from "@/components/ui/badge";
 import { buttonClass } from "@/components/ui/button";
 import { jurisdictionInfo } from "@/lib/jurisdictions";
 import { sourceFor } from "@/lib/laws";
+import type { Run } from "@/lib/run";
+import { dollars, duration, middleTruncate, spansFromTrace } from "@/lib/trace";
 import { useCopy } from "@/lib/use-copy";
 import { useMediaQuery } from "@/lib/use-media-query";
 
+import { TraceWaterfall } from "../trace/trace-waterfall";
+
+import { StatusSteps } from "./status-steps";
 import { StatuteQuote } from "./statute-quote";
 
-/** What the panel is showing: one source of one answer. */
+export type PanelTab = "sources" | "trace";
+
+/** What the panel is showing: one answer, on one of its two tabs. */
 export type PanelSubject = {
   /** The answer's message id: markers in different answers can share a number. */
   messageId: string;
-  /** The open source's number. */
-  n: number;
   /** The answer's verified sources, in first-citation order. */
   citations: Citation[];
+  /** The open source's number; null when the panel was opened on the trace alone. */
+  n: number | null;
+  tab: PanelTab;
+  trace: TraceSummary | undefined;
+  /** The request's stages as the browser saw them, timed (the stream does not store them). */
+  run: Run | undefined;
 };
 
 /** SourcePanel spec: the cited passage where it lives, a Base UI Dialog.
@@ -44,12 +57,15 @@ export type PanelSubject = {
  * that opened it. */
 export function SourcePanel({
   subject,
+  onChange,
   onClose,
   opener,
   slot,
 }: {
-  /** The open source, or null when the panel is closed. */
+  /** The open answer, or null when the panel is closed. */
   subject: PanelSubject | null;
+  /** Switches the source or the tab without reopening. */
+  onChange: (patch: Partial<Pick<PanelSubject, "n" | "tab">>) => void;
   onClose: () => void;
   opener: RefObject<HTMLElement | null>;
   /** The shell's third pane, once it has mounted. */
@@ -64,12 +80,13 @@ export function SourcePanel({
 
   // A marker clicked while the panel is already open switches the source: the dialog does not
   // reopen, so focus moves to the new title here.
-  const current = subject ? `${subject.messageId}:${subject.n}` : null;
+  const current = subject ? `${subject.messageId}:${subject.n ?? "trace"}` : null;
   useEffect(() => {
     if (current) title.current?.focus();
   }, [current]);
 
   const citation = shown?.citations.find((candidate) => candidate.n === shown.n);
+  const open = subject ?? shown;
 
   return (
     <Dialog.Root
@@ -91,7 +108,40 @@ export function SourcePanel({
             className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-border-strong md:hidden"
           />
           {wide && <ResizeHandle width={width} onWidth={setWidth} />}
-          {citation && <PanelContent citation={citation} title={title} />}
+          {shown && open && (
+            <>
+              <PanelHeader citation={citation} title={title} />
+              <Tabs.Root
+                value={open.tab}
+                onValueChange={(tab: PanelTab) =>
+                  onChange(
+                    tab === "sources"
+                      ? { tab, n: open.n ?? open.citations[0]?.n ?? null }
+                      : { tab },
+                  )
+                }
+                className="flex min-h-0 flex-1 flex-col"
+              >
+                <Tabs.List className="flex gap-5 border-b border-border px-6">
+                  <Tabs.Tab value="sources" className={TAB}>
+                    Sources
+                    <span className="rounded-full bg-bg-active px-1.5 text-micro font-semibold tabular-nums text-fg-muted">
+                      {open.citations.length}
+                    </span>
+                  </Tabs.Tab>
+                  <Tabs.Tab value="trace" className={TAB}>
+                    Trace
+                  </Tabs.Tab>
+                </Tabs.List>
+                <Tabs.Panel value="sources" className="flex-1 overflow-y-auto px-6 py-5">
+                  <SourcesPane citation={citation} subject={open} onChange={onChange} />
+                </Tabs.Panel>
+                <Tabs.Panel value="trace" className="flex-1 overflow-y-auto px-6 py-5">
+                  <TracePane trace={open.trace} run={open.run} />
+                </Tabs.Panel>
+              </Tabs.Root>
+            </>
+          )}
         </Dialog.Popup>
       </Dialog.Portal>
     </Dialog.Root>
@@ -165,73 +215,206 @@ function ResizeHandle({
   );
 }
 
-function PanelContent({
+// Tabs spec: ui medium labels in fg-muted, the current one in fg with a 2px accent underline
+// that sits on the border rule.
+const TAB =
+  "-mb-px flex h-10 items-center gap-1.5 border-b-2 border-transparent text-ui font-medium text-fg-muted hover:text-fg data-active:border-accent data-active:text-fg";
+
+function PanelHeader({
   citation,
   title,
 }: {
-  citation: Citation;
+  citation: Citation | undefined;
   title: RefObject<HTMLHeadingElement | null>;
 }) {
-  const { n, label, ref, gloss } = citation;
-  const source = sourceFor(ref.law, ref.edition);
+  const source = citation && sourceFor(citation.ref.law, citation.ref.edition);
+  return (
+    <header className="flex items-start gap-3 px-6 pb-4 pt-5">
+      <div className="flex flex-1 flex-col gap-1">
+        {citation ? (
+          <p className="flex items-center gap-2">
+            <CodeBadge code={jurisdictionInfo(citation.ref.jurisdiction).code} />
+            <span className="font-mono text-eyebrow uppercase text-fg-muted">
+              Source {citation.n}
+            </span>
+          </p>
+        ) : (
+          <p className="font-mono text-eyebrow uppercase text-fg-muted">Trace</p>
+        )}
+        <Dialog.Title ref={title} tabIndex={-1} className="text-heading-3">
+          {citation ? citation.label : "How this answer was produced"}
+        </Dialog.Title>
+        {citation && (
+          <p className="text-small text-fg-muted">
+            {source
+              ? `${source.title}, edition ${citation.ref.edition}`
+              : `Edition ${citation.ref.edition}`}
+          </p>
+        )}
+      </div>
+      <Dialog.Close
+        aria-label="Close source panel"
+        className={buttonClass({ variant: "ghost", size: "sm", icon: true })}
+      >
+        <XIcon />
+      </Dialog.Close>
+    </header>
+  );
+}
+
+function SourcesPane({
+  citation,
+  subject,
+  onChange,
+}: {
+  citation: Citation | undefined;
+  subject: PanelSubject;
+  onChange: (patch: { n: number }) => void;
+}) {
   const [copied, copy] = useCopy();
+  if (!citation) {
+    return <p className="text-body text-fg-muted">This answer cites no sources.</p>;
+  }
+  const { label, ref, gloss } = citation;
+  const source = sourceFor(ref.law, ref.edition);
   const reference = [`${label}, ${source?.title ?? ref.law} (edition ${ref.edition})`, source?.url]
     .filter(Boolean)
     .join("\n");
+  const others = subject.citations.filter((candidate) => candidate.n !== citation.n);
 
   return (
-    <>
-      <header className="flex items-start gap-3 border-b border-border px-6 pb-4 pt-5">
-        <div className="flex flex-1 flex-col gap-1">
-          <p className="flex items-center gap-2">
-            <CodeBadge code={jurisdictionInfo(ref.jurisdiction).code} />
-            <span className="font-mono text-eyebrow uppercase text-fg-muted">Source {n}</span>
-          </p>
-          <Dialog.Title ref={title} tabIndex={-1} className="text-heading-3">
-            {label}
-          </Dialog.Title>
-          <p className="text-small text-fg-muted">
-            {source ? `${source.title}, edition ${ref.edition}` : `Edition ${ref.edition}`}
-          </p>
-        </div>
-        <Dialog.Close
-          aria-label="Close source panel"
-          className={buttonClass({ variant: "ghost", size: "sm", icon: true })}
+    <div className="flex flex-col gap-4">
+      <StatuteQuote citation={citation} />
+      {gloss && (
+        <p className="text-body text-fg-muted">
+          <span className="font-medium text-fg">In English: </span>
+          {gloss}
+        </p>
+      )}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => void copy(reference)}
+          className={buttonClass({ size: "sm" })}
         >
-          <XIcon />
-        </Dialog.Close>
-      </header>
-      <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
-        <StatuteQuote citation={citation} />
-        {gloss && (
-          <p className="text-body text-fg-muted">
-            <span className="font-medium text-fg">In English: </span>
-            {gloss}
-          </p>
-        )}
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => void copy(reference)}
-            className={buttonClass({ size: "sm" })}
+          {copied ? <CheckIcon /> : <CopyIcon />}
+          {copied ? "Reference copied" : "Copy reference"}
+        </button>
+        {source && (
+          <a
+            href={source.url}
+            target="_blank"
+            rel="noreferrer"
+            className={buttonClass({ variant: "ghost", size: "sm" })}
           >
-            {copied ? <CheckIcon /> : <CopyIcon />}
-            {copied ? "Reference copied" : "Copy reference"}
-          </button>
-          {source && (
-            <a
-              href={source.url}
-              target="_blank"
-              rel="noreferrer"
-              className={buttonClass({ variant: "ghost", size: "sm" })}
-            >
-              <ExternalLinkIcon />
-              Open original
-              <span className="sr-only"> (opens in a new tab)</span>
-            </a>
-          )}
-        </div>
+            <ExternalLinkIcon />
+            Open original
+            <span className="sr-only"> (opens in a new tab)</span>
+          </a>
+        )}
       </div>
-    </>
+      {others.length > 0 && (
+        <section aria-label="Other sources in this answer" className="flex flex-col gap-1.5">
+          <h3 className="font-mono text-eyebrow uppercase text-fg-muted">Other sources</h3>
+          <ul className="flex flex-col">
+            {others.map((other) => (
+              <li key={other.n}>
+                <button
+                  type="button"
+                  onClick={() => onChange({ n: other.n })}
+                  className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-ui hover:bg-bg-hover max-md:min-h-11"
+                >
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-sm bg-accent-subtle font-mono text-code-sm font-semibold text-accent-text">
+                    {other.n}
+                  </span>
+                  <span className="sr-only">Source {other.n}: </span>
+                  {other.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
+  );
+}
+
+/** The Trace tab: the stages as the browser saw them, then the server's own timings as a
+ * waterfall, then what produced the answer. */
+function TracePane({ trace, run }: { trace: TraceSummary | undefined; run: Run | undefined }) {
+  if (!trace && !run) {
+    return <p className="text-body text-fg-muted">There is no trace for this answer.</p>;
+  }
+  const { spans, total } = trace ? spansFromTrace(trace) : { spans: [], total: 0 };
+  return (
+    <div className="flex flex-col gap-6">
+      {run && run.steps.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <h3 className="text-ui-strong">As it happened</h3>
+          <StatusSteps run={run} />
+        </section>
+      )}
+      {spans.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <h3 className="text-ui-strong">Where the time went</h3>
+          <TraceWaterfall spans={spans} total={total} label="Time per stage" />
+        </section>
+      )}
+      {trace && <TraceDetails trace={trace} />}
+    </div>
+  );
+}
+
+function TraceDetails({ trace }: { trace: TraceSummary }) {
+  const rows: { name: string; value: ReactNode }[] = [
+    { name: "Model", value: <span className="font-mono text-code-sm">{trace.model}</span> },
+    { name: "Tier", value: `${trace.tier} tier` },
+    { name: "Route", value: <span className="font-mono text-code-sm">{trace.route}</span> },
+    { name: "Answer", value: trace.cached ? "Replayed from a recording" : "Generated live" },
+    {
+      name: "Tokens",
+      value: `${trace.input_tokens.toLocaleString("en-GB")} in, ${trace.output_tokens.toLocaleString("en-GB")} out`,
+    },
+    { name: "Cost", value: dollars(trace.cost_usd) },
+    { name: "Time", value: duration(Object.values(trace.timings_ms).reduce((a, b) => a + b, 0)) },
+    { name: "Configuration", value: <Id value={trace.config_hash} note={trace.config_name} /> },
+    { name: "Request", value: <Id value={trace.request_id} /> },
+  ];
+  return (
+    <section className="flex flex-col gap-2">
+      <h3 className="text-ui-strong">What produced it</h3>
+      <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1.5 text-ui">
+        {rows.map(({ name, value }) => (
+          <div key={name} className="contents">
+            <dt className="text-fg-muted">{name}</dt>
+            <dd className="min-w-0 text-fg">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      {trace.trace_url && (
+        <a
+          href={trace.trace_url}
+          target="_blank"
+          rel="noreferrer"
+          className={buttonClass({ variant: "ghost", size: "sm", className: "self-start" })}
+        >
+          <ExternalLinkIcon />
+          Open the full trace
+          <span className="sr-only"> (opens in a new tab)</span>
+        </a>
+      )}
+    </section>
+  );
+}
+
+/** An ID or hash in the code face, truncated in the middle with the whole value kept for a
+ * screen reader and for a hover (Table spec). */
+function Id({ value, note }: { value: string; note?: string }) {
+  return (
+    <span className="font-mono text-code-sm" title={value}>
+      <span aria-hidden="true">{middleTruncate(value)}</span>
+      <span className="sr-only">{value}</span>
+      {note && <span className="font-sans text-ui text-fg-muted"> · {note}</span>}
+    </span>
   );
 }

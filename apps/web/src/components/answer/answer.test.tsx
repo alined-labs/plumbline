@@ -136,7 +136,8 @@ describe("Answer", () => {
     expect(screen.queryByText(/Answered in/)).not.toBeInTheDocument();
   });
 
-  it("collapses the steps into the meta line, one click away under Trace", async () => {
+  it("opens the panel on its Trace tab from the meta line, and returns focus", async () => {
+    const user = userEvent.setup();
     const run = finishRun(
       addStatus(startRun(0, 4), { stage: "retrieving", detail: "40 passages" }, 200),
       4200,
@@ -144,12 +145,41 @@ describe("Answer", () => {
     render(<Answer message={await messageFrom(stubChunks())} run={run} />);
     expect(screen.getByRole("article")).toHaveTextContent("Answered in 4.2 s");
     const trace = screen.getByRole("button", { name: "Trace" });
-    expect(trace).toHaveAttribute("aria-expanded", "false");
-    await userEvent.setup().click(trace);
-    expect(trace).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("list", { name: "What Plumbline is doing" })).toHaveTextContent(
+    await user.click(trace);
+
+    const panel = await screen.findByRole("dialog", { name: "How this answer was produced" });
+    expect(within(panel).getByRole("tab", { name: "Trace" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(within(panel).getByRole("list", { name: "What Plumbline is doing" })).toHaveTextContent(
       "Searching 4 jurisdictions · 40 passages4.0 s",
     );
+    expect(within(panel).getByRole("list", { name: "Time per stage" })).toHaveTextContent(
+      "Writing the answer",
+    );
+    expect(panel).toHaveTextContent("Replayed from a recording");
+    // No source is open, so no marker is active (the page behind an open panel is hidden from
+    // the accessibility tree, hence hidden: true).
+    expect(
+      screen.getByRole("button", { name: "Source 1: Stub Act, s. 1", hidden: true }),
+    ).toHaveAttribute("aria-expanded", "false");
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(trace).toHaveFocus());
+  });
+
+  it("switches between the Sources and Trace tabs inside the panel", async () => {
+    const user = userEvent.setup();
+    render(<Answer message={await messageFrom(stubChunks())} />);
+    await user.click(screen.getByRole("button", { name: "Trace" }));
+    const panel = await screen.findByRole("dialog");
+    await user.click(within(panel).getByRole("tab", { name: /Sources/ }));
+    expect(
+      await within(panel).findByRole("heading", { name: "Stub Act, s. 1" }),
+    ).toBeInTheDocument();
+    expect(within(panel).getByRole("tab", { name: /Sources/ })).toHaveTextContent("1");
+    expect(panel).toHaveTextContent("This section exists only to exercise the interface.");
   });
 
   it("copies the finished answer with its sources and the disclaimer", async () => {

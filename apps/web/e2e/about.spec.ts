@@ -13,7 +13,9 @@ test("the about page states the limits, the disclaimer and the accessibility wor
     "How it is built",
   ]);
   await expect(main).toContainText("No lawyer has reviewed Plumbline's answers");
-  await expect(main).toContainText("Base UI Dialog");
+  await expect(main).toContainText("Base UI Dialogs");
+  await expect(main).toContainText("Base UI Tabs");
+  await expect(main).toContainText("Base UI Switch");
   await expect(main.getByRole("term")).toHaveText(["/", "Enter", "Shift + Enter", "Escape"]);
   await expectNoAxeViolations(page);
 });
