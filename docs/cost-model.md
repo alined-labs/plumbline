@@ -13,7 +13,7 @@ The budget behind [ADR-0002](adr/0002-home-server-behind-a-tunnel-with-a-static-
 | API credit | US$100 | *to fill* | ADR-0002 |
 | Cloud credit | one month | *to fill* | ADR-0002 |
 | Google AI Studio, prepaid balance | *to fill* | *to fill* | billing page |
-| Anthropic, prepaid credit and spend limit | *to fill* | *to fill* | Claude Console |
+| Anthropic, spend limit on the API key | US$25; up to US$100 may be spent on Claude in all | 2026-10-20 | the human, 20 October: "don't ask, just do it and document everything" |
 
 ## 2. Accounts, plans and the limits that matter
 
@@ -22,7 +22,7 @@ The human fills this table when each account is opened (task H2) and rechecks it
 | Provider | Plan | Used for | Limit that matters | Price | Checked on |
 | --- | --- | --- | --- | --- | --- |
 | Google AI Studio | paid tier, prepaid | generation (fast and strong models) | *to fill* | per token, in `PRICES` | *to fill* |
-| Anthropic | prepaid credit with a spend limit | the premium route and the judge | *to fill* | per token, in `PRICES` | *to fill* |
+| Anthropic | prepaid credit with a spend limit | every served answer and lease check (Sonnet 5.5), and the judge | the key's US$25 spend limit: past it, every live answer fails, so the daily cap must reach it first | per token, in `PRICES` | 2026-10-20 |
 | Cohere | trial key | the API reranker comparison (R1) | *to fill* | *to fill* | *to fill* |
 | Langfuse Cloud | Hobby (free) | traces, cost and error alerts | *to fill* | *to fill* | *to fill* |
 | Cloudflare | *to fill* | domain, Tunnel, Pages, WAF, rate limits, Turnstile | *to fill* | *to fill* | *to fill* |
@@ -66,6 +66,16 @@ Measured, not estimated: from the usage that every recorded model call carries, 
 
 Questions a day each cap pays for: the cap divided by the cost per question of the tier that uses that provider. *To fill* once the table above is.
 
+Single answers measured live, before the dev-set medians exist (Lane D, 20 October, MX1, Florida only, on Claude Sonnet 5.5 as the site serves). The question was "In Florida, how long does a landlord have to return a security deposit when no claim is made on it?":
+
+| Served configuration | Input tokens | Output tokens | Cost | Recorded in |
+| --- | --- | --- | --- | --- |
+| `A2-claude` (SQL retrieval, the production default) | 24,418 | 425 | US$0.0539 | `d/d5e-online-retrieval` |
+| `LC-claude` (the whole law, uncached) | 69,257 | 508 | US$0.1444 | #159 |
+| `LC-claude`, a second question with the law as a cached prefix | | | US$0.011 | Lane C, C14 |
+
+At US$0.054 an answer, production's US$5.00 Anthropic cap has two marks (section 3). Lease checks stop at US$4.00, around the 75th `A2-claude` answer of the day, and the site goes static at US$5.00, around the 93rd. The key's US$25 limit pays for about 460 answers, shared with the lanes' evaluation runs.
+
 ## 5. Running costs
 
 | Item | Per month | How it is computed | Source |
@@ -90,6 +100,8 @@ Model calls are recorded once, while a lane builds, and replayed at zero cost by
 | C9, the second judge on the same rows, Batch API (56 calls fetch-only) | 200 | US$0.0747 | Gemini (3.5 Flash-Lite) |
 | C7b, one long-context answer from the Florida index, traced | 1 | US$0.0357 | Gemini (3.8 Flash) |
 | CB3, the injection set against the lease checker | 26 | US$0.3260 | Anthropic (Sonnet 5.5) |
+| D5b, one live production answer on `LC-claude` (Florida) | 1 | US$0.1444 | Anthropic (Sonnet 5.5) |
+| D5e, one live production answer on `A2-claude` (Florida), with its question's embedding (local TEI) | 1 | US$0.0539 | Anthropic (Sonnet 5.5) |
 
 Spent but not recorded, so missing from the tally (`python -m plumbline.observability.spend`): about US$0.05 of Gemini on 20 October (a pilot whose replies ignored the schema, two diagnostic batches that found why, and a long-context answer cut off by its thinking, each deleted with the request it answered) and about US$0.05 of Haiku (two builds of C9's rows, replaced). The tally reads the working tree, so a checkout sees only the recordings of the branch it is on; run it on `main` plus your own branch.
 
