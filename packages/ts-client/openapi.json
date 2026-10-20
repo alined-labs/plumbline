@@ -499,6 +499,78 @@
         "title": "Language",
         "type": "string"
       },
+      "PageBox": {
+        "properties": {
+          "x0": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "X0",
+            "type": "number"
+          },
+          "x1": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "X1",
+            "type": "number"
+          },
+          "y0": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Y0",
+            "type": "number"
+          },
+          "y1": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Y1",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x0",
+          "y0",
+          "x1",
+          "y1"
+        ],
+        "title": "PageBox",
+        "type": "object"
+      },
+      "QuoteBoxes": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "boxes": {
+            "items": {
+              "$ref": "#/components/schemas/PageBox"
+            },
+            "title": "Boxes",
+            "type": "array"
+          },
+          "found": {
+            "title": "Found",
+            "type": "boolean"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "page",
+          "available",
+          "found",
+          "boxes"
+        ],
+        "title": "QuoteBoxes",
+        "type": "object"
+      },
       "Stage": {
         "enum": [
           "detecting",
@@ -1124,6 +1196,136 @@
         "summary": "Get Tier",
         "tags": [
           "settings"
+        ]
+      }
+    },
+    "/api/sources/{source_id}/pages/{n}.png": {
+      "get": {
+        "operationId": "page_image_api_sources__source_id__pages__n__png_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "n",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "title": "N",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "1, 2 or 3: 150, 300 or 450 dpi",
+            "in": "query",
+            "name": "scale",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "1, 2 or 3: 150, 300 or 450 dpi",
+              "maximum": 3,
+              "minimum": 1,
+              "title": "Scale",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/png": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The page as a PNG; a labelled placeholder when the source is not on this server."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Page Image",
+        "tags": [
+          "sources"
+        ]
+      }
+    },
+    "/api/sources/{source_id}/pages/{n}/boxes": {
+      "get": {
+        "operationId": "page_boxes_api_sources__source_id__pages__n__boxes_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "n",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "title": "N",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "quote",
+            "required": true,
+            "schema": {
+              "maxLength": 2000,
+              "minLength": 1,
+              "title": "Quote",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuoteBoxes"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Page Boxes",
+        "tags": [
+          "sources"
         ]
       }
     }
