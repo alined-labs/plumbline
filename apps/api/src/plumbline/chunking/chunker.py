@@ -9,7 +9,8 @@ from __future__ import annotations
 from bisect import bisect_right
 from collections import Counter
 from collections.abc import Iterator, Sequence
-from itertools import accumulate, groupby
+from datetime import date
+from itertools import accumulate
 
 from plumbline.chunking.articles import Article, Paragraph, paragraph_tree, parse_articles
 from plumbline.chunking.profiles import PROFILES
@@ -22,7 +23,7 @@ from plumbline.chunking.text import (
     search_text,
 )
 from plumbline.core.config import ChunkerConfig
-from plumbline.core.types import Chunk, MetadataValue, ParsedDocument
+from plumbline.core.types import Chunk, MetadataValue, ParsedDocument, ProvisionStatus
 
 Piece = tuple[tuple[str, ...], str]  # paragraph markers, text
 
@@ -147,16 +148,42 @@ def _fixed(
 ) -> list[Chunk]:
     """Windows of `max_tokens` tokens, `overlap_tokens` shared between neighbours, over
     the articles' text joined in order. A window spans articles, but a chunk names one:
-    the article most of its tokens come from (the earlier one on a tie), whose label,
-    status and dates it takes. metadata["articles"] lists every article it touches.
-    A window never spans two validity periods: the windows restart wherever the dates
-    change, so a window of the LAU never mixes its 1994 and its 2026 wording."""
+    the article most of its tokens come from (the earlier one on a tie), whose label and
+    status it takes. metadata["articles"] lists every article it touches.
+
+    A0 is naive retrieval, and naive retrieval knows one text of a law: the law as it
+    stands. For a versioned source that is the version of each article in force on the
+    latest day any version took effect; the windows carry no dates, so the as-of filter
+    passes them on any day, as a system that ignores versions would. (Windowing every
+    period apart instead would cut the LAU into windows of a few hundred tokens and give
+    A0 article boundaries, which is A1's difference, not A0's.)"""
     if config.max_tokens - config.overlap_tokens <= 0:
         raise ValueError("overlap_tokens must be smaller than max_tokens")
-    chunks: list[Chunk] = []
-    for _, run in groupby(articles, key=lambda a: (a.effective_from, a.effective_to)):
-        chunks += _windows(doc, list(run), config, law_name, headers, first_window=len(chunks))
-    return chunks
+    day, current = as_it_stands(articles)
+    windows = _windows(doc, current, config, law_name, headers, first_window=0)
+    if day:
+        stands = {"as_it_stands_on": day.isoformat()}
+        windows = [w.model_copy(update={"metadata": w.metadata | stands}) for w in windows]
+    return windows
+
+
+def as_it_stands(articles: Sequence[Article]) -> tuple[date | None, list[Article]]:
+    """The day a versioned source last changed, and its articles in force that day; an
+    unversioned source as it is."""
+    dated = [a.effective_from for a in articles if a.version and a.effective_from]
+    if not dated:
+        return None, list(articles)
+    day = max(dated)
+    return day, [a for a in articles if _in_force(a, day)]
+
+
+def _in_force(article: Article, day: date) -> bool:
+    start, end = article.effective_from, article.effective_to
+    return (
+        article.status is ProvisionStatus.IN_FORCE
+        and (start is None or start <= day)
+        and (end is None or day < end)
+    )
 
 
 def _windows(
@@ -201,8 +228,6 @@ def _windows(
                 text=text,
                 text_for_search=search_text(text, header, None, headers),
                 context_header=header,
-                effective_from=owner.effective_from,
-                effective_to=owner.effective_to,
                 status=owner.status,
                 page=owner.page,
                 metadata=metadata,

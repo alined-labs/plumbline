@@ -33,6 +33,8 @@ class Profile:
     markers: bool = False  # inline <...> validity markers and ~~struck~~ text (Colombia)
     versioned: bool = False  # articles open only after a version marker (Spain's BOE reader)
     reproduces_laws: bool = False  # a source may restate other laws' articles (Dubai)
+    # Patterns tried only on Markdown heading lines, with the heading in the same line.
+    heading_articles: tuple[re.Pattern[str], ...] = ()
 
 
 def _spain_label(law: str, article: str, markers: Sequence[str]) -> str:
@@ -127,6 +129,7 @@ PROFILES: dict[Jurisdiction, Profile] = {
         label=_dubai_label,
         heading_before=True,
         reproduces_laws=True,
+        heading_articles=(re.compile(r"^(?P<heading>[^.;:,]{1,80}?) Article \((?P<id>\d+)\)$"),),
     ),
     # Online Sunshine: "83.49 Deposit money or advance rent; duty of landlord and tenant.—"
     # then subsections (1), paragraphs (a), subparagraphs 1. and sub-subparagraphs a.,
