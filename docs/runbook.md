@@ -98,3 +98,63 @@ bash deploy/preflight.sh                               # checks owner, group and
 
 - **WARN: the cloudflared CLI is not installed;** it is needed once for step 2.
 - **WARN: the three secret files do not exist yet.**
+
+## Backups (last run: rehearsed, 2026-10-20)
+
+`deploy/backup.sh` dumps the whole production database every night at 03:30 UTC
+(`pg_dump --format=custom`), keeps it only if `pg_restore --list` reads it back, and deletes
+dumps older than 14 days. The dumps hold visitors' queries and feedback, so
+`~/plumbline-backups` is 0700 and each file 0600. Install the timer once, as the user who
+runs the stack, from the production checkout at `~/plumbline-prod`:
+
+```sh
+mkdir -p ~/.config/systemd/user
+cp deploy/systemd/plumbline-backup.{service,timer} ~/.config/systemd/user/
+systemctl --user daemon-reload && systemctl --user enable --now plumbline-backup.timer
+sudo loginctl enable-linger "$USER"     # user timers run without a login session
+systemctl --user list-timers plumbline-backup.timer
+```
+
+**Prove a backup restores** at least once a week, and after any migration:
+
+```sh
+bash deploy/restore-test.sh ~/plumbline-backups/plumbline-<stamp>.dump
+```
+
+It restores into a throwaway container on the production image and prints every table's
+row count beside production's. Rehearsed on 2026-10-20 on the rehearsal stack with 25
+seeded tenants and a settings row: restored in 1 s, every count equal, schema 0005. The
+index was still empty that day (the embeddings run overnight), so the test is repeated
+on Wednesday with the real index, and its time goes here.
+
+**Restore production** (not run yet; it replaces the live data, so stop the API first; `template0`, because the image puts ParadeDB's own schema in new databases from `template1`):
+
+```sh
+deploy/prod stop api killswitch
+deploy/prod exec -T db dropdb -U plumbline --force plumbline
+deploy/prod exec -T db createdb -U plumbline -T template0 plumbline
+deploy/prod exec -T db pg_restore -U plumbline -d plumbline --exit-on-error < ~/plumbline-backups/plumbline-<stamp>.dump
+deploy/prod up -d --wait
+```
+
+A copy off this machine (the second home machine in `docs/cost-model.md`) is not set up
+yet; until it is, a disk failure on MX3 loses the backups with the database.
+
+## Uptime monitoring (the human, once; last run: not yet)
+
+UptimeRobot's free plan checks every 5 minutes and emails on failure.
+
+1. Sign up at uptimerobot.com with the email that should get the alerts.
+2. **Add New Monitor**: type HTTP(s), name `Plumbline API`, URL
+   `https://plumbline-api.alinedlabs.co/api/health`, interval 5 minutes. Under
+   **Advanced**, keyword monitoring is optional: the keyword `"status":"ok"`, alert when it
+   does not exist.
+3. **Add New Monitor**: type HTTP(s), name `Plumbline web`, URL
+   `https://plumbline.alinedlabs.co/`, interval 5 minutes.
+4. Both monitors alert your email contact by default; check that it is ticked on each.
+5. Tell Lane P the two monitor ids in a brain note (not secret), so the runbook can link
+   them. If the domain changes, edit both URLs to match `deploy/prod.env`.
+
+A `static` tier from the kill switch still answers `/api/health` with `ok`; the tier is
+in the same response (`"tier": "static"`), so a keyword monitor on `"tier":"full"` would
+alert on it, if you want an email when the switch acts.

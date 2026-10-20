@@ -1,0 +1,12 @@
+# Runs plumbline-backup.service every night at 03:30 UTC, and at the next boot if the
+# machine was off then.
+[Unit]
+Description=Plumbline: nightly database backup
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 UTC
+Persistent=true
+RandomizedDelaySec=5m
+
+[Install]
+WantedBy=timers.target
