@@ -1,6 +1,8 @@
 // Runs Lighthouse CI against the static export with Playwright's Chromium, so no other
 // browser has to be installed: `pnpm run lighthouse`. Two passes over every page:
-//   lighthouserc.json         the desktop preset; all four categories must stay at or above 90.
+//   lighthouserc.json         the desktop preset, three runs a page; all four categories must
+//                             stay at or above 90, performance as the median of the three, so
+//                             one slow run on a busy machine does not fail a branch.
 //   lighthouserc.mobile.json  Lighthouse's default phone emulation (4x CPU, a slow connection),
 //                             what a reviewer gets from DevTools. Accessibility, best practices
 //                             and SEO must stay at or above 90; performance is reported as a
