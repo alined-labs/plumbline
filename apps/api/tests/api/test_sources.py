@@ -13,7 +13,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from plumbline.api import sources
+from plumbline.api import restricted, sources
 from plumbline.api.app import create_app
 from plumbline.api.sources import Corpus
 from plumbline.core.types import CacheMode
@@ -45,13 +45,17 @@ def _source(source_id: str, data: bytes, fmt: str, *, committed: bool) -> dict[s
 @pytest.fixture
 def client(tmp_path: Path) -> Iterator[TestClient]:
     raw = tmp_path / "data" / "corpus" / "raw"
+    fetched = tmp_path / "data" / "corpus" / "fetched"
     raw.mkdir(parents=True)
+    fetched.mkdir()
     (raw / "statute.pdf").write_bytes(STATUTE)
+    (fetched / "licensed.pdf").write_bytes(STATUTE)  # fetched here, and not ours to republish
     manifest = Manifest.model_validate(
         {
             "sources": [
                 _source("statute", STATUTE, "pdf", committed=True),
-                _source("not-fetched", b"%PDF", "pdf", committed=False),
+                _source("licensed", STATUTE, "pdf", committed=False),
+                _source("gone", b"%PDF", "pdf", committed=True),  # committed, but not on disk
                 _source("chapter", b"<html/>", "html", committed=True),
             ]
         }
@@ -123,13 +127,32 @@ def test_a_quote_that_is_not_on_the_page_finds_nothing(client: TestClient) -> No
 
 
 def test_a_source_not_on_this_machine_gets_a_placeholder(client: TestClient) -> None:
-    image = client.get("/api/sources/not-fetched/pages/7.png")
+    image = client.get("/api/sources/gone/pages/7.png")
     assert image.status_code == 200
     width, height = _png_size(image.content)
     assert max(abs(width - 1275), abs(height - 1650)) <= 1  # US letter at 150 dpi
     assert image.headers["cache-control"] == "no-store"
-    body = client.get("/api/sources/not-fetched/pages/7/boxes", params={"quote": "x"}).json()
+    body = client.get("/api/sources/gone/pages/7/boxes", params={"quote": "x"}).json()
     assert (body["available"], body["found"]) == (False, False)
+
+
+def test_a_source_whose_terms_forbid_republishing_it_is_never_shown(client: TestClient) -> None:
+    real = client.get("/api/sources/statute/pages/1.png")
+    held_back = client.get("/api/sources/licensed/pages/1.png")  # the same file, fetched here
+    assert held_back.status_code == 200
+    assert held_back.content != real.content  # a placeholder, not the page
+    assert held_back.headers["cache-control"] == "no-store"
+    body = client.get("/api/sources/licensed/pages/1/boxes", params={"quote": "Objeto"}).json()
+    assert (body["available"], body["found"], body["boxes"]) == (False, False, [])
+    assert "licensed" not in client.app.state.corpus._files  # its file was not even read
+
+
+def test_the_switch_for_consent_is_the_only_gate(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(restricted, "SHOW_IN_FULL", True)
+    shown = client.get("/api/sources/licensed/pages/1.png")
+    assert shown.content == client.get("/api/sources/statute/pages/1.png").content
 
 
 def test_a_server_without_a_corpus_starts_and_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
