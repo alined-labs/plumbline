@@ -11,6 +11,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from plumbline.api import querylog
 from plumbline.api.schemas import AskRequest, FeedbackRequest, Health
 from plumbline.api.stream import HEADERS, ui_message_stream
 from plumbline.api.tier import tier_store
@@ -58,7 +59,8 @@ async def ask(body: AskRequest, request: Request) -> StreamingResponse:
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail="The question is empty or too long.") from exc
     pipeline: AnswerPipeline = request.app.state.pipeline
-    stream = ui_message_stream(pipeline.stream(question), message_id=f"msg_{request_id[4:]}")
+    events = querylog.recorded(pipeline.stream(question), question, request.app.state.sessions)
+    stream = ui_message_stream(events, message_id=f"msg_{request_id[4:]}")
     return StreamingResponse(stream, media_type="text/event-stream", headers=HEADERS)
 
 
