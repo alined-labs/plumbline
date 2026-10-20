@@ -11,11 +11,12 @@ Two drafts are here. `golden_v0.jsonl` holds 60 items (Gate 2a). `golden_v1.json
 - each gold reference's article **exists in the pinned file** (`plumbline.corpus.refs`). This catches a mistyped or invented article number, not a misread one: an article that exists but does not say what the answer claims is exactly what a human must find. The Dubai and Colombian sources are fetch-only, so this part runs only on a machine where `make fetch` has run;
 - a lease-check item reads a lease that exists, carries that lease's signing date as `signed_on`, and cites only articles the lease's `expected_findings.json` plants or allows;
 - every item of the v0 draft is in the v1 draft, unchanged except for `split` and `verification`. If you correct a v0 item, correct it in both files.
-- once a file is frozen as `data/golden/golden_v<N>.jsonl`, `make check` also demands that every item is verified, that none was added in a later version, and, from v1 on, that every item has its dev or test split.
+
+Once a file is frozen as `data/golden/golden_v<N>.jsonl`, `make check` also demands that every item is verified, that none was added in a later version, and, from v1 on, that every item has its dev or test split.
 
 ## Reading the drafts against the statute
 
-`uv run python -m plumbline.corpus.review data/golden/drafts/golden_v1.jsonl` prints each item beside the pinned text of every article it cites: the cited paragraph first, then the start of the article, and for a lease check the lease's planted findings. A Spanish article is shown as it stood on the item's `signed_on` or `as_of` date, with the norm that set that wording. Use `--item ID` for one item and `--chars 0` for whole articles. The sheet quotes statute text, including Dubai's and Colombia's, which may not be redistributed, so it is for your own reading: do not commit it.
+`uv run python -m plumbline.corpus.review data/golden/drafts/golden_v1.jsonl` prints each item beside the pinned text of every article it cites: the cited paragraph first, then the start of the article, and for a lease check the lease's planted findings. A Spanish article is shown as it stood on the item's `signed_on` or `as_of` date, with the norm that set that wording. Use `--item ID` for one item, `--prefix fl-` or `--category lease_check` to read a place or a kind of item at a time, `--list` for one line per item, and `--chars 0` for whole articles. The sheet quotes statute text, including Dubai's and Colombia's, which may not be redistributed, so it is for your own reading: do not commit it.
 
 ## What is in v1
 

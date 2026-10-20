@@ -5,6 +5,15 @@ The benchmark: English questions over the four jurisdictions' statutes, each wit
 - `golden_v<N>.jsonl`: frozen versions, one item per line. A frozen file changes only through a new version, and the merge queue holds it until the human has reviewed every line.
 - `drafts/`: candidate items before verification: `golden_v0.jsonl` (60 items) and `golden_v1.jsonl` (180: the same 60, unchanged, and 120 added in v1), with `NOTES.md` for the verifier: how the drafts were made, what the build already checks, and where a reading should look hardest.
 - The dev (120) and test (60) split is not in the drafts. It is assigned when v1 is frozen, by `uv run python -m plumbline.corpus.split` (seeded and stratified by category, place and language; `NOTES.md` shows the result as it stands).
+- `DATASET_CARD.md`: the card published with the dataset (fields, splits, licences, intended use, limitations). `uv run python -m plumbline.corpus.export data/golden/golden_v<N>.jsonl dist/golden-v<N>` builds the folder to publish from a frozen file: the card with its statistics, the file and its dev and test halves, the synthetic leases, the corpus manifest, the licences, the changelog and checksums. It refuses a draft, and it withholds the reviewer's quoted statute text for items that cite a source this repository does not redistribute (Dubai, Colombia).
 - `CHANGELOG.md`: what each version added, changed or dropped, and why.
+
+## Freezing a version
+
+1. **Verify.** For every item, fill `verification` in the draft (the passage quoted from the official text, a second source, the date and who checked), correcting the item if it is wrong. A correction to a v0 item goes in both drafts; `make check` fails if they disagree.
+2. **Freeze v0.** Copy the verified `drafts/golden_v0.jsonl` to `golden_v0.jsonl`, remove the draft, and move the changelog's "Unreleased" lines for it under a heading for the version and its date. Items keep `added_in` v0 and `split` unassigned.
+3. **Freeze v1.** Run `uv run python -m plumbline.corpus.split data/golden/drafts/golden_v1.jsonl data/golden/golden_v1.jsonl`, which writes the file with every item in dev or test, then remove the draft and write the changelog entry. Items from v0 keep `added_in` v0.
+4. **Check.** `make check` refuses a frozen file with an unverified item, an item from a later version, or (from v1) no split. The merge queue then holds the file until the human has read every line and approved that commit.
+5. **Publish.** `uv run python -m plumbline.corpus.export data/golden/golden_v1.jsonl dist/golden-v1` builds the folder to upload; nothing is published by running it.
 
 Validate any file with `uv run rag-eval validate <file>`; `make check` validates them all, and also checks that every gold reference's article exists in its pinned file, that every lease-check item agrees with its lease's expected findings, that a later draft keeps the items of an earlier one unchanged, and that a frozen file is finished: every item verified, none from a later version, and from v1 on every item in dev or test. Questions and reference answers are CC BY 4.0.
