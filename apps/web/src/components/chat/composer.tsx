@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useId, useRef, type KeyboardEvent } from "react";
+import { memo, useEffect, useId, useRef, type KeyboardEvent } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 
 import { ArrowUpIcon, CircleAlertIcon, SquareIcon } from "@/components/icons";
@@ -17,22 +17,27 @@ function isEditable(target: EventTarget | null): boolean {
   );
 }
 
-/** Composer spec: the question, its jurisdictions and as-of date, and send. Enter sends,
- * Shift+Enter adds a line, Escape stops a streaming answer, "/" focuses it from anywhere. The
- * filters stay set from one question to the next. */
-export function Composer({
-  busy,
-  onAsk,
-  onStop,
-  disabledReason,
-}: {
+type ComposerProps = {
   busy: boolean;
   onAsk: (values: AskValues) => void;
   onStop: () => void;
   /** Set when no question can be sent (the demo quota is spent): shown in the disclaimer's
    * place, and every control is disabled. */
   disabledReason?: string;
-}) {
+};
+
+/** Composer spec: the question, its jurisdictions and as-of date, and send. Enter sends,
+ * Shift+Enter adds a line, Escape stops a streaming answer, "/" focuses it from anywhere. The
+ * filters stay set from one question to the next. Memoized: the chat re-renders on every
+ * streamed update, and the form need not (docs/notes/streamed-answer-profile.md). The
+ * callbacks are compared out because the chat rebuilds them each render with the same
+ * behaviour: they reach only refs and the one useChat instance. */
+export const Composer = memo(
+  ComposerForm,
+  (before, after) => before.busy === after.busy && before.disabledReason === after.disabledReason,
+);
+
+function ComposerForm({ busy, onAsk, onStop, disabledReason }: ComposerProps) {
   const ids = { question: useId(), asOf: useId(), error: useId() };
   const { register, handleSubmit, control, reset, formState } = useForm<AskValues>({
     resolver: zodResolver(askSchema),

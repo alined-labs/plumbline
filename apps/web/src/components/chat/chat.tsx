@@ -18,6 +18,7 @@ import { untilUtcMidnight } from "@/lib/dates";
 import { messageText, type PlumblineMessage } from "@/lib/messages";
 import { addStatus, finishRun, startRun, type Run } from "@/lib/run";
 
+import { ChatProfiler } from "./chat-profiler";
 import { Composer } from "./composer";
 import { EmptyState } from "./empty-state";
 
@@ -45,6 +46,9 @@ export function Chat() {
 
   const { messages, sendMessage, regenerate, stop, status, error } = useChat<PlumblineMessage>({
     transport: new DefaultChatTransport({ api: apiUrl("/api/ask") }),
+    // Publish streamed text at most every 50 ms: tokens arrive faster than that, and each
+    // update re-renders the answer (docs/notes/streamed-answer-profile.md).
+    throttle: 50,
     onData: (part) => {
       if (part.type === "data-status" && live.current) {
         setLive(addStatus(live.current, part.data, Date.now()));
@@ -105,55 +109,57 @@ export function Chat() {
     );
 
   return (
-    <div className="mt-8 flex flex-col gap-8">
-      {messages.length === 0 && <EmptyState onExample={askExample} />}
-      <section aria-label="Conversation" className="flex flex-col gap-8 empty:hidden">
-        {messages.map((message) =>
-          message.role === "assistant" ? (
-            <Answer
-              key={message.id}
-              message={message}
-              streaming={busy && message === last}
-              run={busy && message === last ? (liveRun ?? undefined) : runs[message.id]}
-              failure={message === last ? failure : undefined}
-            />
-          ) : (
-            <p
-              key={message.id}
-              className="max-w-4/5 self-end rounded-lg bg-bg-active px-3.5 py-2.5 text-body"
-            >
-              {messageText(message)}
-            </p>
-          ),
-        )}
-        {busy && last?.role === "user" && (
-          // Before the stream's first part there is no assistant message yet.
-          <div className="flex flex-col gap-4">
-            {liveRun && liveRun.steps.length > 0 ? (
-              <StatusSteps run={liveRun} />
+    <ChatProfiler>
+      <div className="mt-8 flex flex-col gap-8">
+        {messages.length === 0 && <EmptyState onExample={askExample} />}
+        <section aria-label="Conversation" className="flex flex-col gap-8 empty:hidden">
+          {messages.map((message) =>
+            message.role === "assistant" ? (
+              <Answer
+                key={message.id}
+                message={message}
+                streaming={busy && message === last}
+                run={busy && message === last ? (liveRun ?? undefined) : runs[message.id]}
+                failure={message === last ? failure : undefined}
+              />
             ) : (
-              <AnswerSkeleton />
-            )}
-          </div>
-        )}
-        {/* A request that failed before its answer began has no message to hold the callout. */}
-        {last?.role === "user" && failure}
-      </section>
-      <p aria-live="polite" className="sr-only">
-        {announced}
-      </p>
-      <div className="sticky bottom-0 bg-bg pb-4 pt-2">
-        <Composer
-          busy={busy}
-          onAsk={ask}
-          onStop={() => void stop()}
-          disabledReason={
-            isQuotaReached(error)
-              ? `Demo questions reset at 00:00 UTC${resetIn ? `, in ${resetIn}` : ""}.`
-              : undefined
-          }
-        />
+              <p
+                key={message.id}
+                className="max-w-4/5 self-end rounded-lg bg-bg-active px-3.5 py-2.5 text-body"
+              >
+                {messageText(message)}
+              </p>
+            ),
+          )}
+          {busy && last?.role === "user" && (
+            // Before the stream's first part there is no assistant message yet.
+            <div className="flex flex-col gap-4">
+              {liveRun && liveRun.steps.length > 0 ? (
+                <StatusSteps run={liveRun} />
+              ) : (
+                <AnswerSkeleton />
+              )}
+            </div>
+          )}
+          {/* A request that failed before its answer began has no message to hold the callout. */}
+          {last?.role === "user" && failure}
+        </section>
+        <p aria-live="polite" className="sr-only">
+          {announced}
+        </p>
+        <div className="sticky bottom-0 bg-bg pb-4 pt-2">
+          <Composer
+            busy={busy}
+            onAsk={ask}
+            onStop={() => void stop()}
+            disabledReason={
+              isQuotaReached(error)
+                ? `Demo questions reset at 00:00 UTC${resetIn ? `, in ${resetIn}` : ""}.`
+                : undefined
+            }
+          />
+        </div>
       </div>
-    </div>
+    </ChatProfiler>
   );
 }
