@@ -9,6 +9,7 @@ test.skip(!process.env.ACCEPT_URL, "Runs only against a deployed site (ACCEPT_UR
 test("a question is answered with a verified citation and its article", async ({
   page,
   context,
+  isMobile,
 }) => {
   await page.goto("/");
   await page
@@ -20,6 +21,11 @@ test("a question is answered with a verified citation and its article", async ({
     timeout: 120_000,
   });
   await expect(answer.getByText(/sources? verified/)).toBeVisible();
+  // The day's count, read again after the answer (the panel below folds the sidebar to its rail;
+  // on a phone the meter is in the menu drawer).
+  if (isMobile) await page.getByRole("button", { name: "Open navigation" }).click();
+  await expect(page.getByRole("meter", { name: "Demo questions used" })).toBeVisible();
+  if (isMobile) await page.keyboard.press("Escape");
   await answer
     .getByRole("button", { name: /^Source 1: / })
     .first()
@@ -27,9 +33,8 @@ test("a question is answered with a verified citation and its article", async ({
   await expect(page.getByRole("dialog").locator("blockquote, [role=region]").first()).toBeVisible();
   // The API set the visitor cookie for its own host, and the site sent it back.
   const api = new URL(process.env.ACCEPT_API_URL ?? process.env.ACCEPT_URL ?? "");
-  const cookies = await context.cookies(api.origin);
+  const cookies = await context.cookies(`${api.origin}/api/`);
   expect(cookies.map((cookie) => cookie.name)).toContain("plumbline_visitor");
-  await expect(page.getByRole("meter", { name: "Demo questions used" })).toBeVisible();
 });
 
 test("an invented lease is checked to its findings", async ({ page }) => {
