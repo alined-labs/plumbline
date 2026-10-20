@@ -1,6 +1,7 @@
 """Clause extraction: placing the model's marks in the lease, and one recorded run."""
 
 import asyncio
+from pathlib import Path
 from typing import Any, Final
 
 from hypothesis import given
@@ -14,31 +15,7 @@ from plumbline.leases.extract import ClauseMark, ClauseMarks, cut, extract_claus
 from plumbline.settings import ROOT
 
 # An invented lease: every name, address and amount in it is fictitious.
-LEASE: Final = """RESIDENTIAL LEASE AGREEMENT
-
-This Lease is made on 1 March 2026 between Example Rentals LLC (the "Landlord") and
-Jordan Sample (the "Tenant") for the premises at 100 Example Street, Unit 4, Miami,
-Florida.
-
-1. Term. The term of this Lease begins on 1 March 2026 and ends on 28 February 2027.
-
-2. Rent. The Tenant shall pay rent of $2,000 per month, due on the first day of each
-month.
-
-3. Security Deposit.
-3.1 The Tenant shall pay a security deposit of $4,000 on signing this Lease.
-3.2 The Landlord will return the deposit within 60 days after the end of this Lease.
-
-4. Repairs. The Tenant is responsible for all repairs to the premises, including the
-roof and the plumbing.
-
-5. Entry. The Landlord may enter the premises at any time and without notice.
-
-6. Late Fees. A late fee of $50 applies to rent paid after the fifth day of the month.
-
-SIGNATURES
-Landlord: ____________________    Tenant: ____________________
-"""
+LEASE: Final = (Path(__file__).parent / "data" / "invented_lease.txt").read_text(encoding="utf-8")
 NUMBERS: Final = ["1", "2", "3", "3.1", "3.2", "4", "5", "6"]
 
 
