@@ -90,11 +90,25 @@ Items on the same lease or the same article can land on both sides; the split ba
 10. **Florida's s. 83.56 was amended in 2026** (ch. 2026-143): the only change is an added example in subsection (2)(a), "an act of fraudulent entry of a residential dwelling unit"; `xj-0010` and `fl-0026` rest on other parts. The same law's s. 83.684 (ch. 2026-125) is not cited.
 11. **Colombian items built on the Civil Code.** `co-0029` and `xj-0019` describe Ley 820 art. 27, whose deduction right applies "in the case of art. 1993 of the Civil Code"; the Civil Code is not indexed, so the answers say so and do not say whether the case applies.
 
-## Second sources to use when verifying
+## Second sources
 
-| Jurisdiction | A second source that covers most items |
-| --- | --- |
-| Florida | the Florida Bar pamphlet (see above); Online Sunshine's own page for each section |
-| Spain | the MIVAU FAQ, and the BOE's own consolidated page for each article and date |
-| Colombia | the Bogotá booklet and FAQ, and the Ministry of Foreign Affairs' HTTPS copy of the same compilation (`cancilleria.gov.co`, compared with the pinned text before pinning) |
-| Dubai | the DLD Tenancy Guide, which reproduces both laws and the decree, and the DLD's FAQ page |
+`second_sources_v1.jsonl` holds one record per v1 item, in the draft's order: `id`, `second_source` (the publisher, title, date where it has one, and URL) and `notes` (what the source confirms, what it leaves out, and where it differs). It has the same fields as a record for `plumbline.corpus.verify`, so the freeze can apply it with the cross-check's notes added. Every source was read on 2026-10-20, and a source counts only where it states the rule the reference answer states: a page from the same topic that does not is not used, and where nothing official was found the field is empty and the notes say what was searched. Nothing in it comes from a law firm, a forum or a commercial site.
+
+| | with a second source | none found | out of scope |
+| --- | ---: | ---: | ---: |
+| Florida | 24 | 6 | |
+| Spain | 36 | 0 | |
+| Colombia | 30 | 4 | |
+| Dubai | 28 | 3 | |
+| comparisons | 24 | 0 | |
+| out of scope | | | 25 |
+| **total** | **142** | **13** | **25** |
+
+A comparison counts as having a second source when at least one of its places has one; its notes name the places without one. Those parts are: Florida ss. 83.46, 83.49(1), 83.63 and 718.116(3); Spain's LPH arts. 7.2, 9.1, 21.1 and 21.2; Colombia's Ley 820 art. 5 and Ley 675 arts. 29 and 59; Dubai's arts. 5, 12, 27 and 34 of Law No. (26) of 2007. `xj-0020` has one only for Colombia.
+
+The sources, all official:
+
+- **Florida**: the Florida Bar's consumer pamphlet (as above), and the Legislature's staff analyses of the bills that made the recent rules: the Senate's summary of CS/HB 1417 (2023: s. 83.425's preemption, 30 days for a month-to-month tenancy), the Senate's analysis of CS/CS/SB 948 (2025: the flood disclosure), the House's final analysis of HB 615 (2025: notices by e-mail), the Senate's analysis of CS/SB 574 (2023: servicemembers) and the House's final analysis of HB 1489 (2008: early termination fees). Three cautions: the pamphlet's landlord section still says 15 days for a month-to-month tenancy; the 2008 analysis describes acceptance by initials, an earlier draft than the enrolled addendum; and the Senate's 2010 analysis of SB 1196 describes an earlier wording of s. 718.116(11), so it is not used. Nothing official was found for ss. 83.46, 83.50, 83.58, 83.63 or the condominium deposit and lease-approval fee of s. 718.112(2)(k).
+- **Spain**: the Ministerio de Vivienda's "Alquila bien, es tu derecho" guide with model clauses (PDF of 2025-05-29) and the Comunidad de Madrid's consumer and housing pages on renting. All predate RDL 29/2026. The Ministerio's ten-question FAQ, which seeded three items, now refuses automated reading (403, and so do the Internet Archive's copies), so it is not cited. The guide places art. 22's three months' notice and right to withdraw under conservation works rather than improvement works (`es-0007`), and no official page addresses the waiver of first refusal of art. 25.8 (`es-0030`) or the pre-2023 rule on agency fees for a private landlord (`es-0009`); those records say so.
+- **Colombia**: the Secretaría Distrital del Hábitat de Bogotá's didactic booklet (October 2020) and its FAQ page (2013), and for Ley 675 art. 30 a legal opinion (concepto) of the Ministerio de Vivienda's legal office of 2025, which says itself that it is not a binding interpretation. Nothing official was found for arts. 4(d), 19 and 39 of Ley 820; for art. 39, Función Pública's compilation with its validity notes would serve, but its server's certificate chain could not be verified, so it was not read. For `co-0031` the booklet's answer on guarantees ("the only guarantee a landlord may require is for public utilities") is broader than art. 16, so it is not counted as agreeing; the cross-check should look at that item.
+- **Dubai**: the DLD's Frequently Asked Questions page and the Rental Disputes Center's own FAQ page, each record naming the entry it relies on, and a DLD news release on automatic renewal. The DLD's entries say 3 months' notice of a rent increase in one place and 90 days in another; the items follow the statute's 90 days. The DLD's entry on a sale does not state art. 28's rule and its entry on a phone call is ambiguous; neither is relied on (the Centre's entry on a sale is). Nothing official was found for arts. 5, 12, 19, 23 and 27 of Law No. (26) of 2007.

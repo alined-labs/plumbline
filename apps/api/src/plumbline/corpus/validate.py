@@ -185,10 +185,11 @@ def check_golden(root: Path = ROOT, manifest: Manifest | None = None) -> list[st
     """Every golden file validates. With the manifest, every gold reference is also checked:
     its law and edition are in the manifest, and its article is in the pinned file. A
     lease-check item must read a lease that exists, be dated with that lease's signing date,
-    and cite only articles the lease's expected findings plant or allow."""
+    and cite only articles the lease's expected findings plant or allow. Only `golden_v*.jsonl`
+    files are golden files; other lists beside them (second sources, the cross-check) are not."""
     problems: list[str] = []
     expected = _expected(root) if manifest is not None else {}
-    for path in sorted((root / "data" / "golden").glob("**/*.jsonl")):
+    for path in sorted((root / "data" / "golden").glob("**/golden_v*.jsonl")):
         try:
             items = load_golden(path)
         except GoldenFileError as exc:
