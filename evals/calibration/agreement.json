@@ -1,0 +1,45 @@
+{
+ "judge_model": "claude-haiku-5-5",
+ "created_at": "2026-10-20T11:06:05+00:00",
+ "bar": 0.8,
+ "sets": [
+  {
+   "labels": "constructed",
+   "description": "50 correct answers and 50 with one planted error each, built from dev gold items",
+   "prompt_version": "v1",
+   "cost_usd": 0.0679,
+   "criteria": [
+    {
+     "criterion": "faithfulness",
+     "tpr": {
+      "hits": 45,
+      "total": 50,
+      "low": 0.7863976856252035,
+      "high": 0.9565242350681096
+     },
+     "tnr": {
+      "hits": 49,
+      "total": 50,
+      "low": 0.8950455641036219,
+      "high": 0.9964607407283539
+     }
+    },
+    {
+     "criterion": "correctness",
+     "tpr": {
+      "hits": 59,
+      "total": 59,
+      "low": 0.9388706294732116,
+      "high": 1.0
+     },
+     "tnr": {
+      "hits": 24,
+      "total": 25,
+      "low": 0.8045593626380627,
+      "high": 0.9929037664980127
+     }
+    }
+   ]
+  }
+ ]
+}

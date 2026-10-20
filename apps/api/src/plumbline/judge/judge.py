@@ -19,7 +19,14 @@ from typing import Final, Literal
 from pydantic import Field
 
 from plumbline.core.types import Frozen, Retrieved
-from plumbline.generation.llm import JUDGE_MODEL, LLMClient, LLMRequest, Message, client_for
+from plumbline.generation.llm import (
+    JUDGE_MODEL,
+    LLMClient,
+    LLMRequest,
+    LLMResult,
+    Message,
+    client_for,
+)
 from plumbline.generation.prompt import defuse
 from plumbline.generation.schema import portable_schema
 
@@ -94,40 +101,57 @@ class Judge:
         self.client = client or client_for(model)
 
     async def faithfulness(self, question: str, answer: str, sources: Sequence[str]) -> Judgement:
+        return await self._judge(self.faithfulness_request(question, answer, sources))
+
+    async def correctness(self, question: str, answer: str, reference: str) -> Judgement:
+        return await self._judge(self.correctness_request(question, answer, reference))
+
+    def faithfulness_request(
+        self, question: str, answer: str, sources: Sequence[str]
+    ) -> tuple[Criterion, LLMRequest]:
         blocks = "\n\n".join(
             f'<source n="{n}">\n{defuse(text)}\n</source>' for n, text in enumerate(sources, 1)
         )
         user = f"{_block('question', question)}\n\n{_block('answer', answer)}\n\n<sources>\n{blocks}\n</sources>"
-        return await self._judge(Criterion.FAITHFULNESS, user)
+        return Criterion.FAITHFULNESS, self._request(Criterion.FAITHFULNESS, user)
 
-    async def correctness(self, question: str, answer: str, reference: str) -> Judgement:
+    def correctness_request(
+        self, question: str, answer: str, reference: str
+    ) -> tuple[Criterion, LLMRequest]:
         user = "\n\n".join(
             [_block("question", question), _block("answer", answer), _block("reference", reference)]
         )
-        return await self._judge(Criterion.CORRECTNESS, user)
+        return Criterion.CORRECTNESS, self._request(Criterion.CORRECTNESS, user)
 
-    async def _judge(self, criterion: Criterion, user: str) -> Judgement:
-        result = await self.client.complete(
-            LLMRequest(
-                model=self.model,
-                system=PROMPTS[criterion],
-                messages=[Message(role="user", content=user)],
-                max_output_tokens=4096,  # adaptive thinking counts against it
-                json_schema=portable_schema(Verdict),
-            )
+    def _request(self, criterion: Criterion, user: str) -> LLMRequest:
+        """The request for one verdict: built apart from the call, so a batch can send many."""
+        return LLMRequest(
+            model=self.model,
+            system=PROMPTS[criterion],
+            messages=[Message(role="user", content=user)],
+            max_output_tokens=4096,  # adaptive thinking counts against it
+            json_schema=portable_schema(Verdict),
         )
-        try:
-            verdict = Verdict.model_validate_json(result.text)
-        except ValueError as exc:
-            raise JudgeError(f"{criterion} verdict unreadable ({result.stop_reason})") from exc
-        return Judgement(
-            criterion=criterion,
-            passed=verdict.verdict == "pass",
-            reasoning=verdict.reasoning,
-            model=result.model,
-            cost_usd=result.cost_usd,
-            cached=result.cached,
-        )
+
+    async def _judge(self, built: tuple[Criterion, LLMRequest]) -> Judgement:
+        criterion, request = built
+        return read(criterion, await self.client.complete(request))
+
+
+def read(criterion: Criterion, result: LLMResult) -> Judgement:
+    """A model's reply as a verdict."""
+    try:
+        verdict = Verdict.model_validate_json(result.text)
+    except ValueError as exc:
+        raise JudgeError(f"{criterion} verdict unreadable ({result.stop_reason})") from exc
+    return Judgement(
+        criterion=criterion,
+        passed=verdict.verdict == "pass",
+        reasoning=verdict.reasoning,
+        model=result.model,
+        cost_usd=result.cost_usd,
+        cached=result.cached,
+    )
 
 
 def source_texts(retrieved: Sequence[Retrieved]) -> list[str]:
