@@ -1,5 +1,5 @@
 name: A3
-description: A2 plus the local cross-encoder reranker (bge-reranker-v2-m3) over 20 candidates.
+description: A2 plus the local cross-encoder reranker (bge-reranker-v2-m3) over 20 candidates; ADR-0005 runs it offline at 10 (set in A11).
 chunker: {kind: article, merge_parent: true}
 retrieval: {mode: hybrid, rrf_k: 60, candidates: 50, top_k: 8, rerank: local, rerank_candidates: 20, headers: none}
 generation: {route: fast}
