@@ -248,13 +248,16 @@ class Pipeline:
             return
 
         yield StatusEvent(stage=Stage.GENERATING)
-        prompt = build_prompt(question, run.retrieved, asked)
+        # The whole law goes first, as the prefix Claude caches: a second question on the
+        # same law pays cache reads, a tenth of the input price.
+        prompt = build_prompt(question, run.retrieved, asked, sources_first=self.law is not None)
         thinking = THINKING.get(self.route)
         room = THINKING_ROOM if thinking else 0
         request = LLMRequest(
             model=self.model,
             system=prompt.system,
             messages=[Message(role="user", content=prompt.user)],
+            prefix=prompt.prefix,
             max_output_tokens=self.config.generation.max_output_tokens + room,
             temperature=self.config.generation.temperature,
             json_schema=answer_json_schema(),
