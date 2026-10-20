@@ -3,6 +3,7 @@
 import { Dialog } from "@base-ui/react/dialog";
 import { Tabs } from "@base-ui/react/tabs";
 import type { Citation, TraceSummary } from "@plumbline/ts-client";
+import { useQuery } from "@tanstack/react-query";
 import {
   useEffect,
   useRef,
@@ -16,6 +17,9 @@ import {
 import { CheckIcon, CopyIcon, ExternalLinkIcon, XIcon } from "@/components/icons";
 import { CodeBadge } from "@/components/ui/badge";
 import { buttonClass } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
+import { articleQuery, type PublishedArticle } from "@/lib/article";
+import { formatDate } from "@/lib/dates";
 import { jurisdictionInfo } from "@/lib/jurisdictions";
 import { sourceFor } from "@/lib/laws";
 import type { Run } from "@/lib/run";
@@ -220,6 +224,48 @@ function ResizeHandle({
 const TAB =
   "-mb-px flex h-10 items-center gap-1.5 border-b-2 border-transparent text-ui font-medium text-fg-muted hover:text-fg data-active:border-accent data-active:text-fg";
 
+/** The cited article, fetched when a source is open. The quote goes along so the API can say
+ * where in the article it sits. */
+function useArticle(citation: Citation | undefined) {
+  return useQuery({
+    ...articleQuery(citation?.chunk_id ?? "", citation?.quote ?? ""),
+    enabled: Boolean(citation),
+  });
+}
+
+/** What the edition says about the article's validity and dates: a provision that is repealed
+ * or struck down is said so before its text, with the publisher's own note. */
+function ArticleStatus({ article }: { article: PublishedArticle }) {
+  const { status, validity_note, effective_from, effective_to, language } = article;
+  const dates = [
+    effective_from && `In force from ${formatDate(effective_from)}`,
+    effective_to && `until ${formatDate(effective_to)}`,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return (
+    <>
+      {status !== "in_force" && (
+        <Callout
+          tone="warning"
+          title={
+            status === "repealed"
+              ? "This provision is repealed."
+              : "This provision was struck down."
+          }
+        >
+          {validity_note ? (
+            <span lang={language}>{validity_note}</span>
+          ) : (
+            "The edition's own note says it no longer applies."
+          )}
+        </Callout>
+      )}
+      {dates && <p className="text-small text-fg-muted">{dates}.</p>}
+    </>
+  );
+}
+
 function PanelHeader({
   citation,
   title,
@@ -228,6 +274,7 @@ function PanelHeader({
   title: RefObject<HTMLHeadingElement | null>;
 }) {
   const source = citation && sourceFor(citation.ref.law, citation.ref.edition);
+  const heading = useArticle(citation).data?.article.heading;
   return (
     <header className="flex items-start gap-3 px-6 pb-4 pt-5">
       <div className="flex flex-1 flex-col gap-1">
@@ -246,6 +293,7 @@ function PanelHeader({
         </Dialog.Title>
         {citation && (
           <p className="text-small text-fg-muted">
+            {heading && `${heading} · `}
             {source
               ? `${source.title}, edition ${citation.ref.edition}`
               : `Edition ${citation.ref.edition}`}
@@ -272,6 +320,7 @@ function SourcesPane({
   onChange: (patch: { n: number }) => void;
 }) {
   const [copied, copy] = useCopy();
+  const article = useArticle(citation);
   if (!citation) {
     return <p className="text-body text-fg-muted">This answer cites no sources.</p>;
   }
@@ -284,7 +333,19 @@ function SourcesPane({
 
   return (
     <div className="flex flex-col gap-4">
-      <StatuteQuote citation={citation} />
+      {article.data && <ArticleStatus article={article.data.article} />}
+      <StatuteQuote citation={citation} article={article.data} />
+      {article.isPending && (
+        <p role="status" className="text-small text-fg-muted">
+          Loading the whole article…
+        </p>
+      )}
+      {article.isError && (
+        <p className="text-small text-fg-muted">
+          The article&apos;s full text isn&apos;t available right now, so this is the quoted passage
+          alone.
+        </p>
+      )}
       {gloss && (
         <p className="text-body text-fg-muted">
           <span className="font-medium text-fg">In English: </span>

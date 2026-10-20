@@ -117,6 +117,55 @@ test("a question streams back a cited answer", async ({ page }) => {
   expect(copied).toContain("Legal information, not legal advice.");
 });
 
+test("the source panel shows the cited article with the passage marked", async ({ page }) => {
+  await answerWithStub(page);
+  const quote = "This section exists only to exercise the interface.";
+  const text = `Section 1. ${quote} Nothing else here is law.`;
+  const start = text.indexOf(quote);
+  await page.route("**/api/chunks/**", (route) =>
+    route.fulfill({
+      json: {
+        chunk_id: "stub-act-1",
+        article: {
+          ref: {
+            jurisdiction: "florida",
+            law: "stub-act",
+            article: "1",
+            paragraph: null,
+            edition: "seed",
+          },
+          label: "Stub Act, s. 1",
+          heading: "Stub provisions",
+          text,
+          language: "en",
+          page: null,
+          status: "in_force",
+          validity_note: null,
+          effective_from: "2026-01-01",
+          effective_to: null,
+        },
+        span: { start, end: start + quote.length },
+        source: null,
+      },
+    }),
+  );
+  await page.goto("/");
+  await ask(page, "Can my landlord keep my deposit?");
+  const answer = page.getByRole("article", { name: "Answer" });
+  await answer.getByRole("button", { name: "Source 1: Stub Act, s. 1" }).click();
+
+  const panel = page.getByRole("dialog", { name: "Stub Act, s. 1" });
+  const article = panel.getByRole("region", { name: "Article text" });
+  await expect(article).toContainText("Section 1.");
+  await expect(article.locator("mark")).toHaveText(quote);
+  await expect(
+    panel.getByText(`Characters ${start + 1} to ${start + quote.length} of ${text.length}`),
+  ).toBeVisible();
+  await expect(panel).toContainText("Stub provisions");
+  await expect(panel.getByText("In force from 1 Jan 2026.")).toBeVisible();
+  await expectNoAxeViolations(page);
+});
+
 test("a reader says why an answer did not help", async ({ page }) => {
   await answerWithStub(page);
   const sent: unknown[] = [];
