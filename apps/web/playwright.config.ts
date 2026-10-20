@@ -11,6 +11,11 @@ const port = Number(process.env.E2E_PORT);
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
+  // MX3 runs the hub's checks, the lanes' checks and the model servers at once. Four workers
+  // and a minute a test keep a busy machine from failing tests by their clock (axe on a long
+  // page took over 30 s there); CI's own runners keep Playwright's defaults.
+  workers: process.env.CI ? undefined : 4,
+  timeout: process.env.CI ? undefined : 60_000,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",

@@ -8,6 +8,13 @@ import { WAIVER } from "@/test/lease";
 import { LeaseJobProvider, useLeaseJob } from "./lease-job";
 import { LeaseToasts } from "./lease-toasts";
 
+// The lease check's transport loads with a dynamic import on the first check. Loading it here
+// first keeps its compile time out of each test's time limit, which a busy machine (the hub's)
+// can otherwise exceed.
+beforeAll(async () => {
+  await import("@/lib/lease-check");
+});
+
 const nav = vi.hoisted(() => ({ pathname: "/", push: vi.fn() }));
 vi.mock("next/navigation", () => ({
   usePathname: () => nav.pathname,
