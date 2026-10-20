@@ -1,4 +1,4 @@
-import { lawsByJurisdiction } from "./laws";
+import { lawsByJurisdiction, sourceFor } from "./laws";
 
 const source = {
   id: "fl-stat-83-2026",
@@ -53,5 +53,16 @@ describe("lawsByJurisdiction", () => {
 
   it("reads the committed manifest", () => {
     expect(lawsByJurisdiction()).toHaveLength(4);
+  });
+});
+
+describe("sourceFor", () => {
+  it("finds a cited edition's title and official URL in the manifest", () => {
+    const manifest = { version: 1, sources: [source] };
+    expect(sourceFor("fl-stat-83", "2026", manifest)).toEqual({
+      title: "Florida Statutes, Chapter 83, Part II",
+      url: "https://example.org/83",
+    });
+    expect(sourceFor("fl-stat-83", "2025", manifest)).toBeUndefined();
   });
 });

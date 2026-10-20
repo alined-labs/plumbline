@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { UIMessageChunk } from "ai";
 
@@ -32,12 +32,31 @@ describe("Answer", () => {
     expect(answer).toHaveTextContent("stub · full tier · replayed");
   });
 
-  it("moves focus from a marker to its source card", async () => {
+  it("opens the source panel from a marker and returns focus to it", async () => {
+    const user = userEvent.setup();
     render(<Answer message={await messageFrom(stubChunks())} />);
-    await userEvent.setup().click(screen.getByRole("button", { name: /^Source 1/ }));
-    const card = within(screen.getByRole("list", { name: "Sources" })).getByRole("listitem");
-    expect(card).toHaveFocus();
-    expect(card).toHaveAttribute("data-selected");
+    const marker = screen.getByRole("button", { name: "Source 1: Stub Act, s. 1" });
+    await user.click(marker);
+    const panel = await screen.findByRole("dialog", { name: "Stub Act, s. 1" });
+    expect(within(panel).getByRole("heading", { name: "Stub Act, s. 1" })).toHaveFocus();
+    expect(panel).toHaveTextContent("This section exists only to exercise the interface.");
+    expect(marker).toHaveAttribute("aria-expanded", "true");
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(marker).toHaveFocus();
+    expect(marker).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("opens the same passage from its source card", async () => {
+    const user = userEvent.setup();
+    render(<Answer message={await messageFrom(stubChunks())} />);
+    const card = within(screen.getByRole("list", { name: "Sources" })).getByRole("button");
+    await user.click(card);
+    expect(await screen.findByRole("dialog", { name: "Stub Act, s. 1" })).toBeInTheDocument();
+    expect(card).toHaveAttribute("aria-expanded", "true");
+    await user.click(screen.getByRole("button", { name: "Close source panel" }));
+    await waitFor(() => expect(card).toHaveFocus());
   });
 
   it("renders model Markdown as text: no raw HTML, no outside links", async () => {
@@ -49,7 +68,7 @@ describe("Answer", () => {
     expect(container.querySelector("img")).toBeNull();
     expect(container.querySelector("a")).toBeNull();
     expect(screen.getByRole("article")).toHaveTextContent("and this link or that one");
-    expect(screen.getByRole("button", { name: /^Source 1/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Source 1: Stub Act, s. 1" })).toBeInTheDocument();
   });
 
   it("names the part a partial answer leaves out", async () => {
