@@ -12,7 +12,9 @@ import { jurisdictionInfo } from "@/lib/jurisdictions";
  *
  * With the article (the API's text as published) the passage is the article itself with the
  * cited words marked and the range they occupy; without it, or when the quote is not found in
- * it, the passage is the quote the answer carried. */
+ * it, the passage is the quote the answer carried. A restricted source (its publisher's terms
+ * forbid republishing it) is only ever the quote, with no range: the API sends no more, and a
+ * range would point into text the reader cannot see. */
 export function StatuteQuote({
   citation,
   article,
@@ -21,7 +23,8 @@ export function StatuteQuote({
   article?: ChunkArticle | undefined;
 }) {
   const { label, ref, quote, language, verified } = citation;
-  const cut = article ? splitAtSpan(article.article.text, article.span) : null;
+  const cut =
+    article && !article.restricted ? splitAtSpan(article.article.text, article.span) : null;
   return (
     <figure className="flex flex-col gap-2 rounded-lg bg-surface-sunken px-4 py-3">
       <figcaption className="flex flex-wrap items-center gap-x-2 gap-y-1 text-small text-fg-muted">

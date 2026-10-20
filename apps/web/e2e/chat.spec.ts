@@ -145,6 +145,7 @@ test("the source panel shows the cited article with the passage marked", async (
           effective_to: null,
         },
         span: { start, end: start + quote.length },
+        restricted: false,
         source: null,
       },
     }),
@@ -187,6 +188,54 @@ test("a spent allowance disables the composer and says when it resets", async ({
   await page.goto("/");
   await expect(page.getByLabel("Your question")).toBeDisabled();
   await expect(page.getByText(/Demo questions reset at 00:00 UTC, in /)).toBeVisible();
+  await expectNoAxeViolations(page);
+});
+
+test("a restricted source shows only its quote and says why", async ({ page }) => {
+  await answerWithStub(page);
+  const quote = "This section exists only to exercise the interface.";
+  await page.route("**/api/chunks/**", (route) =>
+    route.fulfill({
+      json: {
+        chunk_id: "stub-act-1",
+        article: {
+          ref: {
+            jurisdiction: "florida",
+            law: "stub-act",
+            article: "1",
+            paragraph: null,
+            edition: "seed",
+          },
+          label: "Stub Act, s. 1",
+          heading: null,
+          text: quote,
+          language: "en",
+          page: null,
+          status: "in_force",
+          validity_note: null,
+          effective_from: null,
+          effective_to: null,
+        },
+        span: { start: 0, end: quote.length },
+        restricted: true,
+        source: { id: "stub-act-seed", title: "Stub Act", url: "https://example.org/stub-act" },
+      },
+    }),
+  );
+  await page.goto("/");
+  await ask(page, "Can my landlord keep my deposit?");
+  const answer = page.getByRole("article", { name: "Answer" });
+  await answer.getByRole("button", { name: "Source 1: Stub Act, s. 1" }).click();
+
+  const panel = page.getByRole("dialog", { name: "Stub Act, s. 1" });
+  await expect(panel.getByText("Only the quoted passage.")).toBeVisible();
+  await expect(panel.locator("blockquote")).toHaveText(quote);
+  await expect(panel.getByRole("region", { name: "Article text" })).toHaveCount(0);
+  await expect(panel.getByText(/^Characters /)).toHaveCount(0);
+  await expect(panel.getByRole("link", { name: /Open original/ })).toHaveAttribute(
+    "href",
+    "https://example.org/stub-act",
+  );
   await expectNoAxeViolations(page);
 });
 

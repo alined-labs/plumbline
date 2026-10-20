@@ -148,6 +148,54 @@ describe("SourcePanel with the article", () => {
     expect(screen.queryByRole("region", { name: "Article text" })).not.toBeInTheDocument();
   });
 
+  it("shows a restricted source as the quote alone, says why and links the original", async () => {
+    const quote = Array.from(ARTICLE.article.text)
+      .slice(ARTICLE.span?.start, ARTICLE.span?.end)
+      .join("");
+    mockArticle({
+      ...ARTICLE,
+      restricted: true,
+      article: { ...ARTICLE.article, text: quote, heading: null, validity_note: null },
+      span: { start: 0, end: Array.from(quote).length },
+    });
+    renderPanel();
+    expect(await screen.findByText("Only the quoted passage.")).toBeInTheDocument();
+    expect(screen.getByText(/publisher's terms do not let us show more/)).toBeInTheDocument();
+    expect(screen.getByText(citation.quote).tagName).toBe("BLOCKQUOTE");
+    expect(screen.queryByRole("region", { name: "Article text" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Characters /)).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Open original/ })).toHaveAttribute("href");
+  });
+
+  it("links the original from the API when the manifest lacks the source", async () => {
+    mockArticle({
+      ...ARTICLE,
+      restricted: true,
+      source: {
+        id: "dubai-law-26-2007",
+        title: "Law No. 26 of 2007",
+        url: "https://dlp.dubai.gov.ae/",
+      },
+    });
+    render(
+      <SourcePanel
+        subject={{
+          ...subject,
+          citations: [{ ...citation, ref: { ...citation.ref, law: "dubai-law-26-2007" } }],
+        }}
+        onChange={() => {}}
+        onClose={() => {}}
+        opener={createRef()}
+        slot={null}
+      />,
+      { wrapper: QueryWrapper },
+    );
+    expect(await screen.findByRole("link", { name: /Open original/ })).toHaveAttribute(
+      "href",
+      "https://dlp.dubai.gov.ae/",
+    );
+  });
+
   it("falls back to the quote when it is not found in the article", async () => {
     mockArticle({ ...ARTICLE, span: null });
     renderPanel();

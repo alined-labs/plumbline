@@ -325,7 +325,9 @@ function SourcesPane({
     return <p className="text-body text-fg-muted">This answer cites no sources.</p>;
   }
   const { label, ref, gloss } = citation;
-  const source = sourceFor(ref.law, ref.edition);
+  // The committed manifest names the edition; the API's link stands in for a source it lacks.
+  const source = sourceFor(ref.law, ref.edition) ?? article.data?.source ?? undefined;
+  const restricted = article.data?.restricted === true;
   const reference = [`${label}, ${source?.title ?? ref.law} (edition ${ref.edition})`, source?.url]
     .filter(Boolean)
     .join("\n");
@@ -335,6 +337,12 @@ function SourcesPane({
     <div className="flex flex-col gap-4">
       {article.data && <ArticleStatus article={article.data.article} />}
       <StatuteQuote citation={citation} article={article.data} />
+      {restricted && (
+        <Callout tone="neutral" title="Only the quoted passage.">
+          The publisher&apos;s terms do not let us show more of this text.{" "}
+          {source ? "Open the original to read the whole article." : null}
+        </Callout>
+      )}
       {article.isPending && (
         <p role="status" className="text-small text-fg-muted">
           Loading the whole article…
