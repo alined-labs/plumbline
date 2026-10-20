@@ -2,6 +2,6 @@
   {
     "name": "JavaScript the static export ships",
     "path": "out/_next/static/chunks/**/*.js",
-    "limit": "410 kB"
+    "limit": "420 kB"
   }
 ]

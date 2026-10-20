@@ -5,6 +5,7 @@ import { CircleCheckIcon } from "@/components/icons";
 import { CodeBadge } from "@/components/ui/badge";
 import { spanRange, splitAtSpan, type ChunkArticle } from "@/lib/article";
 import { jurisdictionInfo } from "@/lib/jurisdictions";
+import { isWithheld } from "@/lib/replay";
 
 /** StatuteQuote spec: the law's own words, verbatim, in the serif on a sunken ground, headed by
  * its citation and its verification. Serif means the statute speaks, so nothing else goes
@@ -47,6 +48,11 @@ export function StatuteQuote({
             {spanRange(article.article.text, article.span)}
           </p>
         </>
+      ) : isWithheld(quote) ? (
+        <p className="text-body text-fg-muted">
+          The publisher&apos;s terms do not let us republish this passage. Open the original to read
+          it.
+        </p>
       ) : (
         <blockquote lang={language} className="font-serif text-quote text-fg">
           {quote}

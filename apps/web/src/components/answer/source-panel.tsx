@@ -26,6 +26,7 @@ import type { Run } from "@/lib/run";
 import { dollars, duration, middleTruncate, spansFromTrace } from "@/lib/trace";
 import { useCopy } from "@/lib/use-copy";
 import { useMediaQuery } from "@/lib/use-media-query";
+import { isWithheld } from "@/lib/replay";
 
 import { TraceWaterfall } from "../trace/trace-waterfall";
 
@@ -114,7 +115,11 @@ export function SourcePanel({
           {wide && <ResizeHandle width={width} onWidth={setWidth} />}
           {shown && open && (
             <>
-              <PanelHeader citation={citation} title={title} />
+              <PanelHeader
+                citation={citation}
+                title={title}
+                offline={open.trace?.tier === "static"}
+              />
               <Tabs.Root
                 value={open.tab}
                 onValueChange={(tab: PanelTab) =>
@@ -226,10 +231,11 @@ const TAB =
 
 /** The cited article, fetched when a source is open. The quote goes along so the API can say
  * where in the article it sits. */
-function useArticle(citation: Citation | undefined) {
+function useArticle(citation: Citation | undefined, offline: boolean) {
   return useQuery({
     ...articleQuery(citation?.chunk_id ?? "", citation?.quote ?? ""),
-    enabled: Boolean(citation),
+    // The static tier has no API to ask, and a withheld quote has nothing to place.
+    enabled: Boolean(citation) && !offline && !isWithheld(citation?.quote ?? ""),
   });
 }
 
@@ -269,12 +275,15 @@ function ArticleStatus({ article }: { article: PublishedArticle }) {
 function PanelHeader({
   citation,
   title,
+  offline,
 }: {
   citation: Citation | undefined;
   title: RefObject<HTMLHeadingElement | null>;
+  /** A recorded answer of the static tier: there is no API to ask for the article. */
+  offline: boolean;
 }) {
   const source = citation && sourceFor(citation.ref.law, citation.ref.edition);
-  const heading = useArticle(citation).data?.article.heading;
+  const heading = useArticle(citation, offline).data?.article.heading;
   return (
     <header className="flex items-start gap-3 px-6 pb-4 pt-5">
       <div className="flex flex-1 flex-col gap-1">
@@ -320,7 +329,8 @@ function SourcesPane({
   onChange: (patch: { n: number }) => void;
 }) {
   const [copied, copy] = useCopy();
-  const article = useArticle(citation);
+  const offline = subject.trace?.tier === "static";
+  const article = useArticle(citation, offline);
   if (!citation) {
     return <p className="text-body text-fg-muted">This answer cites no sources.</p>;
   }
@@ -343,7 +353,12 @@ function SourcesPane({
           {source ? "Open the original to read the whole article." : null}
         </Callout>
       )}
-      {article.isPending && (
+      {offline && !isWithheld(citation.quote) && (
+        <p className="text-small text-fg-muted">
+          The recorded demo shows the quoted passage alone; the live one shows the whole article.
+        </p>
+      )}
+      {article.isLoading && (
         <p role="status" className="text-small text-fg-muted">
           Loading the whole article…
         </p>
