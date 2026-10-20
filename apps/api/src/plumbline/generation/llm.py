@@ -306,9 +306,12 @@ class BaseClient(ABC):
         return self.price or price_for(model, datetime.now(UTC).date())
 
     def _key(self, secret: SecretStr | None, name: str) -> str:
-        if secret is None:
+        # An empty line in .env ("ANTHROPIC_API_KEY=") reads as an empty string, which the
+        # SDKs accept and then fail on deep inside a request; refuse it here, by name.
+        key = secret.get_secret_value().strip() if secret is not None else ""
+        if not key:
             raise RuntimeError(f"{name} is not set: live and record modes need it in .env")
-        return secret.get_secret_value()
+        return key
 
 
 def _fresh(text: str, done: Done, price: Price) -> Fresh:

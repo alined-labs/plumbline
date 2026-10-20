@@ -14,6 +14,7 @@ from google.genai import types as genai_types
 from hypothesis import given
 from hypothesis import strategies as st
 from openai.types.chat import ChatCompletion
+from pydantic import SecretStr
 
 from plumbline.cache import CacheMiss, Json, ResponseCache
 from plumbline.core.types import CacheMode
@@ -34,6 +35,7 @@ from plumbline.generation.llm import (
     chunk_text,
     price_for,
 )
+from plumbline.settings import Settings
 
 PRICE = Price(date.min, Rate(input=1.0, output=2.0, cache_read=0.1))
 REQUEST = LLMRequest(
@@ -319,3 +321,13 @@ def test_thinking_is_sent_only_when_asked_for(tmp_path: Path) -> None:
     compatible = OpenAICompatibleClient(sdk=object(), cache=ResponseCache(CacheMode.LIVE, tmp_path))  # type: ignore[arg-type]
     assert "reasoning_effort" not in compatible.payload(REQUEST)
     assert compatible.payload(calm)["reasoning_effort"] == "minimal"
+
+
+@pytest.mark.parametrize("value", [None, "", "   "])
+def test_a_missing_or_empty_key_is_refused_by_name(value: str | None) -> None:
+    secret = SecretStr(value) if value is not None else None
+    settings = Settings(_env_file=None, anthropic_api_key=secret)  # type: ignore[call-arg]
+    client = AnthropicClient(settings=settings)
+    with pytest.raises(RuntimeError, match="ANTHROPIC_API_KEY is not set"):
+        client._key(settings.anthropic_api_key, "ANTHROPIC_API_KEY")
+    assert client._key(SecretStr(" sk-test "), "ANTHROPIC_API_KEY") == "sk-test"
