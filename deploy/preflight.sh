@@ -29,6 +29,8 @@ warn() { printf 'WARN  %s\n' "$*"; warns=$((warns + 1)); }
 fail() { printf 'FAIL  %s\n' "$*"; fails=$((fails + 1)); }
 have() { command -v "$1" >/dev/null 2>&1; }
 gib() { awk -v b="$1" 'BEGIN { printf "%.1f", b / 1073741824 }'; }
+# "1 warning", "2 warnings": a count and its noun, plural unless the count is one.
+count() { if (($1 == 1)); then printf '%d %s' "$1" "$2"; else printf '%d %ss' "$1" "$2"; fi; }
 # Opens a TCP connection to host $1, port $2 with bash's /dev/tcp, giving up after 5 s.
 tcp_open() {
   # shellcheck disable=SC2016 # $1 and $2 are expanded by the inner bash, on purpose
@@ -203,7 +205,7 @@ main() {
   check_updates
   check_cloudflared
   check_tunnel_reach
-  printf 'preflight: %d ok, %d warnings, %d failures\n' "$oks" "$warns" "$fails"
+  printf 'preflight: %d ok, %s, %s\n' "$oks" "$(count "$warns" warning)" "$(count "$fails" failure)"
   if ((fails)); then
     exit 1
   fi
