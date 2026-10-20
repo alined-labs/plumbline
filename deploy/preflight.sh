@@ -164,18 +164,15 @@ check_updates() {
   fi
 }
 
+# The tunnel itself runs in production Compose (deploy/compose.prod.yaml); the host needs
+# the cloudflared CLI only once, for `tunnel login` and `tunnel create`.
 check_cloudflared() {
-  if ! have cloudflared; then
-    warn "cloudflared is not installed yet (production Compose installs it as a service)"
-    return
-  fi
-  local version
-  version=$(cloudflared --version 2>&1) || true
-  ok "${version%%$'\n'*}"
-  if [[ $(systemctl is-enabled cloudflared.service 2>/dev/null) == enabled ]]; then
-    ok "cloudflared.service starts at boot"
+  if have cloudflared; then
+    local version
+    version=$(cloudflared --version 2>&1) || true
+    ok "${version%%$'\n'*} (the CLI, for tunnel login and create)"
   else
-    warn "cloudflared does not run as a systemd service yet"
+    warn "the cloudflared CLI is not installed: it is needed once, to log in and create the tunnel (docs/runbook.md)"
   fi
 }
 
@@ -188,6 +185,22 @@ check_tunnel_reach() {
       ok "outbound TCP $TUNNEL_PORT to $host"
     else
       warn "no outbound TCP $TUNNEL_PORT to $host: the tunnel can still use QUIC on UDP $TUNNEL_PORT, which this script cannot test"
+    fi
+  done
+}
+
+# The production secrets (deploy/secrets-init.sh): each one root-owned, mode 0640, and in
+# the group of the one container user that reads it. Only metadata is read, never content.
+check_secrets() {
+  local name group meta
+  for name in db_password:999 api.env:10001 tunnel.json:65532; do
+    group=${name#*:} name=/etc/plumbline/${name%%:*}
+    if [[ ! -e $name ]]; then
+      warn "$name does not exist yet (sudo bash deploy/secrets-init.sh)"
+    elif meta=$(stat -c '%u:%g %a' "$name") && [[ $meta == "0:$group 640" ]]; then
+      ok "$name is root:$group, mode 0640"
+    else
+      fail "$name is $meta (uid:gid mode): it must be 0:$group 640 so only its container reads it"
     fi
   done
 }
@@ -205,6 +218,7 @@ main() {
   check_updates
   check_cloudflared
   check_tunnel_reach
+  check_secrets
   printf 'preflight: %d ok, %s, %s\n' "$oks" "$(count "$warns" warning)" "$(count "$fails" failure)"
   if ((fails)); then
     exit 1

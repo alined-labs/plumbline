@@ -1,0 +1,167 @@
+# Production on MX3 (Lane P). A Compose project of its own, "plumbline-prod", with its own
+# networks and volumes, so the build's stack ("plumbline", compose.yaml) and this one never
+# share a container, a port or a database. Run it through deploy/prod, which passes the
+# public hostnames from deploy/prod.env:
+#
+#   deploy/prod build && deploy/prod up -d && deploy/prod ps
+#
+# Nothing here publishes a port. The public reaches the API only through cloudflared, which
+# dials out to Cloudflare and forwards to api:8000; Postgres and Redis sit on an internal
+# network with no route out. Secrets live in /etc/plumbline, filled by the human with
+# deploy/secrets-init.sh and readable only by root and the one container that needs each:
+# Docker's daemon (root) makes the bind mounts, so the user running Compose never reads them.
+#
+# Every third-party image is pinned by tag and multi-platform index digest; Dependabot
+# refreshes them. Memory limits fit MX3's 15 GiB beside the build's stack (see
+# docs/runbook.md); logs rotate at 5 x 10 MB per container.
+name: plumbline-prod
+
+x-service: &service
+  restart: unless-stopped
+  logging:
+    driver: local
+    options: { max-size: 10m, max-file: "5" }
+  security_opt: ["no-new-privileges:true"]
+
+x-api: &api
+  <<: *service
+  build:
+    context: ..
+    dockerfile: deploy/api/Dockerfile
+  image: plumbline-api:prod
+  read_only: true
+  cap_drop: [ALL]
+  tmpfs: ["/tmp:size=64m"]
+  environment:
+    ENVIRONMENT: prod
+    CACHE_MODE: live  # misses call the model and write nothing; recordings stay read-only
+    REDIS_URL: redis://redis:6379/0
+    EMBED_URL: http://embed:80
+    CORS_ORIGINS: '["https://${WEB_HOST:?set in deploy/prod.env}"]'
+    # uvicorn trusts forwarded headers only from cloudflared's fixed address.
+    FORWARDED_ALLOW_IPS: 172.30.42.10
+    # Daily spend caps in US dollars (docs/cost-model.md, section 5): past one, the router
+    # drops to the next model down, and the kill switch takes the tier down after them.
+    GEMINI_DAILY_CAP_USD: "0.30"
+    ANTHROPIC_DAILY_CAP_USD: "1.00"
+    COHERE_DAILY_CAP_USD: "0"
+  volumes:
+    # The settings read /app/.env (PLUMBLINE_ROOT=/app): the provider keys, the admin
+    # token and the database URL with its password. root:10001, mode 0640.
+    - /etc/plumbline/api.env:/app/.env:ro
+    - ../data:/app/data:ro
+    - ../cache:/app/cache:ro
+
+services:
+  db:
+    <<: *service
+    image: paradedb/paradedb:v0.26.2-pg18@sha256:c552094b6b68dcb0a4e7a3969963d801eaec02490db4d2dd032dcb096bc86cf8
+    environment:
+      POSTGRES_USER: plumbline
+      POSTGRES_DB: plumbline
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    # root:999 (the image's postgres user), mode 0640.
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - /etc/plumbline/db_password:/run/secrets/db_password:ro
+    networks: [backend]
+    mem_limit: 1g
+    shm_size: 256m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U plumbline -d plumbline"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+
+  # The daily spend counters and quotas live here, and the kill switch reads them: append-
+  # only persistence keeps them across a restart, and noeviction refuses a write rather than
+  # silently drop a counter when memory runs out.
+  redis:
+    <<: *service
+    image: redis:8.10.2-alpine@sha256:3811787313eba226a2ef38658c6ccb91cd5e110edc89c37767de373120a0e5a0
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "192mb",
+              "--maxmemory-policy", "noeviction", "--save", ""]
+    volumes: [redisdata:/data]
+    networks: [backend]
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # The query embedder only: the reranker runs offline. --max-batch-tokens 4096 keeps the
+  # CPU warm-up near 1 GB (compose.yaml says why). The first start downloads the weights,
+  # so it may take minutes to turn healthy; egress is for that download.
+  embed:
+    <<: *service
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9.4@sha256:2538ea1c9640d3763b15af668039d24172d063b42337b0c27796fc2be180c78d
+    command: ["--model-id", "Qwen/Qwen3-Embedding-0.6B", "--port", "80", "--auto-truncate",
+              "--max-batch-tokens", "4096"]
+    volumes: [models:/data]
+    networks: [backend, egress]
+    mem_limit: 3g
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1:80/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15m
+
+  # One-shot: brings the schema to head, then exits; the API starts only after it succeeds.
+  migrate:
+    <<: *api
+    restart: "no"
+    command: ["alembic", "-c", "apps/api/alembic.ini", "upgrade", "head"]
+    networks: [backend]
+    mem_limit: 512m
+    depends_on:
+      db: { condition: service_healthy }
+
+  # The image's HEALTHCHECK polls /api/health. Egress reaches the model providers and
+  # Langfuse; the API publishes no port.
+  api:
+    <<: *api
+    networks: [backend, egress]
+    mem_limit: 2g
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+      embed: { condition: service_healthy }
+
+  # A locally managed tunnel (cloudflared tunnel create): every request it carries goes to
+  # the API, and DNS routes only the API's hostname to it (the web app is on Pages).
+  cloudflared:
+    <<: *service
+    image: cloudflare/cloudflared:2026.10.0@sha256:9b49eed8f62806d5d45ddf59ecefb5710429598ea6d3fcccd2af938f621b2b07
+    command: ["tunnel", "--no-autoupdate", "--metrics", "127.0.0.1:2000", "run",
+              "--credentials-file", "/etc/cloudflared/credentials.json",
+              "--url", "http://api:8000", "${TUNNEL_ID:?set in deploy/prod.env}"]
+    # root:65532 (the image's nonroot user), mode 0640.
+    volumes: ["/etc/plumbline/tunnel.json:/etc/cloudflared/credentials.json:ro"]
+    read_only: true
+    cap_drop: [ALL]
+    networks:
+      egress: { ipv4_address: 172.30.42.10 }
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD", "cloudflared", "tunnel", "--metrics", "127.0.0.1:2000", "ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      api: { condition: service_healthy }
+
+networks:
+  backend:
+    internal: true  # no route out: Postgres and Redis talk only to the stack
+  egress:
+    ipam:
+      config: [{ subnet: 172.30.42.0/24 }]
+
+volumes:
+  pgdata:
+  redisdata:
+  models:

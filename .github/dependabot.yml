@@ -26,3 +26,19 @@ updates:
     commit-message:
       prefix: build
       include: scope
+
+  # Production Compose's pinned images (deploy/compose.prod.yaml). Patch releases and
+  # digest refreshes only: a minor or major upgrade of Postgres, Redis, TEI or cloudflared
+  # is a deliberate change with its own rehearsal.
+  - package-ecosystem: docker-compose
+    directory: /deploy
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+    commit-message:
+      prefix: deploy
+      include: scope
