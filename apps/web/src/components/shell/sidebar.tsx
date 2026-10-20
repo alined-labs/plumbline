@@ -1,10 +1,9 @@
 "use client";
 
-import { Tooltip } from "@base-ui/react/tooltip";
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ComponentType, ReactElement } from "react";
+import type { ComponentType } from "react";
 
 import { Logo, LogoMark } from "@/components/brand/logo";
 import {
@@ -16,6 +15,7 @@ import {
   type IconProps,
 } from "@/components/icons";
 import { buttonClass } from "@/components/ui/button";
+import { Tip } from "@/components/ui/tip";
 import { useMediaQuery } from "@/lib/use-media-query";
 
 import { ThemeSwitch } from "./theme-switch";
@@ -66,7 +66,7 @@ export function SidebarContent({
         {mode === "aside" && <LogoMark className="size-6 lg:hidden" />}
         <Logo className={`h-5.5 w-auto ${mode === "aside" ? "max-lg:hidden" : ""}`} />
       </Link>
-      <WithTooltip label="New question" enabled={rail}>
+      <Tip label="New question" side="right" enabled={rail}>
         <Link
           href="/"
           onClick={onNavigate}
@@ -75,9 +75,9 @@ export function SidebarContent({
           <PlusIcon />
           <span className={nameClass}>New question</span>
         </Link>
-      </WithTooltip>
+      </Tip>
       {DESTINATIONS.map(({ href, label, Icon }) => (
-        <WithTooltip key={href} label={label} enabled={rail}>
+        <Tip key={href} label={label} side="right" enabled={rail}>
           <Link
             href={href}
             onClick={onNavigate}
@@ -87,35 +87,11 @@ export function SidebarContent({
             <Icon />
             <span className={nameClass}>{label}</span>
           </Link>
-        </WithTooltip>
+        </Tip>
       ))}
       <div className="mt-auto pt-3">
         <ThemeSwitch compact={mode === "aside"} />
       </div>
     </nav>
-  );
-}
-
-function WithTooltip({
-  label,
-  enabled,
-  children,
-}: {
-  label: string;
-  enabled: boolean;
-  children: ReactElement;
-}) {
-  if (!enabled) return children;
-  return (
-    <Tooltip.Root>
-      <Tooltip.Trigger render={children} />
-      <Tooltip.Portal>
-        <Tooltip.Positioner side="right" sideOffset={8} className="z-(--pl-z-tooltip)">
-          <Tooltip.Popup className="rounded-sm bg-inverse px-2 py-1 text-small text-fg-inverse shadow-2">
-            {label}
-          </Tooltip.Popup>
-        </Tooltip.Positioner>
-      </Tooltip.Portal>
-    </Tooltip.Root>
   );
 }

@@ -73,6 +73,14 @@ test("a question streams back a cited answer", async ({ page }) => {
   await expect(page.locator("[aria-live=polite]").filter({ hasText: "Answer:" })).toContainText(
     "This is a stub answer from the Plumbline seed. Retrieval",
   );
+
+  // Copying keeps the evidence and the framing with the words.
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await answer.getByRole("button", { name: "Copy answer" }).click();
+  await expect(answer.getByRole("button", { name: "Answer copied" })).toBeVisible();
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  expect(copied).toContain("Sources\n[1] Stub Act, s. 1");
+  expect(copied).toContain("Legal information, not legal advice.");
 });
 
 test("a partial answer names the part it leaves out", async ({ page }) => {

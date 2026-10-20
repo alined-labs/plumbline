@@ -3,7 +3,7 @@ import type { UIMessageChunk } from "ai";
 
 import { messageFrom, stubChunks } from "@/test/stream";
 
-import { announcement, answerView, linkMarkers, sourceNumber } from "./answer";
+import { announcement, answerAsText, answerView, linkMarkers, sourceNumber } from "./answer";
 
 function citation(n: number, verified = true): UIMessageChunk {
   const data: Citation = {
@@ -81,6 +81,21 @@ describe("announcement", () => {
     expect(announcement(view)).toBe(
       "Answer: This is a stub answer from the Plumbline seed. Retrieval and generation are " +
         "not connected yet, so nothing here is legal information. 1 source verified.",
+    );
+  });
+});
+
+describe("answerAsText", () => {
+  it("copies the words with their markers, the sources and the disclaimer", async () => {
+    const text = answerAsText(answerView(await messageFrom(stubChunks())));
+    expect(text).toBe(
+      [
+        "This is a stub answer from the Plumbline seed [1]. Retrieval and generation are not " +
+          "connected yet, so nothing here is legal information.",
+        'Sources\n[1] Stub Act, s. 1: "This section exists only to exercise the interface."',
+        "Legal information, not legal advice. No lawyer has reviewed Plumbline's answers: read " +
+          "the cited article, and consult a qualified professional before acting.",
+      ].join("\n\n"),
     );
   });
 });
