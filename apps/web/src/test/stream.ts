@@ -3,6 +3,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import type { AnswerSummary } from "@plumbline/ts-client";
 import { readUIMessageStream, type UIMessageChunk } from "ai";
 
 import type { PlumblineMessage } from "@/lib/messages";
@@ -19,6 +20,21 @@ export function stubChunks(): UIMessageChunk[] {
     .map((line) => line.trim())
     .filter((line) => line.startsWith("data: ") && line !== "data: [DONE]")
     .map((line) => JSON.parse(line.slice("data: ".length)) as UIMessageChunk);
+}
+
+/** The stub's chunks with the data-answer payload changed, for the partial and abstained
+ * shapes, and optionally without its citations. */
+export function stubChunksWith(
+  answer: Partial<AnswerSummary>,
+  { citations = true }: { citations?: boolean } = {},
+): UIMessageChunk[] {
+  return stubChunks()
+    .filter((chunk) => citations || chunk.type !== "data-citation")
+    .map((chunk) =>
+      chunk.type === "data-answer"
+        ? { ...chunk, data: { ...(chunk.data as AnswerSummary), ...answer } }
+        : chunk,
+    );
 }
 
 /** The assistant message a list of chunks adds up to, as useChat would hold it. */
