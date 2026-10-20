@@ -11,6 +11,10 @@ size limit enforced as it arrives. The lease is never written to disk, logged or
 check keeps only its events (stages and findings, which quote clauses after redaction) for
 half an hour, for the visitor who started it (api/runs.py).
 
+Until the real redactor runs, only the invented leases in data/leases may be checked: a file
+whose bytes match one of them byte for byte is marked synthetic, which the stand-in
+redactor lets through, and every other file is refused before any model call.
+
 A check that starts ends with `done`, or with `failed` and why. What stops one from
 starting is answered as problem details with a code, in this order: 503 `lease_checks_paused`
 when the demo tier does not run them, 429 `quota_reached` when today's checks are used up,
@@ -23,8 +27,10 @@ costs nothing.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from collections.abc import AsyncIterable, AsyncIterator
 from datetime import date
+from pathlib import Path
 from typing import Annotated, Any, Final, Literal, Protocol
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response
@@ -53,10 +59,12 @@ from plumbline.ingest.upload import (
 )
 from plumbline.leases.checker import LeaseCheckError, LeaseDone, LeaseEvent, LeaseStage
 from plumbline.leases.schema import Finding
+from plumbline.settings import ROOT
 
 PING_S: Final = 15.0  # a comment this often keeps a quiet stream from being closed on the way
 MEGABYTE: Final = 1024 * 1024
 FORMS: Final = ("multipart/", "application/x-www-form-urlencoded")
+SAMPLES: Final = ROOT / "data" / "leases"
 
 
 class LeaseChecker(Protocol):
@@ -78,6 +86,17 @@ class LeaseChecker(Protocol):
 
 
 router = APIRouter(prefix="/api/check-lease", tags=["leases"])
+
+
+def sample_digests(folder: Path = SAMPLES) -> frozenset[str]:
+    """The SHA-256 of each invented lease the site offers: the Markdown leases, sent as their
+    own text, and the scanned PDFs."""
+    files = [*folder.glob("*-lease-*.md"), *folder.glob("scans/*.pdf")]
+    return frozenset(_digest(path.read_bytes()) for path in files)
+
+
+def _digest(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
 
 
 def failure(code: str, message: str) -> tuple[str, LeaseFailedEvent]:
@@ -152,9 +171,11 @@ async def start(
     visitor = await quota.visitor(request)
     await quota.admit(request, "lease", visitor=visitor, count=False)
     _room(runs, visitor.id)
-    read = await _read(await _body(request))
+    data = await _body(request)
+    read = await _read(data)
     await quota.admit(request, "lease", visitor=visitor)
-    upload = Upload(text=read.text, language=guess_language(read.text), synthetic=False)
+    synthetic = _digest(data) in state.sample_leases
+    upload = Upload(text=read.text, language=guess_language(read.text), synthetic=synthetic)
     try:
         run = runs.start(visitor.id, _work(checker, upload, route, jurisdiction, signed_on))
     except Busy as exc:  # (another check began since the look: rare, and then it is counted)

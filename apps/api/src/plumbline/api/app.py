@@ -66,6 +66,7 @@ def create_app(
     )
     answering.refuse_stubs(settings, app.state.pipeline, app.state.lease_checker)
     app.state.runs = Runs(leases.failure)
+    app.state.sample_leases = leases.sample_digests()
     # The engine connects on first use, so an app that never touches the database (the
     # stub, the OpenAPI export) runs without one.
     app.state.sessions = sessions or make_sessionmaker(make_engine(settings.database_url))
