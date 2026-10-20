@@ -11,9 +11,9 @@ from __future__ import annotations
 import json
 from datetime import date
 from pathlib import Path
-from typing import Annotated, Literal, Self
+from typing import Annotated, Final, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, HttpUrl, StringConstraints, model_validator
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, StringConstraints, model_validator
 
 from plumbline.core.types import Jurisdiction, Language
 from plumbline.settings import ROOT
@@ -23,6 +23,10 @@ NonEmpty = Annotated[str, StringConstraints(min_length=1, strip_whitespace=True)
 # xml: the BOE's consolidated-legislation records, every block with all its versions.
 Format = Literal["pdf", "html", "xml", "txt", "md"]
 MANIFEST = ROOT / "data" / "corpus" / "manifest.json"
+# Publishers that serve no HTTPS. The Senado refused connections on port 443 when Ley 820
+# and Ley 675 were pinned (2026-10-20), and their text was checked against the HTTPS copy
+# the Cancillería publishes of the same compilation. Drop a host once it serves HTTPS.
+PLAIN_HTTP_HOSTS: Final = frozenset({"www.secretariasenado.gov.co"})
 
 
 class Source(BaseModel):
@@ -34,6 +38,9 @@ class Source(BaseModel):
     jurisdiction: Jurisdiction
     language: Language
     url: HttpUrl
+    # Further URLs joined into the same file after `url`, each after a line naming it: the
+    # other pages of a law its publisher splits, and the scripts that hold its notes.
+    parts: list[HttpUrl] = Field(default_factory=list)
     edition: NonEmpty  # what ArticleRef.edition names: "2026", "boe-2025-03-26"
     consolidated_on: date | None = None
     retrieved_on: date
@@ -49,8 +56,10 @@ class Source(BaseModel):
         folder = "data/corpus/raw/" if self.committed else "data/corpus/fetched/"
         if not self.path.startswith(folder):
             raise ValueError(f"{self.id}: path must be under {folder}")
-        if self.url.scheme != "https":
-            raise ValueError(f"{self.id}: the source URL must be https")
+        for url in (self.url, *self.parts):
+            plain = url.scheme == "http" and url.host in PLAIN_HTTP_HOSTS
+            if url.scheme != "https" and not plain:
+                raise ValueError(f"{self.id}: the source URL must be https: {url}")
         return self
 
 
