@@ -37,6 +37,7 @@ ProblemCode = Literal[
     "lease_checks_paused",  # 503: the demo tier does not run lease checks right now
     "busy",  # 503: too many checks are running; Retry-After says when to try again
     "redaction_refused",  # 503: the text cannot be redacted, so no model may read it
+    "law_not_indexed",  # 503: the lease's governing law is not in the index yet
 ]
 
 
