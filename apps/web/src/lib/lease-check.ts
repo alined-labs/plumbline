@@ -1,7 +1,7 @@
 import type { Jurisdiction } from "@plumbline/ts-client";
 import { z } from "zod";
 
-import { apiUrl } from "./api";
+import { apiUrl, WITH_COOKIE } from "./api";
 import type { Finding } from "./lease";
 import { findingSchema } from "./lease-schema";
 import { readSse, type SseEvent } from "./sse";
@@ -94,7 +94,7 @@ class Dropped extends Error {}
 async function send(url: string, init: RequestInit, transport: Transport): Promise<Response> {
   try {
     return await (transport.fetch ?? fetch)(url, {
-      credentials: "include",
+      ...WITH_COOKIE,
       ...init,
       signal: transport.signal,
     });

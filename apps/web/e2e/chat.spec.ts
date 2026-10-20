@@ -78,6 +78,44 @@ test("a follow-up question joins the same conversation", async ({ page }) => {
   expect(asked).toEqual([1, 3]);
 });
 
+test("the visitor cookie goes with each question and each count", async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  // Production has the site and the API on two subdomains of one site: same site, different
+  // origins. Served from localhost beside the API on localhost:8000, this page is the same.
+  const site = (baseURL ?? "").replace("127.0.0.1", "localhost");
+  await context.addCookies([
+    {
+      name: "plumbline_visitor",
+      value: "test-visitor",
+      domain: "localhost",
+      path: "/",
+      sameSite: "Lax",
+    },
+  ]);
+  const cookies: Record<string, string> = {};
+  for (const path of ["usage", "ask"]) {
+    await page.route(`**/api/${path}`, async (route) => {
+      cookies[path] = (await route.request().allHeaders()).cookie ?? "";
+      if (path === "usage") {
+        return route.fulfill({ json: { used: 1, limit: 20, resets_at: "2026-10-21T00:00:00Z" } });
+      }
+      return route.fulfill({
+        status: 200,
+        headers: { "content-type": "text/event-stream", "x-vercel-ai-ui-message-stream": "v1" },
+        body: stubStream,
+      });
+    });
+  }
+  await page.goto(`${site}/`);
+  await ask(page, "Can my landlord keep my deposit?");
+  await expect(page.getByRole("article", { name: "Answer" })).toBeVisible();
+  expect(cookies.ask).toContain("plumbline_visitor=test-visitor");
+  expect(cookies.usage).toContain("plumbline_visitor=test-visitor");
+});
+
 test("a question streams back a cited answer", async ({ page }) => {
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   await answerWithStub(page);

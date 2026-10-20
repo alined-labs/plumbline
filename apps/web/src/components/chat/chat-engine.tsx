@@ -12,7 +12,7 @@ import { RotateCwIcon } from "@/components/icons";
 import { buttonClass } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
 import { announcement, answerView } from "@/lib/answer";
-import { apiUrl } from "@/lib/api";
+import { apiUrl, WITH_COOKIE } from "@/lib/api";
 import { askBody, type AskBody, type AskValues } from "@/lib/ask-form";
 import { untilUtcMidnight } from "@/lib/dates";
 import { messageText, type PlumblineMessage } from "@/lib/messages";
@@ -65,7 +65,8 @@ export function ChatEngine({
   }
 
   const { messages, sendMessage, regenerate, stop, status, error } = useChat<PlumblineMessage>({
-    transport: new DefaultChatTransport({ api: apiUrl("/api/ask") }),
+    // The visitor cookie goes with each question, so the day's allowance counts the visitor.
+    transport: new DefaultChatTransport({ api: apiUrl("/api/ask"), ...WITH_COOKIE }),
     // Publish streamed text at most every 50 ms: tokens arrive faster than that, and each
     // update re-renders the answer (docs/notes/streamed-answer-profile.md).
     throttle: 50,

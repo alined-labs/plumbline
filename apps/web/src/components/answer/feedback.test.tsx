@@ -33,6 +33,7 @@ describe("Feedback", () => {
     await user.click(screen.getByRole("button", { name: "Helpful" }));
     expect(post).toHaveBeenCalledWith("/api/feedback", {
       body: { request_id: "req_1", helpful: true },
+      credentials: "include",
     });
     expect(await screen.findByText("Thanks, that helps.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Helpful" })).toHaveAttribute("aria-pressed", "true");
@@ -77,6 +78,7 @@ describe("Feedback", () => {
         reasons: ["wrong_citation", "outdated_law"],
         note: "The 2019 text is cited.",
       },
+      credentials: "include",
     });
     expect(await screen.findByText("Thanks, that helps.")).toBeInTheDocument();
     expect(screen.queryByRole("group")).not.toBeInTheDocument();

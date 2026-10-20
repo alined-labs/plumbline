@@ -1,6 +1,6 @@
 import { queryOptions, useQuery } from "@tanstack/react-query";
 
-import { api, ApiError, type ApiClient } from "./api";
+import { api, ApiError, WITH_COOKIE, type ApiClient } from "./api";
 
 // Which demo the page is: the live chat, or the static tier's replay of stored answers. The API
 // says so (GET /api/settings/tier); when it cannot be reached at all, the export is being served
@@ -10,7 +10,7 @@ export function tierQuery(client: ApiClient = api) {
   return queryOptions({
     queryKey: ["tier"],
     queryFn: async ({ signal }) => {
-      const { data, response } = await client.GET("/api/settings/tier", { signal });
+      const { data, response } = await client.GET("/api/settings/tier", { signal, ...WITH_COOKIE });
       if (!data) throw new ApiError("/api/settings/tier", response.status);
       return data.tier;
     },

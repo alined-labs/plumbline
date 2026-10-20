@@ -12,6 +12,12 @@ export function apiUrl(path: `/api/${string}`): string {
 
 export type ApiClient = ReturnType<typeof createApiClient>;
 
+/** The site and the API are different origins (plumbline. and plumbline-api.alinedlabs.co), and
+ * a browser sends and keeps a cookie across origins only when the request asks it to. Every call
+ * that counts a visitor, or is counted by one, carries the visitor cookie this way; the API
+ * allows it for the site's origin alone (CORS with credentials). */
+export const WITH_COOKIE = { credentials: "include" } as const satisfies RequestInit;
+
 /** The typed client for the JSON routes; the answer stream goes through useChat instead. */
 export const api: ApiClient = createApiClient(API_BASE_URL);
 
