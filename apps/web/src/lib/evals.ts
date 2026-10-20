@@ -276,3 +276,40 @@ export function groupMeans(run: EvalRun, metrics: readonly MetricName[]): GroupR
     return [{ group, items: results.length, means }];
   });
 }
+
+export type ChartPoint = {
+  label: string;
+  value: number;
+  low: number | null;
+  high: number | null;
+  n: number;
+};
+
+/** One metric across runs, for the interval chart: the runs that measured it, in their order. */
+export function chartPoints(runs: readonly EvalRun[], name: MetricName): ChartPoint[] {
+  return runs.flatMap((run) => {
+    const value = estimate(run.summary, name);
+    return value ? [{ label: run.config_name, ...value }] : [];
+  });
+}
+
+/** The chart's takeaway in a sentence: which configuration scores best, and whether its interval
+ * clears the next one's, since overlapping intervals are not a measured difference. */
+export function takeaway(points: readonly ChartPoint[], metric: MetricName): string {
+  const lower = METRICS[metric].better === "lower";
+  const ranked = [...points].sort((a, b) => (lower ? a.value - b.value : b.value - a.value));
+  const [best, next] = ranked;
+  if (!best) return "";
+  const interval = formatInterval(best.low, best.high);
+  const lead = `${best.label} scores ${lower ? "lowest" : "highest"}, ${formatScore(best.value)}${interval ? ` (95% CI ${interval})` : ""}.`;
+  if (!next) return lead;
+  const separated =
+    best.low !== null &&
+    best.high !== null &&
+    next.low !== null &&
+    next.high !== null &&
+    (lower ? best.high < next.low : best.low > next.high);
+  return separated
+    ? `${lead} Its interval clears ${next.label}'s, the next best.`
+    : `${lead} Its interval overlaps ${next.label}'s, so the two are not measurably apart.`;
+}

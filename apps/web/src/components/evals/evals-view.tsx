@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { Badge, CodeBadge } from "@/components/ui/badge";
 import { Metric, MetricGrid } from "@/components/ui/metric";
+import { IntervalChart } from "@/components/ui/interval-chart";
 import { RowHead, Table, Td, Th, Tr } from "@/components/ui/table";
 import { formatDate } from "@/lib/dates";
 import {
@@ -13,12 +14,14 @@ import {
   formatUsd,
   groupMeans,
   baseConfig,
+  chartPoints,
   headlineRun,
   HEADLINE_METRICS,
   METRICS,
   RETRIEVAL_METRICS,
   runCost,
   secondJudge,
+  takeaway,
   type Agreement,
   type EvalRun,
   type MetricName,
@@ -203,6 +206,28 @@ function Headline({ run }: { run: EvalRun }) {
 
 /** How far a second judge, of another model, agreed with the first on the same answers: the
  * check that a judge's verdicts are not its own family's taste. */
+/** One metric across configurations as dots with their intervals, when two or more measured it. */
+function MetricChart({
+  runs,
+  metric,
+  threshold,
+}: {
+  runs: EvalRun[];
+  metric: MetricName;
+  threshold: number | undefined;
+}) {
+  const points = chartPoints(runs, metric);
+  if (points.length < 2) return null;
+  return (
+    <IntervalChart
+      title={`${METRICS[metric].label} by configuration`}
+      caption={takeaway(points, metric)}
+      points={points}
+      threshold={threshold}
+    />
+  );
+}
+
 function SecondJudge({ run }: { run: EvalRun }) {
   const rows = secondJudge(run);
   if (rows.length === 0) return null;
@@ -500,8 +525,14 @@ export function EvalsView({ data }: { data: EvalsData }) {
           is the long-context baseline: no search, the whole law in one prompt.
         </p>
         <h3 className="text-heading-3">Finding the right article</h3>
+        <MetricChart runs={runs} metric="recall@5" threshold={thresholds["recall@5"]} />
         <MetricsTable label="Retrieval" runs={runs} metrics={RETRIEVAL_METRICS} />
         <h3 className="text-heading-3">Answering</h3>
+        <MetricChart
+          runs={runs.filter((run) => run.judged)}
+          metric="correctness"
+          threshold={thresholds.correctness}
+        />
         <MetricsTable
           label="Answers"
           runs={runs.filter((run) => run.judged)}
