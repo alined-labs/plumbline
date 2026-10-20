@@ -134,6 +134,20 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Check the production Compose stack
+        # Compose itself must accept the file (the guard tests read it as YAML only),
+        # every pinned digest must still resolve in its registry, and the wrapper must
+        # refuse to start a stack whose secrets do not exist.
+        run: |
+          docker compose -f deploy/compose.prod.yaml --env-file deploy/prod.env config --quiet
+          docker compose -f deploy/compose.prod.yaml --env-file deploy/prod.env config --images |
+            grep '@sha256:' | sort -u | while read -r image; do
+              docker manifest inspect "$image" > /dev/null && echo "resolves: $image"
+            done
+          if bash deploy/prod up -d 2> "$RUNNER_TEMP/up.err"; then
+            echo "deploy/prod started a stack with no secrets" && exit 1
+          fi
+          grep -q 'secrets-init.sh' "$RUNNER_TEMP/up.err"
       - name: Lint the Dockerfile
         run: docker run --rm -i hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d hadolint - < deploy/api/Dockerfile
       - name: Lint the shell scripts
