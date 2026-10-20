@@ -4,7 +4,8 @@
     -> verify the citations -> final status -> AnswerSummary -> TraceSummary
 
 Retrieval belongs to Lane A. This module names what it needs from search and reranking
-as two small protocols, so the pipeline runs on fakes today and on Lane A's classes when
+as two small protocols (and, for the long-context baseline, which reads the whole law
+instead of searching it, a third), so the pipeline runs on fakes today and on Lane A's classes when
 they land; they may be synchronous, so they run in a worker thread and never block the
 event loop. Jurisdiction detection is Lane A's keyword detector, called directly. Generation streams structured output, and the answer field's text is
 shown as it is written; the complete object is validated and its citations verified before
@@ -39,6 +40,7 @@ from plumbline.core.types import (
     Answer,
     AnswerStatus,
     AnswerTrace,
+    Chunk,
     Citation,
     Jurisdiction,
     Retrieved,
@@ -79,6 +81,15 @@ class ChunkSearch(Protocol):
     ) -> list[Retrieved]: ...
 
 
+class LawSource(Protocol):
+    """The whole law, for the long-context baseline (LC): every article in force on the
+    date, of the jurisdictions given (all, for None), in the law's own order."""
+
+    def articles(
+        self, jurisdictions: Sequence[Jurisdiction] | None, as_of: date | None
+    ) -> list[Chunk]: ...
+
+
 class Reranker(Protocol):
     """Lane A's reranker (retrieval/rerank.py): one relevance score per text."""
 
@@ -111,19 +122,24 @@ class Pipeline:
         self,
         config: EvalConfig,
         *,
-        search: ChunkSearch,
+        search: ChunkSearch | None = None,  # every configuration that retrieves
+        law: LawSource | None = None,  # the long-context baseline instead, which does not
         detect: Callable[[str], list[Jurisdiction]] = detect_jurisdictions,
         reranker: Reranker | None,
         indexed: Collection[Jurisdiction],  # the jurisdictions the index holds
         client: LLMClient | None = None,
         observe: Observer | None = None,
     ) -> None:
-        if config.generation.long_context or config.retrieval.mode == "none":
-            raise NotImplementedError("the long-context baseline has its own pipeline")
+        whole_law = config.generation.long_context or config.retrieval.mode == "none"
+        if whole_law and (law is None or search is not None):
+            raise ValueError(f"{config.name} reads the whole law: give it a law, not a search")
+        if not whole_law and (search is None or law is not None):
+            raise ValueError(f"{config.name} retrieves: give it a search, not a law")
         if (config.retrieval.rerank != "none") != (reranker is not None):
             raise ValueError(f"{config.name} reranks with {config.retrieval.rerank!r}")
         self.config = config
         self.search = search
+        self.law = law
         self.detect = detect
         self.reranker = reranker
         self.indexed = frozenset(indexed)
@@ -190,13 +206,22 @@ class Pipeline:
         asked = [] if unknown else found
         yield StatusEvent(stage=Stage.RETRIEVING)
         with _timer(run, "retrieve"):
-            run.retrieved = await asyncio.to_thread(
-                self.search.search,
-                question.text,
-                k=retrieval.rerank_candidates if self.reranker else retrieval.top_k,
-                jurisdictions=found if retrieval.jurisdiction_filter else None,
-                as_of=question.as_of if retrieval.as_of_filter else None,
-            )
+            jurisdictions = found if retrieval.jurisdiction_filter else None
+            as_of = question.as_of if retrieval.as_of_filter else None
+            if self.law is not None:
+                articles = await asyncio.to_thread(self.law.articles, jurisdictions, as_of)
+                run.retrieved = [
+                    Retrieved(chunk=chunk, rank=rank, score=0.0)
+                    for rank, chunk in enumerate(articles, start=1)
+                ]
+            elif self.search is not None:
+                run.retrieved = await asyncio.to_thread(
+                    self.search.search,
+                    question.text,
+                    k=retrieval.rerank_candidates if self.reranker else retrieval.top_k,
+                    jurisdictions=jurisdictions,
+                    as_of=as_of,
+                )
         if self.reranker is not None and run.retrieved:
             yield StatusEvent(stage=Stage.RERANKING)
             with _timer(run, "rerank"):

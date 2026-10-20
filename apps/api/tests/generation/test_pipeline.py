@@ -33,7 +33,14 @@ from plumbline.core.types import (
     Language,
     Retrieved,
 )
-from plumbline.generation.llm import FAST_MODEL, GeminiClient, LLMRequest, LLMResult, Usage
+from plumbline.generation.llm import (
+    FAST_MODEL,
+    STRONG_MODEL,
+    GeminiClient,
+    LLMRequest,
+    LLMResult,
+    Usage,
+)
 from plumbline.generation.pipeline import UNREADABLE, Pipeline, reorder
 from plumbline.observability.tracing import Tracer
 from plumbline.settings import ROOT
@@ -411,3 +418,53 @@ def test_an_evaluation_run_is_traced_through_the_observer() -> None:
     assert spans["generate"]["langfuse.observation.model.name"] == FAST_MODEL
     assert trace.trace_url is not None
     assert trace.trace_url.startswith("https://lf.test/")
+
+
+class Law:
+    """The long-context baseline's source: every article it holds, whatever the question."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[Any, Any]] = []
+
+    def articles(self, jurisdictions: Any, as_of: Any) -> list[Chunk]:
+        self.calls.append((jurisdictions, as_of))
+        return [hit.chunk for hit in HITS]
+
+
+def lc_config() -> EvalConfig:
+    return EvalConfig(
+        name="LC",
+        description="test",
+        chunker=ChunkerConfig(kind="article"),
+        retrieval=RetrievalConfig(mode="none"),
+        generation=GenerationConfig(route="strong", long_context=True),
+    )
+
+
+def test_the_long_context_baseline_reads_the_whole_law() -> None:
+    law, model = Law(), Model(reply())
+    p = Pipeline(
+        lc_config(), law=law, detect=florida, reranker=None, indexed={FLORIDA, SPAIN}, client=model
+    )
+    evs = events(p)
+    assert stages(evs) == [Stage.DETECTING, Stage.RETRIEVING, Stage.GENERATING, Stage.VERIFYING]
+    assert law.calls == [([FLORIDA], date(2026, 1, 15))]
+    request = model.requests[0]
+    assert request.model == STRONG_MODEL
+    assert request.messages[0].content.count("<source n=") == len(HITS)  # all of it
+    summary = evs[-2]
+    assert isinstance(summary, AnswerSummary)
+    assert summary.status is AnswerStatus.ANSWERED
+
+
+def test_a_pipeline_needs_the_source_its_configuration_reads() -> None:
+    with pytest.raises(ValueError, match="reads the whole law"):
+        Pipeline(lc_config(), search=Search(), reranker=None, indexed={FLORIDA}, client=Model(""))
+    with pytest.raises(ValueError, match="retrieves"):
+        Pipeline(
+            config(rerank="none", threshold=None),
+            law=Law(),
+            reranker=None,
+            indexed={FLORIDA},
+            client=Model(""),
+        )
