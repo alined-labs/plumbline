@@ -1,11 +1,22 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { UIMessageChunk } from "ai";
+import type { ComponentProps } from "react";
 
 import { addStatus, finishRun, startRun } from "@/lib/run";
 import { messageFrom, stubChunks, stubChunksWith } from "@/test/stream";
 
-import { Answer } from "./answer";
+import { Answer as AnswerView } from "./answer";
+import { PanelProvider } from "./panel-context";
+
+// The panel lives above the page, so every answer renders inside its provider.
+function Answer(props: ComponentProps<typeof AnswerView>) {
+  return (
+    <PanelProvider>
+      <AnswerView {...props} />
+    </PanelProvider>
+  );
+}
 
 /** The stub's stream with its answer text replaced. */
 function withText(text: string): UIMessageChunk[] {

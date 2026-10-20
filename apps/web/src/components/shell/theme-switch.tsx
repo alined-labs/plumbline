@@ -18,10 +18,10 @@ export function ThemeSwitch({ compact = false }: { compact?: boolean }) {
 
   return (
     <div
-      className={`flex min-h-8 items-center gap-2 px-2.5 text-small text-fg ${compact ? "max-lg:justify-center" : "max-md:min-h-11"}`}
+      className={`flex min-h-8 items-center gap-2 px-2.5 text-small text-fg ${compact ? "rail:justify-center" : "max-md:min-h-11"}`}
     >
-      <MoonIcon className={`shrink-0 text-fg-muted ${compact ? "max-lg:hidden" : ""}`} />
-      <label htmlFor={id} className={`flex-1 cursor-pointer ${compact ? "max-lg:sr-only" : ""}`}>
+      <MoonIcon className={`shrink-0 text-fg-muted ${compact ? "rail:hidden" : ""}`} />
+      <label htmlFor={id} className={`flex-1 cursor-pointer ${compact ? "rail:sr-only" : ""}`}>
         Dark theme
       </label>
       {/* The track is 18px high; the transparent ::before makes the target 26px (24px minimum). */}

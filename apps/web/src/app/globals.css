@@ -20,3 +20,16 @@
     outline-offset: 2px;
   }
 }
+
+/* The sidebar is a rail below 1024px, and from 1024 to 1279px while the source panel is open
+   (AppShell spec). SourcePanel sets data-panel="open" on <html>. */
+@custom-variant rail {
+  @media (width < 64rem) {
+    @slot;
+  }
+  @media (64rem <= width < 80rem) {
+    :root[data-panel="open"] & {
+      @slot;
+    }
+  }
+}
