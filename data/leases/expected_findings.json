@@ -1,0 +1,527 @@
+{
+  "version": 1,
+  "leases": [
+    {
+      "lease_id": "fl-lease-01",
+      "jurisdiction": "florida",
+      "signed_on": "2026-08-15",
+      "findings": [
+        {
+          "clause": "9",
+          "quote": "The Tenant waives all rights, remedies and notices given to tenants by Part II of Chapter 83, Florida Statutes",
+          "issue": "A provision that purports to waive the rights, remedies or requirements of Part II of Chapter 83 is void and unenforceable.",
+          "violates": {
+            "jurisdiction": "florida",
+            "law": "fl-stat-83",
+            "article": "83.47",
+            "paragraph": "(1)(a)",
+            "edition": "2026"
+          }
+        },
+        {
+          "clause": "10",
+          "quote": "The Landlord shall not be liable to the Tenant or the Tenant's guests for any injury, loss or damage to person or property in or about the Premises, whatever its cause, including the Landlord's own negligence",
+          "issue": "A provision that purports to limit or preclude the landlord's liability to the tenant arising under law is void and unenforceable.",
+          "violates": {
+            "jurisdiction": "florida",
+            "law": "fl-stat-83",
+            "article": "83.47",
+            "paragraph": "(1)(b)",
+            "edition": "2026"
+          }
+        },
+        {
+          "clause": "5",
+          "quote": "within 60 days after the Tenant vacates. The Landlord need not give the Tenant notice of any deduction before making it.",
+          "issue": "The landlord must return the deposit within 15 days if it makes no claim, or send written notice of a claim within 30 days; 60 days without any notice misses both deadlines.",
+          "violates": {
+            "jurisdiction": "florida",
+            "law": "fl-stat-83",
+            "article": "83.49",
+            "paragraph": "(3)(a)",
+            "edition": "2026"
+          }
+        }
+      ],
+      "lawful": [
+        {
+          "clause": "13",
+          "quote": "Either party may end a month-to-month tenancy by written notice given at least 30 days before the end of a monthly period.",
+          "why": "A month-to-month tenancy ends on not less than 30 days' written notice before the end of a monthly period, which is what the clause says.",
+          "allowed_by": {
+            "jurisdiction": "florida",
+            "law": "fl-stat-83",
+            "article": "83.57",
+            "paragraph": "(3)",
+            "edition": "2026"
+          }
+        }
+      ]
+    },
+    {
+      "lease_id": "fl-lease-02",
+      "jurisdiction": "florida",
+      "signed_on": "2026-09-01",
+      "findings": [
+        {
+          "clause": "10",
+          "quote": "a lease-approval fee of $150 for each Tenant, $300 in total",
+          "issue": "The approval fee may not exceed $150 per applicant and spouses count as one applicant, so the married Tenants can be charged at most $150, not $300.",
+          "violates": {
+            "jurisdiction": "florida",
+            "law": "fl-stat-718",
+            "article": "718.112",
+            "paragraph": "(2)(k)",
+            "edition": "2026"
+          }
+        },
+        {
+          "clause": "11",
+          "quote": "Each time this lease is renewed with the same Tenants, the Tenants shall pay the Association's lease-approval fee again",
+          "issue": "No approval fee may be charged when a lease is renewed with the same lessee.",
+          "violates": {
+            "jurisdiction": "florida",
+            "law": "fl-stat-718",
+            "article": "718.112",
+            "paragraph": "(2)(k)",
+            "edition": "2026"
+          }
+        },
+        {
+          "clause": "12",
+          "quote": "a security deposit equal to two months' rent, $5,600",
+          "issue": "An association may require a prospective lessee's security deposit of no more than the equivalent of one month's rent; two months' rent is over that cap.",
+          "violates": {
+            "jurisdiction": "florida",
+            "law": "fl-stat-718",
+            "article": "718.112",
+            "paragraph": "(2)(k)",
+            "edition": "2026"
+          }
+        },
+        {
+          "clause": "8",
+          "quote": "may enter the Unit at any time, without notice to the Tenants, to make repairs",
+          "issue": "Entry to make repairs needs at least 24 hours' notice and a time between 7:30 a.m. and 8:00 p.m., unless the tenant consents or there is an emergency.",
+          "violates": {
+            "jurisdiction": "florida",
+            "law": "fl-stat-83",
+            "article": "83.53",
+            "paragraph": "(2)",
+            "edition": "2026"
+          }
+        }
+      ],
+      "lawful": [
+        {
+          "clause": "13",
+          "quote": "the Association may demand in writing that the Tenants pay the rent directly to the Association",
+          "why": "When the unit owner is delinquent to the association, the association may demand in writing that the tenant pay it the rent.",
+          "allowed_by": {
+            "jurisdiction": "florida",
+            "law": "fl-stat-718",
+            "article": "718.116",
+            "paragraph": "(11)",
+            "edition": "2026"
+          }
+        }
+      ]
+    },
+    {
+      "lease_id": "fl-lease-03",
+      "jurisdiction": "florida",
+      "signed_on": "2026-10-01",
+      "findings": [
+        {
+          "clause": "8",
+          "quote": "If any rent is unpaid on the third day of the month, the Landlord may end this lease by 24 hours' written notice to the Tenant.",
+          "issue": "Before ending the lease for unpaid rent, the landlord must serve a written demand giving 3 days, excluding Saturday, Sunday and legal holidays; 24 hours is not enough.",
+          "violates": {
+            "jurisdiction": "florida",
+            "law": "fl-stat-83",
+            "article": "83.56",
+            "paragraph": "(3)",
+            "edition": "2026"
+          }
+        },
+        {
+          "clause": "9",
+          "quote": "the Landlord may change the locks of the Home and have the water and electricity shut off",
+          "issue": "A landlord may not change the locks to keep the tenant out, or cause any utility service to be interrupted, whoever pays for it.",
+          "violates": {
+            "jurisdiction": "florida",
+            "law": "fl-stat-83",
+            "article": "83.67",
+            "paragraph": "(1), (2)",
+            "edition": "2026"
+          }
+        }
+      ],
+      "lawful": [
+        {
+          "clause": "4",
+          "quote": "holds in a separate non-interest-bearing account at Gladeview Community Bank",
+          "why": "Holding the deposit in a separate non-interest-bearing account in a Florida financial institution, without commingling it, is one of the ways the statute allows.",
+          "allowed_by": {
+            "jurisdiction": "florida",
+            "law": "fl-stat-83",
+            "article": "83.49",
+            "paragraph": "(1)(a)",
+            "edition": "2026"
+          }
+        }
+      ]
+    },
+    {
+      "lease_id": "es-lease-01",
+      "jurisdiction": "spain",
+      "signed_on": "2026-02-01",
+      "findings": [
+        {
+          "clause": "5",
+          "quote": "a deposit (fianza) of two months' rent, EUR 2,300",
+          "issue": "For a dwelling, the cash deposit (fianza) is one month's rent, not two.",
+          "violates": {
+            "jurisdiction": "spain",
+            "law": "es-lau",
+            "article": "36",
+            "paragraph": "1",
+            "edition": "boe-2026-10-13"
+          }
+        },
+        {
+          "clause": "6",
+          "quote": "a bank guarantee (aval bancario) for EUR 3,450, three months' rent",
+          "issue": "In a housing lease of up to five years with a natural-person landlord, an additional guarantee may not exceed two months' rent.",
+          "violates": {
+            "jurisdiction": "spain",
+            "law": "es-lau",
+            "article": "36",
+            "paragraph": "5",
+            "edition": "boe-2026-10-13"
+          }
+        },
+        {
+          "clause": "4",
+          "quote": "the Tenant pays three months' rent in advance, EUR 3,450",
+          "issue": "The landlord may never require more than one month's rent in advance.",
+          "violates": {
+            "jurisdiction": "spain",
+            "law": "es-lau",
+            "article": "17",
+            "paragraph": "2",
+            "edition": "boe-2026-10-13"
+          }
+        },
+        {
+          "clause": "9",
+          "quote": "The Tenant pays the fee of the letting agency that arranged this lease",
+          "issue": "The costs of property management and of formalising the contract are the landlord's, so the agency fee cannot be put on the tenant.",
+          "violates": {
+            "jurisdiction": "spain",
+            "law": "es-lau",
+            "article": "20",
+            "paragraph": "1",
+            "edition": "boe-2026-10-13"
+          }
+        }
+      ],
+      "lawful": [
+        {
+          "clause": "8",
+          "quote": "The Tenant pays the property tax (IBI) on the flat, which amounts to EUR 418 a year at the date of this lease.",
+          "why": "The parties may agree in writing that the tenant pays taxes that cannot be individualised, if the agreement states their annual amount at the date of the contract.",
+          "allowed_by": {
+            "jurisdiction": "spain",
+            "law": "es-lau",
+            "article": "20",
+            "paragraph": "1",
+            "edition": "boe-2026-10-13"
+          }
+        }
+      ]
+    },
+    {
+      "lease_id": "es-lease-02",
+      "jurisdiction": "spain",
+      "signed_on": "2026-04-01",
+      "findings": [
+        {
+          "clause": "2",
+          "quote": "ends on that date without any extension. The Tenant waives the extensions provided in article 9 of the Ley de Arrendamientos Urbanos.",
+          "issue": "When the landlord is a company, a lease shorter than seven years is extended year by year until it lasts seven, unless the tenant decides not to renew, and waiving that right to the tenant's detriment is void.",
+          "violates": {
+            "jurisdiction": "spain",
+            "law": "es-lau",
+            "article": "9",
+            "paragraph": "1",
+            "edition": "boe-2026-10-13"
+          }
+        },
+        {
+          "clause": "6",
+          "quote": "The deposit (fianza) is updated on 1 April of every year",
+          "issue": "The deposit may not be updated during the first seven years of a lease whose landlord is a company.",
+          "violates": {
+            "jurisdiction": "spain",
+            "law": "es-lau",
+            "article": "36",
+            "paragraph": "2",
+            "edition": "boe-2026-10-13"
+          }
+        }
+      ],
+      "lawful": [
+        {
+          "clause": "5",
+          "quote": "an additional guarantee of two months' rent, EUR 1,960",
+          "why": "An additional guarantee of up to two months' rent is allowed in a housing lease of up to seven years when the landlord is a company.",
+          "allowed_by": {
+            "jurisdiction": "spain",
+            "law": "es-lau",
+            "article": "36",
+            "paragraph": "5",
+            "edition": "boe-2026-10-13"
+          }
+        }
+      ]
+    },
+    {
+      "lease_id": "es-lease-03",
+      "jurisdiction": "spain",
+      "signed_on": "2026-03-10",
+      "findings": [
+        {
+          "clause": "5",
+          "quote": "The Landlord may end this lease at any time by giving the Tenant fifteen days' notice if the Landlord needs the flat",
+          "issue": "A natural-person landlord may take the flat back for his own or his family's home only after the first year, only if that need was stated expressly in the lease at signing, and with at least two months' notice.",
+          "violates": {
+            "jurisdiction": "spain",
+            "law": "es-lau",
+            "article": "9",
+            "paragraph": "3",
+            "edition": "boe-2026-10-13"
+          }
+        },
+        {
+          "clause": "6",
+          "quote": "All repairs to the flat, including repairs to its structure, roof, plumbing and boiler, are paid by the Tenant.",
+          "issue": "The landlord must make, without raising the rent, every repair needed to keep the dwelling habitable; the tenant pays only small repairs caused by ordinary wear.",
+          "violates": {
+            "jurisdiction": "spain",
+            "law": "es-lau",
+            "article": "21",
+            "paragraph": "1",
+            "edition": "boe-2026-10-13"
+          }
+        }
+      ],
+      "lawful": [
+        {
+          "clause": "7",
+          "quote": "The Tenant may sublet part of the flat only with the Landlord's prior written consent, and may not sublet the whole flat.",
+          "why": "A dwelling may be sublet only in part and only with the landlord's prior written consent, which is what the clause says.",
+          "allowed_by": {
+            "jurisdiction": "spain",
+            "law": "es-lau",
+            "article": "8",
+            "paragraph": "2",
+            "edition": "boe-2026-10-13"
+          }
+        }
+      ]
+    },
+    {
+      "lease_id": "co-lease-01",
+      "jurisdiction": "colombia",
+      "signed_on": "2026-06-01",
+      "findings": [
+        {
+          "clause": "6",
+          "quote": "the Tenant delivers to the Landlord a cash deposit of two months' rent, COP 6,400,000, to guarantee the Tenant's obligations",
+          "issue": "In an urban housing lease, no cash deposit or other real guarantee may be required to secure the tenant's obligations.",
+          "violates": {
+            "jurisdiction": "colombia",
+            "law": "co-ley-820",
+            "article": "16",
+            "paragraph": null,
+            "edition": "senado-2026-10-15"
+          }
+        },
+        {
+          "clause": "5",
+          "quote": "The rent increases by 10% every six months",
+          "issue": "The rent may rise only after each twelve months under the same rent, by no more than the previous calendar year's rise in the consumer price index, and only after notice.",
+          "violates": {
+            "jurisdiction": "colombia",
+            "law": "co-ley-820",
+            "article": "20",
+            "paragraph": null,
+            "edition": "senado-2026-10-15"
+          }
+        }
+      ],
+      "lawful": [
+        {
+          "clause": "7",
+          "quote": "The co-signer (codeudor) signs this contract and is jointly liable with the Tenant for every obligation it creates.",
+          "why": "The prohibition covers cash deposits and real guarantees; a co-signer's personal guarantee is neither.",
+          "allowed_by": {
+            "jurisdiction": "colombia",
+            "law": "co-ley-820",
+            "article": "16",
+            "paragraph": null,
+            "edition": "senado-2026-10-15"
+          }
+        }
+      ]
+    },
+    {
+      "lease_id": "co-lease-02",
+      "jurisdiction": "colombia",
+      "signed_on": "2026-07-15",
+      "findings": [
+        {
+          "clause": "3",
+          "quote": "The rent is COP 2,600,000 a month",
+          "issue": "Monthly rent may not exceed 1% of the property's commercial value, and that value may not be counted above twice the cadastral appraisal: here the cap is 1% of COP 190,000,000, that is COP 1,900,000.",
+          "violates": {
+            "jurisdiction": "colombia",
+            "law": "co-ley-820",
+            "article": "18",
+            "paragraph": null,
+            "edition": "senado-2026-10-15"
+          }
+        },
+        {
+          "clause": "9",
+          "quote": "the Landlord may end it by giving the Tenant 30 days' written notice, without paying any compensation",
+          "issue": "During an extension, the landlord may end the lease only with at least three months' written notice through an authorised postal service and compensation equal to three months' rent.",
+          "violates": {
+            "jurisdiction": "colombia",
+            "law": "co-ley-820",
+            "article": "22",
+            "paragraph": "7",
+            "edition": "senado-2026-10-15"
+          }
+        }
+      ],
+      "lawful": [
+        {
+          "clause": "10",
+          "quote": "The Tenant may end this contract during its initial term or any extension by giving the Landlord at least three months' written notice through an authorised postal service and paying compensation equal to three months' rent.",
+          "why": "The statute gives the tenant exactly this right.",
+          "allowed_by": {
+            "jurisdiction": "colombia",
+            "law": "co-ley-820",
+            "article": "24",
+            "paragraph": "4",
+            "edition": "senado-2026-10-15"
+          }
+        },
+        {
+          "clause": "5",
+          "quote": "the Landlord may raise the rent by up to the increase in the consumer price index for the previous calendar year",
+          "why": "An increase every twelve months, of up to the previous calendar year's consumer price index and after notice, is what the statute allows.",
+          "allowed_by": {
+            "jurisdiction": "colombia",
+            "law": "co-ley-820",
+            "article": "20",
+            "paragraph": null,
+            "edition": "senado-2026-10-15"
+          }
+        }
+      ]
+    },
+    {
+      "lease_id": "dubai-lease-01",
+      "jurisdiction": "dubai",
+      "signed_on": "2026-05-10",
+      "findings": [
+        {
+          "clause": "4",
+          "quote": "The annual rent for the renewed term is AED 132,000, an increase of 10% on the previous rent",
+          "issue": "On renewal, a rent no more than 10% below the Rent Index average for similar units may not be increased at all; this rent is 4% below it (AED 120,000 against AED 125,000), yet the clause raises it by 10%.",
+          "violates": {
+            "jurisdiction": "dubai",
+            "law": "dubai-dld-tenancy-guide",
+            "article": "Decree 43/2013 art. 1",
+            "paragraph": "(a)",
+            "edition": "dld-2020-02-07"
+          }
+        },
+        {
+          "clause": "6",
+          "quote": "is non-refundable",
+          "issue": "A landlord may take a security deposit only on the undertaking to refund it, or what remains of it, when the lease expires.",
+          "violates": {
+            "jurisdiction": "dubai",
+            "law": "dubai-law-26-2007",
+            "article": "20",
+            "paragraph": null,
+            "edition": "dlp-2024-12-20"
+          }
+        }
+      ],
+      "lawful": [
+        {
+          "clause": "9",
+          "quote": "The Tenant may not assign this contract or sublet the apartment without the Landlord's written consent.",
+          "why": "Unless the parties agree otherwise, the tenant may not assign or sublet without the landlord's written consent.",
+          "allowed_by": {
+            "jurisdiction": "dubai",
+            "law": "dubai-law-26-2007",
+            "article": "24",
+            "paragraph": null,
+            "edition": "dlp-2024-12-20"
+          }
+        }
+      ]
+    },
+    {
+      "lease_id": "dubai-lease-02",
+      "jurisdiction": "dubai",
+      "signed_on": "2026-03-01",
+      "findings": [
+        {
+          "clause": "7",
+          "quote": "The Landlord may terminate this contract at any time during its term by giving the Tenant 30 days' notice.",
+          "issue": "A valid lease may not be ended unilaterally during its term; it ends only by mutual consent or as the law provides.",
+          "violates": {
+            "jurisdiction": "dubai",
+            "law": "dubai-law-26-2007",
+            "article": "7",
+            "paragraph": null,
+            "edition": "dlp-2024-12-20"
+          }
+        },
+        {
+          "clause": "8",
+          "quote": "If the Landlord sells the townhouse, this contract ends on the date of the transfer",
+          "issue": "A transfer of ownership does not affect the tenant's right to stay for the fixed term of the lease.",
+          "violates": {
+            "jurisdiction": "dubai",
+            "law": "dubai-law-26-2007",
+            "article": "28",
+            "paragraph": null,
+            "edition": "dlp-2024-12-20"
+          }
+        }
+      ],
+      "lawful": [
+        {
+          "clause": "5",
+          "quote": "The Tenant pays the housing fee that Dubai Municipality charges with the electricity bill",
+          "why": "Unless the lease says otherwise, the tenant pays the fees and taxes due to government entities for the use of the property.",
+          "allowed_by": {
+            "jurisdiction": "dubai",
+            "law": "dubai-law-26-2007",
+            "article": "22",
+            "paragraph": null,
+            "edition": "dlp-2024-12-20"
+          }
+        }
+      ]
+    }
+  ]
+}

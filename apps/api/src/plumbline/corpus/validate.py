@@ -1,6 +1,6 @@
 """Validate the data `make check` depends on: the corpus manifest, every committed source's
-hash, the licence row of every source, and every golden-set file. Lane B extends it
-(synthetic leases and their expected findings, scanned pages).
+hash, the licence row of every source, the synthetic leases' expected findings, and every
+golden-set file.
 
     uv run python -m plumbline.corpus.validate
 """
@@ -14,6 +14,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
+from plumbline.corpus.leases import clauses, load_expected, squeeze
 from plumbline.corpus.manifest import MANIFEST, Manifest, load_manifest
 from plumbline.settings import ROOT
 from rag_eval.schema import GoldenFileError, load_golden
@@ -81,6 +82,57 @@ def check_licences(manifest: Manifest, licences: str) -> list[str]:
     return problems
 
 
+def check_leases(manifest: Manifest, root: Path = ROOT) -> list[str]:
+    """Every synthetic lease has expected findings; every finding and lawful clause names a
+    clause of its lease, quotes it word for word, and cites a law and edition that are in
+    the manifest, of the lease's own jurisdiction."""
+    folder = root / "data" / "leases"
+    leases = {path.stem: path for path in folder.glob("*.md") if path.name != "README.md"}
+    expected_file = folder / "expected_findings.json"
+    if not expected_file.is_file():
+        return [f"{expected_file.relative_to(root)} is missing"] if leases else []
+    try:
+        expected = load_expected(expected_file)
+    except (ValidationError, ValueError) as exc:
+        return [f"{expected_file.relative_to(root)}: {exc}"]
+    editions = {(source.law, source.edition): source for source in manifest.sources}
+    listed = [lease.lease_id for lease in expected.leases]
+    problems = [
+        f"{lease_id}: listed twice"
+        for lease_id in sorted(set(listed))
+        if listed.count(lease_id) > 1
+    ]
+    problems += [
+        f"{name}.md: no entry in expected_findings.json"
+        for name in sorted(set(leases) - set(listed))
+    ]
+    for lease in expected.leases:
+        path = leases.get(lease.lease_id)
+        if path is None:
+            problems.append(f"{lease.lease_id}: expected_findings.json lists a lease with no file")
+            continue
+        text = path.read_text(encoding="utf-8")
+        if lease.signed_on.isoformat() not in text:
+            problems.append(
+                f"{lease.lease_id}: the lease does not state its signing date {lease.signed_on}"
+            )
+        sections = clauses(text)
+        cited = [(item.clause, item.quote, item.violates) for item in lease.findings]
+        cited += [(item.clause, item.quote, item.allowed_by) for item in lease.lawful]
+        for clause, quote, ref in cited:
+            where = f"{lease.lease_id} clause {clause}"
+            source = editions.get((ref.law, ref.edition))
+            if source is None:
+                problems.append(f"{where}: {ref.law} edition {ref.edition} is not in the manifest")
+            elif not source.jurisdiction == ref.jurisdiction == lease.jurisdiction:
+                problems.append(f"{where}: {ref.key} is not {lease.jurisdiction.value} law")
+            if clause not in sections:
+                problems.append(f"{where}: the lease has no such clause")
+            elif squeeze(quote) not in squeeze(sections[clause]):
+                problems.append(f"{where}: the quote is not in the clause")
+    return problems
+
+
 def check_golden(root: Path = ROOT) -> list[str]:
     problems: list[str] = []
     for path in sorted((root / "data" / "golden").glob("**/*.jsonl")):
@@ -102,6 +154,7 @@ def main() -> int:
         + check_editions(manifest)
         + check_unlisted(manifest)
         + check_licences(manifest, LICENCES.read_text(encoding="utf-8"))
+        + check_leases(manifest)
         + check_golden()
     )
     for problem in problems:
