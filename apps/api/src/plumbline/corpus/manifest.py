@@ -20,6 +20,8 @@ from plumbline.settings import ROOT
 
 Slug = Annotated[str, StringConstraints(pattern=r"^[a-z0-9][a-z0-9._-]*$", max_length=80)]
 NonEmpty = Annotated[str, StringConstraints(min_length=1, strip_whitespace=True)]
+# xml: the BOE's consolidated-legislation records, every block with all its versions.
+Format = Literal["pdf", "html", "xml", "txt", "md"]
 MANIFEST = ROOT / "data" / "corpus" / "manifest.json"
 
 
@@ -36,7 +38,7 @@ class Source(BaseModel):
     consolidated_on: date | None = None
     retrieved_on: date
     sha256: Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
-    format: Literal["pdf", "html", "txt", "md"]
+    format: Format
     license_basis: NonEmpty  # one line; DATA_LICENSES.md has the detail
     committed: bool  # False: fetched at build time, never committed
     path: NonEmpty  # repo-relative: data/corpus/raw/... or data/corpus/fetched/...

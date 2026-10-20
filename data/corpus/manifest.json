@@ -34,6 +34,40 @@
       "committed": true,
       "path": "data/corpus/raw/fl-stat-718-2026.html",
       "notes": "Sections 718.110, 718.112 and 718.116, cut in that order from the statute markup of the chapter page (flsenate.gov serves the same bytes); the rest of chapter 718 is not in the corpus. The provisions on tenancies: 718.110(13) (amendments restricting rentals), 718.112(2)(k) (lease approval fees and the association's security deposit) and 718.116(11) (rent demanded from the tenant of a delinquent owner)."
+    },
+    {
+      "id": "es-lau-boe-2026-10-13",
+      "law": "es-lau",
+      "title": "Ley 29/1994, de 24 de noviembre, de Arrendamientos Urbanos (consolidated text)",
+      "jurisdiction": "spain",
+      "language": "es",
+      "url": "https://www.boe.es/datosabiertos/api/legislacion-consolidada/id/BOE-A-1994-26003",
+      "edition": "boe-2026-10-13",
+      "consolidated_on": "2026-10-13",
+      "retrieved_on": "2026-10-20",
+      "sha256": "bf93e78773d7beae3adcf2663772d373ab375b446e61927423cfde87c6b768e6",
+      "format": "xml",
+      "license_basis": "BOE reuse conditions: source and update date cited; consolidated text, informational only",
+      "committed": true,
+      "path": "data/corpus/raw/es-lau-boe-2026-10-13.xml",
+      "notes": "The BOE's consolidated-legislation open-data record: metadata (with the update date), analysis, and the text, every block with all its versions and their dates. A consolidated text is informational; only the BOE's official editions are authentic. Reading copy: https://www.boe.es/buscar/act.php?id=BOE-A-1994-26003. Holds the amendments of Real Decreto-ley 29/2026, in force from 2026-10-08 with no validation by Congress recorded when retrieved (it re-enacts RDL 26/2026, repealed on 2026-10-02), and announces art. 10 as reworded by RDL 28/2026 from 2026-11-15."
+    },
+    {
+      "id": "es-lph-boe-2026-10-05",
+      "law": "es-lph",
+      "title": "Ley 49/1960, de 21 de julio, sobre propiedad horizontal (consolidated text)",
+      "jurisdiction": "spain",
+      "language": "es",
+      "url": "https://www.boe.es/datosabiertos/api/legislacion-consolidada/id/BOE-A-1960-10906",
+      "edition": "boe-2026-10-05",
+      "consolidated_on": "2026-10-05",
+      "retrieved_on": "2026-10-20",
+      "sha256": "738905e7c87fec6b50b686587cdb273c1b0ca11379c328ef6b9341b65ebd5da5",
+      "format": "xml",
+      "license_basis": "BOE reuse conditions: source and update date cited; consolidated text, informational only",
+      "committed": true,
+      "path": "data/corpus/raw/es-lph-boe-2026-10-05.xml",
+      "notes": "The BOE's consolidated-legislation open-data record: metadata (with the update date), analysis, and the text, every block with all its versions and their dates. A consolidated text is informational; only the BOE's official editions are authentic. Reading copy: https://www.boe.es/buscar/act.php?id=BOE-A-1960-10906. Holds art. 10 and the third additional provision as reworded by Ley 4/2026, in force from 2026-10-23."
     }
   ]
 }

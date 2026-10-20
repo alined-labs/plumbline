@@ -173,6 +173,18 @@ def test_a_redirect_to_another_host_is_refused() -> None:
         download(client, PART)
 
 
+def test_an_api_gets_the_accept_header_it_needs() -> None:
+    def answer(request: httpx.Request) -> httpx.Response:
+        xml = request.headers["accept"] == "application/xml"
+        return httpx.Response(200, content=b"<response/>") if xml else httpx.Response(400)
+
+    client = httpx.Client(transport=httpx.MockTransport(answer))
+    record = replace(PART, format="xml", keep=(), accept="application/xml")
+    assert download(client, record) == b"<response/>"
+    with pytest.raises(FetchError, match="400"):
+        download(client, replace(record, accept=None))
+
+
 def test_the_manifest_pins_exactly_the_declared_sources() -> None:
     manifest = load_manifest()
     assert [row.id for row in manifest.sources] == [source.id for source in SOURCES]
@@ -203,3 +215,16 @@ def test_the_florida_cuts_hold_the_sections_their_notes_name() -> None:
         "718.112",
         "718.116",
     ]
+
+
+def test_each_boe_record_is_the_edition_it_is_pinned_as() -> None:
+    """The record's own update date is the consolidation date, so a re-pin that caught a
+    newer consolidation fails here until it is declared as the new edition."""
+    boe = [row for row in load_manifest().sources if row.url.host == "www.boe.es"]
+    assert {row.law for row in boe} == {"es-lau", "es-lph"}
+    for row in boe:
+        xml = (ROOT / row.path).read_text(encoding="utf-8")
+        updated = re.search(r"<fecha_actualizacion>(\d{4})(\d{2})(\d{2})T", xml)
+        assert updated is not None
+        assert row.consolidated_on == date(*map(int, updated.groups()))
+        assert row.edition == f"boe-{row.consolidated_on.isoformat()}"
