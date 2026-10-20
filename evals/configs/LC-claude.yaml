@@ -1,0 +1,6 @@
+name: LC-claude
+description: LC with Claude Sonnet 5.5 generating (the premium route), as the public API serves it.
+chunker: {kind: article, merge_parent: true}
+retrieval: {mode: none, jurisdiction_filter: true}
+generation: {route: premium, long_context: true, max_output_tokens: 1024}
+judged: true

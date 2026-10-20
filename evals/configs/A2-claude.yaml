@@ -1,0 +1,6 @@
+name: A2-claude
+description: A2 with Claude Sonnet 5.5 generating (the premium route), as the public API serves it.
+chunker: {kind: article, merge_parent: true}
+retrieval: {mode: hybrid, rrf_k: 60, candidates: 50, top_k: 8, rerank: none, headers: none}
+generation: {route: premium}
+judged: true

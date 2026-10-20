@@ -1,0 +1,6 @@
+name: A0-claude
+description: A0 with Claude Sonnet 5.5 generating (the premium route), as the public API serves it.
+chunker: {kind: fixed, max_tokens: 800, overlap_tokens: 0, merge_parent: false}
+retrieval: {mode: dense, top_k: 8, rerank: none, headers: none}
+generation: {route: premium}
+judged: true
