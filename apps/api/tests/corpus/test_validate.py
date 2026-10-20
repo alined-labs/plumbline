@@ -73,6 +73,14 @@ def test_bad_rows_are_refused(overrides: dict[str, Any]) -> None:
         Manifest.model_validate({"sources": [source(**overrides)]})
 
 
+def test_only_a_host_without_https_may_use_http() -> None:
+    senado = "http://www.secretariasenado.gov.co/senado/basedoc/ley_0820_2003.html"
+    row = source(url=senado, parts=[senado.replace(".html", "_pr001.html")])
+    Manifest.model_validate({"sources": [row]})
+    with pytest.raises(ValidationError, match="must be https"):
+        Manifest.model_validate({"sources": [source(parts=["http://example.org/part.js"])]})
+
+
 def test_duplicate_ids_are_refused() -> None:
     with pytest.raises(ValidationError):
         Manifest.model_validate({"sources": [source(), source()]})

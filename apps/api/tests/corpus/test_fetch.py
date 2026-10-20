@@ -236,3 +236,23 @@ def test_nothing_from_dubai_is_committed() -> None:
     dubai = [source for source in SOURCES if source.jurisdiction is Jurisdiction.DUBAI]
     assert dubai
     assert not any(source.committed for source in dubai)
+
+
+def test_a_source_in_parts_joins_them_after_their_part_lines() -> None:
+    first, notes = "https://www.leg.state.fl.us/law.html", "https://www.leg.state.fl.us/js/law.js"
+    client = serve({first: b"<p>Art. 16</p>", notes: b"function insRow1() {}"})
+    joined = replace(PART, keep=(), parts=(notes,), url=first)
+    assert download(client, joined) == (
+        b"<!-- plumbline part: https://www.leg.state.fl.us/law.html -->\n<p>Art. 16</p>\n"
+        b"<!-- plumbline part: https://www.leg.state.fl.us/js/law.js -->\n"
+        b"<script>\nfunction insRow1() {}\n</script>\n"
+    )
+    with pytest.raises(FetchError, match="not both"):
+        download(client, replace(joined, keep=(PART_II,)))
+
+
+def test_a_script_part_that_would_end_its_wrapper_is_refused() -> None:
+    first, notes = "https://www.leg.state.fl.us/law.html", "https://www.leg.state.fl.us/js/law.js"
+    client = serve({first: b"<p>Art. 16</p>", notes: b"var x = '</SCRIPT>';"})
+    with pytest.raises(FetchError, match="would end its wrapper"):
+        download(client, replace(PART, keep=(), parts=(notes,), url=first))

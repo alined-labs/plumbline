@@ -73,6 +73,8 @@ class Declared:
     # for byte, and the elements are written one per line. Empty: keep the whole page.
     keep: tuple[bytes, ...] = ()
     accept: str | None = None  # the Accept header, for an API that needs one
+    # Further URLs whose content follows the first one's in the same file (see PART).
+    parts: tuple[str, ...] = ()
 
     @property
     def path(self) -> str:
@@ -124,6 +126,32 @@ def dlp(path: str) -> str:
     """A file of the Dubai Legislation Portal, from its path under Legislation Reference."""
     return "https://dlp.dubai.gov.ae/Legislation%20Reference/" + quote(path, safe="/()")
 
+
+SENADO_BASIS: Final = (
+    "Ley 23 de 1982, art. 41 for the law text; the editor's notes are protected: fetch-only"
+)
+SENADO_RECORD: Final = (
+    "The Secretaría del Senado's basedoc pages, each followed by the script that fills its "
+    "note boxes (Notas de Vigencia, Jurisprudencia Vigencia, Legislación Anterior), wrapped in "
+    "<script> tags. The notes are Avance Jurídico's annotations, protected by copyright, so "
+    "the source is fetch-only. "
+    "Fetched over HTTP because the Senado served no HTTPS when it was pinned (port 443 "
+    "refused, 2026-10-20); the law text matched the Cancillería's HTTPS copy of the same "
+    "compilation, apart from amendments that older copy lacks."
+)
+
+
+def senado(law: str, pages: int) -> tuple[str, tuple[str, ...]]:
+    """A law on the Senado's basedoc, which splits a long law over several pages: the URL of
+    its first page, then the parts that follow it, each page's notes script after it."""
+    names = [law] + [f"{law}_pr{n:03d}" for n in range(1, pages)]
+    base = "http://www.secretariasenado.gov.co/senado/basedoc/"
+    urls = [url for name in names for url in (f"{base}{name}.html", f"{base}js/{name}.js")]
+    return urls[0], tuple(urls[1:])
+
+
+LEY_820 = senado("ley_0820_2003", pages=2)
+LEY_675 = senado("ley_0675_2001", pages=3)
 
 SOURCES: Final[tuple[Declared, ...]] = (
     Declared(
@@ -261,6 +289,38 @@ SOURCES: Final[tuple[Declared, ...]] = (
             "own modification date."
         ),
     ),
+    Declared(
+        id="co-ley-820-senado-2026-10-15",
+        law="co-ley-820",
+        title="Ley 820 de 2003, régimen de arrendamiento de vivienda urbana (the Senate's "
+        "compilation, with its validity notes)",
+        jurisdiction=Jurisdiction.COLOMBIA,
+        language=Language.ES,
+        url=LEY_820[0],
+        parts=LEY_820[1],
+        edition="senado-2026-10-15",
+        consolidated_on=date(2026, 10, 15),
+        format="html",
+        license_basis=SENADO_BASIS,
+        committed=False,
+        notes=f"{SENADO_RECORD} Two pages: arts. 1-39 and 40-43.",
+    ),
+    Declared(
+        id="co-ley-675-senado-2026-10-15",
+        law="co-ley-675",
+        title="Ley 675 de 2001, régimen de propiedad horizontal (the Senate's compilation, "
+        "with its validity notes)",
+        jurisdiction=Jurisdiction.COLOMBIA,
+        language=Language.ES,
+        url=LEY_675[0],
+        parts=LEY_675[1],
+        edition="senado-2026-10-15",
+        consolidated_on=date(2026, 10, 15),
+        format="html",
+        license_basis=SENADO_BASIS,
+        committed=False,
+        notes=f"{SENADO_RECORD} Three pages: arts. 1-33, 34-64 and 65-87.",
+    ),
 )
 
 
@@ -291,19 +351,46 @@ def element(page: bytes, marker: bytes) -> bytes:
     raise FetchError(f"the element {marker[:60]!r} never closes")
 
 
-def download(client: httpx.Client, source: Declared) -> bytes:
-    """What the manifest pins for `source`: the whole page, or the elements it keeps."""
+# The line before each part of a source that joins several URLs, so a reader can split the
+# file back into the publisher's documents.
+PART: Final = b"<!-- plumbline part: %s -->\n"
+
+
+def get(client: httpx.Client, url: str, accept: str | None) -> bytes:
     try:
-        headers = {"Accept": source.accept} if source.accept else None
-        response = client.get(source.url, headers=headers)
+        response = client.get(url, headers={"Accept": accept} if accept else None)
         response.raise_for_status()
     except httpx.HTTPError as exc:
-        raise FetchError(f"{source.url}: {exc}") from exc
-    if response.url.host != httpx.URL(source.url).host:
-        raise FetchError(f"{source.url} redirected to another host: {response.url}")
+        raise FetchError(f"{url}: {exc}") from exc
+    if response.url.host != httpx.URL(url).host:
+        raise FetchError(f"{url} redirected to another host: {response.url}")
+    return response.content
+
+
+def part(client: httpx.Client, url: str, accept: str | None) -> bytes:
+    """One part of a joined source. A script is wrapped in <script> tags: an HTML reader
+    skips a script, and would otherwise read its code as the law's text (the Senado's
+    note boxes hold earlier wordings of articles that must not look like articles)."""
+    content = get(client, url, accept)
+    if not url.endswith(".js"):
+        return content
+    if b"</script" in content.lower():
+        raise FetchError(f"{url} contains </script, which would end its wrapper")
+    return b"<script>\n" + content + b"\n</script>"
+
+
+def download(client: httpx.Client, source: Declared) -> bytes:
+    """What the manifest pins for `source`: the whole page, the elements it keeps, or every
+    part it joins, each after its PART line."""
+    if source.parts:
+        if source.keep:
+            raise FetchError("a source keeps elements of one page or joins parts, not both")
+        urls = (source.url, *source.parts)
+        return b"".join(PART % u.encode() + part(client, u, source.accept) + b"\n" for u in urls)
+    page = get(client, source.url, source.accept)
     if not source.keep:
-        return response.content
-    return b"".join(element(response.content, marker) + b"\n" for marker in source.keep)
+        return page
+    return b"".join(element(page, marker) + b"\n" for marker in source.keep)
 
 
 def write(path: Path, content: bytes) -> None:
