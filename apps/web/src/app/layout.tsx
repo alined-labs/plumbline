@@ -6,6 +6,7 @@ import { SidebarContent } from "@/components/shell/sidebar";
 import { SiteFooter } from "@/components/shell/site-footer";
 import { PRODUCT_LINE } from "@/lib/copy";
 import { fontVariables } from "@/lib/fonts";
+import { THEME_SCRIPT } from "@/lib/theme";
 
 import { colorOf, type Tokens } from "../../design/tokens";
 import tokens from "../../design/tokens.json";
@@ -35,7 +36,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={fontVariables}>
+    // The head script may set data-theme before React hydrates, hence suppressHydrationWarning.
+    <html lang="en" className={fontVariables} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body className="min-h-dvh bg-bg text-fg antialiased">
         <a
           href="#main"
