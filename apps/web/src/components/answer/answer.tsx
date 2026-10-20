@@ -40,9 +40,13 @@ export function Answer({
   const open = panel.subject?.messageId === message.id ? panel.subject.n : null;
   const status = view.summary?.status;
 
-  function openSource(n: number, from: HTMLElement) {
-    panel.open({ messageId: message.id, n, citations: view.citations }, from);
+  function openPanel(n: number | null, tab: "sources" | "trace", from: HTMLElement) {
+    panel.open(
+      { messageId: message.id, citations: view.citations, n, tab, trace: view.trace, run },
+      from,
+    );
   }
+  const openSource = (n: number, from: HTMLElement) => openPanel(n, "sources", from);
 
   return (
     <article aria-label="Answer" aria-busy={streaming || undefined} className="flex flex-col gap-4">
@@ -53,7 +57,7 @@ export function Answer({
           <AnswerSkeleton />
         )
       ) : (
-        <AnswerMeta view={view} run={run} />
+        <AnswerMeta view={view} run={run} onTrace={(from) => openPanel(null, "trace", from)} />
       )}
       {failure ?? (
         <>
@@ -94,10 +98,16 @@ export function Answer({
 
 /** "Partial answer · 1 source verified · Answered in 4.2 s · stub · full tier · Trace": the
  * status when it is not a plain answer, what was verified, how long it took, the
- * model-and-tier badge from the trace, and the status steps one click away. */
-function AnswerMeta({ view, run }: { view: AnswerView; run: Run | undefined }) {
-  const [open, setOpen] = useState(false);
-  const stepsId = useId();
+ * model-and-tier badge from the trace, and the trace itself one click away, in the panel. */
+function AnswerMeta({
+  view,
+  run,
+  onTrace,
+}: {
+  view: AnswerView;
+  run: Run | undefined;
+  onTrace: (opener: HTMLElement) => void;
+}) {
   const { citations, summary, trace } = view;
   if (!summary) return null;
   const count = citations.length;
@@ -120,12 +130,11 @@ function AnswerMeta({ view, run }: { view: AnswerView; run: Run | undefined }) {
         {trace.tier} tier{trace.cached && " · replayed"}
       </span>
     ),
-    run && run.steps.length > 0 && (
+    (trace || (run && run.steps.length > 0)) && (
       <button
         type="button"
-        aria-expanded={open}
-        aria-controls={stepsId}
-        onClick={() => setOpen(!open)}
+        aria-haspopup="dialog"
+        onClick={(event) => onTrace(event.currentTarget)}
         className="rounded-xs text-accent underline underline-offset-2 hover:text-accent-hover"
       >
         Trace
@@ -134,28 +143,21 @@ function AnswerMeta({ view, run }: { view: AnswerView; run: Run | undefined }) {
   ].filter(Boolean);
 
   return (
-    <div className="flex flex-col gap-2">
-      <p className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-small text-fg-muted">
-        {items.map((item, i) => (
-          <Fragment key={i}>
-            {i > 0 && (
-              <>
-                {" "}
-                <span aria-hidden="true" className="text-fg-subtle">
-                  ·
-                </span>{" "}
-              </>
-            )}
-            {item}
-          </Fragment>
-        ))}
-      </p>
-      {run && open && (
-        <div id={stepsId}>
-          <StatusSteps run={run} />
-        </div>
-      )}
-    </div>
+    <p className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-small text-fg-muted">
+      {items.map((item, i) => (
+        <Fragment key={i}>
+          {i > 0 && (
+            <>
+              {" "}
+              <span aria-hidden="true" className="text-fg-subtle">
+                ·
+              </span>{" "}
+            </>
+          )}
+          {item}
+        </Fragment>
+      ))}
+    </p>
   );
 }
 

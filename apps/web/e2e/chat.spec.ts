@@ -82,13 +82,29 @@ test("a question streams back a cited answer", async ({ page }) => {
   await expect(panel).toHaveCount(0);
   await expect(marker).toBeFocused();
 
-  // The stream's status parts collapse into the meta line, one click away under Trace, and
-  // the finished answer is announced once.
+  // The stream's status parts collapse into the meta line, and the trace is one click away
+  // in the panel: the stages as they happened, the server's timings, and what produced it.
   await expect(answer).toContainText(/Answered in \d+\.\d s/);
-  await answer.getByRole("button", { name: "Trace" }).click();
-  await expect(answer.getByRole("list", { name: "What Plumbline is doing" })).toContainText(
+  const trace = answer.getByRole("button", { name: "Trace" });
+  await trace.click();
+  const tracePanel = page.getByRole("dialog", { name: "How this answer was produced" });
+  await expect(tracePanel.getByRole("tab", { name: "Trace" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(tracePanel.getByRole("list", { name: "What Plumbline is doing" })).toContainText(
     "Reading your question",
   );
+  await expect(tracePanel.getByRole("list", { name: "Time per stage" })).toContainText(
+    "Writing the answer",
+  );
+  await expect(tracePanel).toContainText("Replayed from a recording");
+  await expectNoAxeViolations(page);
+  // Choosing the Sources tab opens the first source, so the dialog takes that source's name.
+  await tracePanel.getByRole("tab", { name: /Sources/ }).click();
+  await expect(page.getByRole("dialog", { name: "Stub Act, s. 1" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(trace).toBeFocused();
   await expect(page.locator("[aria-live=polite]").filter({ hasText: "Answer:" })).toContainText(
     "This is a stub answer from the Plumbline seed. Retrieval",
   );

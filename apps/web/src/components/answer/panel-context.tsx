@@ -19,6 +19,8 @@ type PanelApi = {
   subject: PanelSubject | null;
   /** Opens (or switches) the panel; focus returns to `opener` when it closes. */
   open: (subject: PanelSubject, opener: HTMLElement) => void;
+  /** Switches the source or the tab of the open panel. */
+  update: (patch: Partial<Pick<PanelSubject, "n" | "tab">>) => void;
   close: () => void;
 };
 
@@ -43,8 +45,13 @@ export function PanelProvider({ children }: { children: ReactNode }) {
     opener.current = from;
     setSubject(next);
   }, []);
+  const update = useCallback(
+    (patch: Partial<Pick<PanelSubject, "n" | "tab">>) =>
+      setSubject((current) => (current ? { ...current, ...patch } : current)),
+    [],
+  );
   const close = useCallback(() => setSubject(null), []);
-  const api = useMemo(() => ({ subject, open, close }), [subject, open, close]);
+  const api = useMemo(() => ({ subject, open, update, close }), [subject, open, update, close]);
 
   const isOpen = subject !== null;
   useEffect(() => {
@@ -58,7 +65,13 @@ export function PanelProvider({ children }: { children: ReactNode }) {
     <PanelContext value={api}>
       <SlotContext value={setSlot}>
         {children}
-        <SourcePanel subject={subject} onClose={close} opener={opener} slot={slot} />
+        <SourcePanel
+          subject={subject}
+          onChange={update}
+          onClose={close}
+          opener={opener}
+          slot={slot}
+        />
       </SlotContext>
     </PanelContext>
   );

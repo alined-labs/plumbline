@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createRef } from "react";
 
-import { SourcePanel } from "./source-panel";
+import { SourcePanel, type PanelSubject } from "./source-panel";
 
 // A citation of a source the committed corpus manifest holds, so the panel can name its
 // edition and link the official text.
@@ -25,11 +25,26 @@ const citation: Citation = {
   page: null,
 };
 
-const subject = { messageId: "m1", n: citation.n, citations: [citation] };
+const subject: PanelSubject = {
+  messageId: "m1",
+  citations: [citation],
+  n: citation.n,
+  tab: "sources",
+  trace: undefined,
+  run: undefined,
+};
 
 describe("SourcePanel", () => {
   it("names the source, quotes the law and links the official text", async () => {
-    render(<SourcePanel subject={subject} onClose={() => {}} opener={createRef()} slot={null} />);
+    render(
+      <SourcePanel
+        subject={subject}
+        onChange={() => {}}
+        onClose={() => {}}
+        opener={createRef()}
+        slot={null}
+      />,
+    );
     const panel = await screen.findByRole("dialog", { name: "Fla. Stat. § 83.49(3)(a)" });
     expect(panel).toHaveTextContent("Source 2");
     expect(panel).toHaveTextContent("Florida Statutes 2026, chapter 83");
@@ -41,7 +56,15 @@ describe("SourcePanel", () => {
 
   it("copies the reference with the edition and the link", async () => {
     const user = userEvent.setup();
-    render(<SourcePanel subject={subject} onClose={() => {}} opener={createRef()} slot={null} />);
+    render(
+      <SourcePanel
+        subject={subject}
+        onChange={() => {}}
+        onClose={() => {}}
+        opener={createRef()}
+        slot={null}
+      />,
+    );
     await user.click(await screen.findByRole("button", { name: "Copy reference" }));
     const copied = await navigator.clipboard.readText();
     expect(copied).toMatch(
@@ -52,7 +75,15 @@ describe("SourcePanel", () => {
 
   it("closes on Escape", async () => {
     const onClose = vi.fn();
-    render(<SourcePanel subject={subject} onClose={onClose} opener={createRef()} slot={null} />);
+    render(
+      <SourcePanel
+        subject={subject}
+        onChange={() => {}}
+        onClose={onClose}
+        opener={createRef()}
+        slot={null}
+      />,
+    );
     await screen.findByRole("dialog");
     await userEvent.setup().keyboard("{Escape}");
     expect(onClose).toHaveBeenCalledOnce();
