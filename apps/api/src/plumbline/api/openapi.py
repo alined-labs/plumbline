@@ -1,4 +1,4 @@
-"""The OpenAPI schema, plus the payloads of the event streams (the answer's data parts, an
+"""The OpenAPI schema, with an example for every operation (api/examples.py), plus the payloads of the event streams (the answer's data parts, an
 ingestion job's events and a lease check's) as components, so the browser's types come from one generated
 file (packages/ts-client).
 
@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any
 from fastapi.openapi.utils import get_openapi
 from pydantic.json_schema import models_json_schema
 
+from plumbline.api.examples import add_examples
 from plumbline.api.problems import MEDIA_TYPE, Problem
 from plumbline.api.schemas import JobEventView, LeaseDoneEvent, LeaseFailedEvent, LeaseStageEvent
 from plumbline.core.stream import AnswerSummary, StatusEvent, StreamError, TraceSummary
@@ -58,6 +59,7 @@ def build_openapi(app: FastAPI) -> dict[str, Any]:
     for name, definition in defs.get("$defs", {}).items():
         components.setdefault(name, definition)
     _problems_everywhere(schema)
+    add_examples(schema)
     for name in FASTAPI_ERRORS:
         components.pop(name, None)
     return schema
