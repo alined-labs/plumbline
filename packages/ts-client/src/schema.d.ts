@@ -314,10 +314,14 @@ export interface components {
             /** Request Id */
             request_id: string;
         };
-        /** HTTPValidationError */
-        HTTPValidationError: {
-            /** Detail */
-            detail?: components["schemas"]["ValidationError"][];
+        /** FieldError */
+        FieldError: {
+            /** Loc */
+            loc: (string | number)[];
+            /** Msg */
+            msg: string;
+            /** Type */
+            type: string;
         };
         /** Health */
         Health: {
@@ -423,6 +427,28 @@ export interface components {
             y0: number;
             /** Y1 */
             y1: number;
+        };
+        /** Problem */
+        Problem: {
+            /**
+             * Detail
+             * @default null
+             */
+            detail: string | null;
+            /**
+             * Errors
+             * @default null
+             */
+            errors: components["schemas"]["FieldError"][] | null;
+            /** Status */
+            status: number;
+            /** Title */
+            title: string;
+            /**
+             * Type
+             * @default about:blank
+             */
+            type: string;
         };
         /** QuoteBoxes */
         QuoteBoxes: {
@@ -543,19 +569,6 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
-        /** ValidationError */
-        ValidationError: {
-            /** Context */
-            ctx?: Record<string, never>;
-            /** Input */
-            input?: unknown;
-            /** Location */
-            loc: (string | number)[];
-            /** Message */
-            msg: string;
-            /** Error Type */
-            type: string;
-        };
     };
     responses: never;
     parameters: never;
@@ -586,13 +599,22 @@ export interface operations {
                     "application/json": components["schemas"]["JobView"][];
                 };
             };
-            /** @description Validation Error */
+            /** @description The request is not valid. */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description An error, as problem details (RFC 9457). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -617,13 +639,22 @@ export interface operations {
                     "application/json": components["schemas"]["JobView"];
                 };
             };
-            /** @description Validation Error */
+            /** @description The request is not valid. */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description An error, as problem details (RFC 9457). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -650,13 +681,22 @@ export interface operations {
                     "text/event-stream": unknown;
                 };
             };
-            /** @description Validation Error */
+            /** @description The request is not valid. */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description An error, as problem details (RFC 9457). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -683,13 +723,22 @@ export interface operations {
                     "application/json": components["schemas"]["TierState"];
                 };
             };
-            /** @description Validation Error */
+            /** @description The request is not valid. */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description An error, as problem details (RFC 9457). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -716,13 +765,22 @@ export interface operations {
                     "text/event-stream": string;
                 };
             };
-            /** @description Validation Error */
+            /** @description The request is not valid. */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description An error, as problem details (RFC 9457). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -747,13 +805,22 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Validation Error */
+            /** @description The request is not valid. */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description An error, as problem details (RFC 9457). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -776,6 +843,15 @@ export interface operations {
                     "application/json": components["schemas"]["Health"];
                 };
             };
+            /** @description An error, as problem details (RFC 9457). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
         };
     };
     get_tier_api_settings_tier_get: {
@@ -794,6 +870,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TierState"];
+                };
+            };
+            /** @description An error, as problem details (RFC 9457). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -822,13 +907,22 @@ export interface operations {
                     "image/png": string;
                 };
             };
-            /** @description Validation Error */
+            /** @description The request is not valid. */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description An error, as problem details (RFC 9457). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -856,13 +950,22 @@ export interface operations {
                     "application/json": components["schemas"]["QuoteBoxes"];
                 };
             };
-            /** @description Validation Error */
+            /** @description The request is not valid. */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description An error, as problem details (RFC 9457). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
