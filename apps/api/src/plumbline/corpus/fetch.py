@@ -28,12 +28,19 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import Final, Literal
+from typing import Final
 
 import httpx
 
 from plumbline.core.types import Jurisdiction, Language
-from plumbline.corpus.manifest import MANIFEST, Manifest, Source, load_manifest, save_manifest
+from plumbline.corpus.manifest import (
+    MANIFEST,
+    Format,
+    Manifest,
+    Source,
+    load_manifest,
+    save_manifest,
+)
 from plumbline.settings import ROOT
 
 USER_AGENT: Final = "plumbline-corpus-fetch (+https://github.com/alined-labs/plumbline)"
@@ -55,7 +62,7 @@ class Declared:
     language: Language
     url: str
     edition: str
-    format: Literal["pdf", "html", "txt", "md"]
+    format: Format
     license_basis: str
     committed: bool
     consolidated_on: date | None = None
@@ -64,6 +71,7 @@ class Declared:
     # of what follows to be unique. Each element is cut through its matching end tag, byte
     # for byte, and the elements are written one per line. Empty: keep the whole page.
     keep: tuple[bytes, ...] = ()
+    accept: str | None = None  # the Accept header, for an API that needs one
 
     @property
     def path(self) -> str:
@@ -87,6 +95,19 @@ FLORIDA_PART_II: Final = (
     b'<div class="Part"><div class="PartTitle"><div class="PartNumber">PART II</div>'
 )
 FLORIDA_BASIS: Final = "Public domain (government edicts doctrine)"
+BOE_BASIS: Final = (
+    "BOE reuse conditions: source and update date cited; consolidated text, informational only"
+)
+BOE_RECORD: Final = (
+    "The BOE's consolidated-legislation open-data record: metadata (with the update date), "
+    "analysis, and the text, every block with all its versions and their dates. A "
+    "consolidated text is informational; only the BOE's official editions are authentic."
+)
+
+
+def boe_record(identifier: str) -> str:
+    return f"https://www.boe.es/datosabiertos/api/legislacion-consolidada/id/{identifier}"
+
 
 SOURCES: Final[tuple[Declared, ...]] = (
     Declared(
@@ -130,6 +151,45 @@ SOURCES: Final[tuple[Declared, ...]] = (
         ),
         keep=tuple(florida_section(n) for n in ("718.110", "718.112", "718.116")),
     ),
+    Declared(
+        id="es-lau-boe-2026-10-13",
+        law="es-lau",
+        title="Ley 29/1994, de 24 de noviembre, de Arrendamientos Urbanos (consolidated text)",
+        jurisdiction=Jurisdiction.SPAIN,
+        language=Language.ES,
+        url=boe_record("BOE-A-1994-26003"),
+        edition="boe-2026-10-13",
+        consolidated_on=date(2026, 10, 13),
+        format="xml",
+        license_basis=BOE_BASIS,
+        committed=True,
+        accept="application/xml",
+        notes=(
+            f"{BOE_RECORD} Reading copy: https://www.boe.es/buscar/act.php?id=BOE-A-1994-26003. "
+            "Holds the amendments of Real Decreto-ley 29/2026, in force from 2026-10-08 with no "
+            "validation by Congress recorded when retrieved (it re-enacts RDL 26/2026, repealed "
+            "on 2026-10-02), and announces art. 10 as reworded by RDL 28/2026 from 2026-11-15."
+        ),
+    ),
+    Declared(
+        id="es-lph-boe-2026-10-05",
+        law="es-lph",
+        title="Ley 49/1960, de 21 de julio, sobre propiedad horizontal (consolidated text)",
+        jurisdiction=Jurisdiction.SPAIN,
+        language=Language.ES,
+        url=boe_record("BOE-A-1960-10906"),
+        edition="boe-2026-10-05",
+        consolidated_on=date(2026, 10, 5),
+        format="xml",
+        license_basis=BOE_BASIS,
+        committed=True,
+        accept="application/xml",
+        notes=(
+            f"{BOE_RECORD} Reading copy: https://www.boe.es/buscar/act.php?id=BOE-A-1960-10906. "
+            "Holds art. 10 and the third additional provision as reworded by Ley 4/2026, in "
+            "force from 2026-10-23."
+        ),
+    ),
 )
 
 
@@ -163,7 +223,8 @@ def element(page: bytes, marker: bytes) -> bytes:
 def download(client: httpx.Client, source: Declared) -> bytes:
     """What the manifest pins for `source`: the whole page, or the elements it keeps."""
     try:
-        response = client.get(source.url)
+        headers = {"Accept": source.accept} if source.accept else None
+        response = client.get(source.url, headers=headers)
         response.raise_for_status()
     except httpx.HTTPError as exc:
         raise FetchError(f"{source.url}: {exc}") from exc
