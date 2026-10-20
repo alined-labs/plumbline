@@ -39,6 +39,10 @@ What a first load of the chat page fetches fell from 304 kB to 224 kB of JavaScr
 
 What remains is React's hydration of the shell (its single largest chunk, about 0.8 s of script on the 4× slowed CPU) and the framework's runtime, which every page pays.
 
+## Budgets
+
+Two budgets, because they answer different questions. `.size-limit.json` holds the JavaScript the export ships, every chunk included, lazy ones and the polyfills that only browsers without modules load: it grows with each feature that loads on demand, so it is a ceiling against waste rather than a measure of speed. `e2e/budget.spec.ts` holds what each page loads before anyone touches it, brotli compressed as Cloudflare Pages serves it, counted up to the load event (after it the sidebar prefetches the other pages at low priority). Measured on 2026-10-20, with the chat engine loaded on first use: the chat page 223.5 kB (303.9 kB before), the lease page 246.1 kB, `/evals` and `/about` 191.8 kB each; each budget sits about 5% above its page.
+
 ## Reporting
 
 `pnpm run lighthouse` now runs two passes over every page: the desktop preset (`lighthouserc.json`), where all four categories must stay at or above 90, and Lighthouse's default phone emulation (`lighthouserc.mobile.json`), where accessibility, best practices and SEO must stay at or above 90 and performance is reported as a warning: single runs spread by about five points, so a hard 90 would fail on noise.

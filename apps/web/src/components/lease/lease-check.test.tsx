@@ -7,6 +7,13 @@ import { WAIVER } from "@/test/lease";
 import { LeaseCheck } from "./lease-check";
 import { LeaseJobProvider } from "./lease-job";
 
+// The lease check's transport loads with a dynamic import on the first check. Loading it here
+// first keeps its compile time out of each test's time limit, which a busy machine (the hub's)
+// can otherwise exceed.
+beforeAll(async () => {
+  await import("@/lib/lease-check");
+});
+
 /** An event stream the test writes to as the checker would, one numbered event at a time. */
 function liveEvents() {
   const encoder = new TextEncoder();
