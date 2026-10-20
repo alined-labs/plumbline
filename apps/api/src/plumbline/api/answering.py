@@ -62,6 +62,10 @@ LONG_CONTEXT: Final = "LC"
 # the golden cross-check and nothing else, while Claude's spend is not the constraint.
 SERVED_ROUTE: Final = "premium"
 PAUSED: Final = "Lease checks are not available on this server yet."
+SPENT: Final = (
+    "Today's budget for live answers is used up. Plumbline answers again from 00:00 UTC;"
+    " until then, browse the stored answers and the cited articles."
+)
 # The most law the long-context path sends in one call. Claude counted Florida's whole law
 # (208,467 characters) as 69,257 input tokens, about 3 characters a token; 150k tokens keeps
 # an answer well inside the context window, at about US$0.30 on Sonnet.
@@ -101,6 +105,15 @@ def router_for(settings: Settings, meter: SpendMeter) -> Router:
         "cohere": settings.cohere_daily_cap_usd,
     }
     return Router(meter, caps)
+
+
+async def spent(router: Router) -> bool:
+    """Whether SERVED_ROUTE's provider has spent its daily cap. The API checks before every
+    live answer and lease check, so the cap holds on its own; the kill switch (P5) reads the
+    same counters and lowers the tier for the site as a whole. A call already running when
+    the cap is crossed finishes, so a day can end at most one answer over."""
+    provider = ROUTES[SERVED_ROUTE].provider
+    return await router.meter.spent_today(provider) >= router.caps.get(provider, 0.0)
 
 
 def spend_meter(settings: Settings) -> SpendMeter:
@@ -166,6 +179,8 @@ class ClaudeLeaseChecker(RealLeaseChecker):
 
     async def route(self, tier: DemoTier) -> Route:
         lease = await super().route(tier)  # RouteRefused off the full tier
+        if await spent(self.router):
+            raise RouteRefused(SPENT)
         served = ROUTES[SERVED_ROUTE]
         return Route(lease.name, served.model, served.provider)
 
@@ -198,6 +213,9 @@ class ServedPipeline:
             await self._router.route(Kind.QUESTION, tier=question.tier)
         except RouteRefused as exc:
             yield StreamError(message=str(exc), retryable=False)
+            return
+        if await spent(self._router):
+            yield StreamError(message=SPENT, retryable=False)
             return
         async with self._lock:
             if self._pipeline is None:
