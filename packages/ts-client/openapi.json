@@ -1801,6 +1801,7 @@
         "operationId": "list_jobs_api_admin_jobs_get",
         "parameters": [
           {
+            "example": "succeeded",
             "in": "query",
             "name": "status",
             "required": false,
@@ -1823,6 +1824,7 @@
             }
           },
           {
+            "example": 20,
             "in": "query",
             "name": "limit",
             "required": false,
@@ -1839,6 +1841,30 @@
           "200": {
             "content": {
               "application/json": {
+                "examples": {
+                  "example": {
+                    "summary": "The latest ingestion job",
+                    "value": [
+                      {
+                        "attempts": 1,
+                        "content_hash": "9f2c4e7d1a0b",
+                        "created_at": "2026-10-20T14:05:12Z",
+                        "error": null,
+                        "finished_at": "2026-10-20T14:05:12Z",
+                        "id": "0b6f3c1e-8a52-4d1e-9a51-6f2d7c3b9e10",
+                        "kind": "ingest",
+                        "result": {
+                          "articles": 43,
+                          "chunks": 299
+                        },
+                        "source_id": "fl-stat-83-2026",
+                        "started_at": "2026-10-20T14:05:12Z",
+                        "status": "succeeded",
+                        "worker": "mx1-1"
+                      }
+                    ]
+                  }
+                },
                 "schema": {
                   "items": {
                     "$ref": "#/components/schemas/JobView"
@@ -1887,6 +1913,7 @@
         "operationId": "get_job_api_admin_jobs__job_id__get",
         "parameters": [
           {
+            "example": "0b6f3c1e-8a52-4d1e-9a51-6f2d7c3b9e10",
             "in": "path",
             "name": "job_id",
             "required": true,
@@ -1901,6 +1928,28 @@
           "200": {
             "content": {
               "application/json": {
+                "examples": {
+                  "example": {
+                    "summary": "A job that indexed Florida's chapter 83",
+                    "value": {
+                      "attempts": 1,
+                      "content_hash": "9f2c4e7d1a0b",
+                      "created_at": "2026-10-20T14:05:12Z",
+                      "error": null,
+                      "finished_at": "2026-10-20T14:05:12Z",
+                      "id": "0b6f3c1e-8a52-4d1e-9a51-6f2d7c3b9e10",
+                      "kind": "ingest",
+                      "result": {
+                        "articles": 43,
+                        "chunks": 299
+                      },
+                      "source_id": "fl-stat-83-2026",
+                      "started_at": "2026-10-20T14:05:12Z",
+                      "status": "succeeded",
+                      "worker": "mx1-1"
+                    }
+                  }
+                },
                 "schema": {
                   "$ref": "#/components/schemas/JobView"
                 }
@@ -1945,6 +1994,7 @@
         "operationId": "job_events_api_admin_jobs__job_id__events_get",
         "parameters": [
           {
+            "example": "0b6f3c1e-8a52-4d1e-9a51-6f2d7c3b9e10",
             "in": "path",
             "name": "job_id",
             "required": true,
@@ -1955,6 +2005,7 @@
             }
           },
           {
+            "example": 0,
             "in": "header",
             "name": "last-event-id",
             "required": false,
@@ -1975,6 +2026,12 @@
           "200": {
             "content": {
               "text/event-stream": {
+                "examples": {
+                  "example": {
+                    "summary": "A job's events, from the start to its end",
+                    "value": "event: started\ndata: {\"id\":1,\"job_id\":\"0b6f3c1e-8a52-4d1e-9a51-6f2d7c3b9e10\",\"kind\":\"started\",\"message\":\"\",\"data\":{},\"created_at\":\"2026-10-20T14:05:12Z\"}\nid: 1\n\nevent: progress\ndata: {\"id\":2,\"job_id\":\"0b6f3c1e-8a52-4d1e-9a51-6f2d7c3b9e10\",\"kind\":\"progress\",\"message\":\"embedded\",\"data\":{\"done\":299,\"total\":299},\"created_at\":\"2026-10-20T14:05:12Z\"}\nid: 2\n\nevent: succeeded\ndata: {\"id\":3,\"job_id\":\"0b6f3c1e-8a52-4d1e-9a51-6f2d7c3b9e10\",\"kind\":\"succeeded\",\"message\":\"\",\"data\":{\"chunks\":299},\"created_at\":\"2026-10-20T14:05:12Z\"}\nid: 3\n\n"
+                  }
+                },
                 "itemSchema": {
                   "properties": {
                     "data": {
@@ -2035,6 +2092,14 @@
         "requestBody": {
           "content": {
             "application/json": {
+              "examples": {
+                "example": {
+                  "summary": "The kill switch: stored answers only",
+                  "value": {
+                    "tier": "static"
+                  }
+                }
+              },
               "schema": {
                 "$ref": "#/components/schemas/TierChange"
               }
@@ -2046,6 +2111,15 @@
           "200": {
             "content": {
               "application/json": {
+                "examples": {
+                  "example": {
+                    "summary": "The kill switch: stored answers only",
+                    "value": {
+                      "tier": "static",
+                      "updated_at": "2026-10-20T14:05:12Z"
+                    }
+                  }
+                },
                 "schema": {
                   "$ref": "#/components/schemas/TierState"
                 }
@@ -2092,6 +2166,30 @@
         "requestBody": {
           "content": {
             "application/json": {
+              "examples": {
+                "example": {
+                  "summary": "A question about Florida, answered with one verified citation",
+                  "value": {
+                    "as_of": null,
+                    "id": "chat_4f1d",
+                    "jurisdictions": [
+                      "florida"
+                    ],
+                    "messages": [
+                      {
+                        "id": "m1",
+                        "parts": [
+                          {
+                            "text": "How long does a Florida landlord have to return a security deposit?",
+                            "type": "text"
+                          }
+                        ],
+                        "role": "user"
+                      }
+                    ]
+                  }
+                }
+              },
               "schema": {
                 "$ref": "#/components/schemas/AskRequest"
               }
@@ -2103,6 +2201,12 @@
           "200": {
             "content": {
               "text/event-stream": {
+                "examples": {
+                  "example": {
+                    "summary": "A question about Florida, answered with one verified citation",
+                    "value": "data: {\"type\": \"start\", \"messageId\": \"msg_9223edc789df35f3\"}\n\ndata: {\"type\": \"start-step\"}\n\ndata: {\"type\": \"data-status\", \"data\": {\"stage\": \"detecting\", \"detail\": null}, \"transient\": true}\n\ndata: {\"type\": \"data-status\", \"data\": {\"stage\": \"retrieving\", \"detail\": null}, \"transient\": true}\n\ndata: {\"type\": \"data-status\", \"data\": {\"stage\": \"generating\", \"detail\": null}, \"transient\": true}\n\ndata: {\"type\": \"text-start\", \"id\": \"answer-text\"}\n\ndata: {\"type\": \"text-delta\", \"id\": \"answer-text\", \"delta\": \"If the landlord does not intend to claim any of the deposit, they must return it, with any interest that is due, within 15 days after the rental agreement ends [1].\"}\n\ndata: {\"type\": \"data-status\", \"data\": {\"stage\": \"verifying\", \"detail\": null}, \"transient\": true}\n\ndata: {\"type\": \"data-citation\", \"data\": {\"n\": 1, \"chunk_id\": \"fl-stat-83-2026:37656826b4941f09\", \"ref\": {\"jurisdiction\": \"florida\", \"law\": \"fl-stat-83-2026\", \"article\": \"83.49\", \"paragraph\": \"3\", \"edition\": \"2026\"}, \"label\": \"Fla. Stat. § 83.49(3)\", \"quote\": \"the landlord must return the security deposit, together with interest if otherwise required, within 15 days after the termination of the rental agreement\", \"gloss\": null, \"language\": \"en\", \"verified\": true, \"page\": 1}, \"id\": \"citation-1\"}\n\ndata: {\"type\": \"data-answer\", \"data\": {\"status\": \"answered\", \"jurisdictions\": [\"florida\"], \"as_of\": null, \"confidence\": 0.92, \"abstain_reason\": null, \"invalid_citations\": 0, \"disclaimer\": \"Legal information, not legal advice. No lawyer has reviewed Plumbline's answers: read the cited article, and consult a qualified professional before acting.\"}, \"id\": \"answer\"}\n\ndata: {\"type\": \"data-trace\", \"data\": {\"request_id\": \"req_9223edc789df35f3\", \"config_name\": \"A2\", \"config_hash\": \"5b405538b487\", \"route\": \"fast\", \"model\": \"gemini-3.5-flash-lite\", \"tier\": \"full\", \"timings_ms\": {\"detect\": 0.2, \"retrieve\": 84.0, \"generate\": 2140.5, \"verify\": 1.1}, \"input_tokens\": 4210, \"output_tokens\": 212, \"cost_usd\": 0.00179, \"cached\": false, \"trace_url\": null}, \"id\": \"trace\"}\n\ndata: {\"type\": \"text-end\", \"id\": \"answer-text\"}\n\ndata: {\"type\": \"finish-step\"}\n\ndata: {\"type\": \"finish\", \"finishReason\": \"stop\"}\n\ndata: [DONE]\n\n"
+                  }
+                },
                 "schema": {
                   "type": "string"
                 }
@@ -2160,6 +2264,7 @@
         "parameters": [
           {
             "description": "The governing jurisdiction, when the reader knows.",
+            "example": "florida",
             "in": "query",
             "name": "jurisdiction",
             "required": false,
@@ -2178,6 +2283,7 @@
           },
           {
             "description": "When the lease was signed: the law in force then.",
+            "example": "2026-08-15",
             "in": "query",
             "name": "signed_on",
             "required": false,
@@ -2217,6 +2323,12 @@
               }
             },
             "text/plain": {
+              "examples": {
+                "example": {
+                  "summary": "A short invented Florida lease, sent as text",
+                  "value": "Residential Lease (an invented example)\n\nClause 1. Premises\nThe Landlord leases to the Tenant Apartment 3C, Miami, Florida.\n\nClause 4. Security deposit\nThe Landlord will return the security deposit within 45 days after the Tenant moves out.\n"
+                }
+              },
               "schema": {
                 "format": "binary",
                 "type": "string"
@@ -2230,6 +2342,14 @@
           "202": {
             "content": {
               "application/json": {
+                "examples": {
+                  "example": {
+                    "summary": "A short invented Florida lease, sent as text",
+                    "value": {
+                      "id": "HvG-KjlR9wCq2YhNKSgo-w"
+                    }
+                  }
+                },
                 "schema": {
                   "$ref": "#/components/schemas/LeaseStarted"
                 }
@@ -2323,6 +2443,7 @@
         "operationId": "result_api_check_lease__run_id__get",
         "parameters": [
           {
+            "example": "HvG-KjlR9wCq2YhNKSgo-w",
             "in": "path",
             "name": "run_id",
             "required": true,
@@ -2336,6 +2457,48 @@
           "200": {
             "content": {
               "application/json": {
+                "examples": {
+                  "example": {
+                    "summary": "A finished check",
+                    "value": {
+                      "failure": null,
+                      "findings": [
+                        {
+                          "citations": [
+                            {
+                              "chunk_id": "fl-stat-83-2026:37656826b4941f09",
+                              "gloss": null,
+                              "label": "Fla. Stat. § 83.49(3)",
+                              "language": "en",
+                              "n": 1,
+                              "page": 1,
+                              "quote": "the landlord must return the security deposit, together with interest if otherwise required, within 15 days after the termination of the rental agreement",
+                              "ref": {
+                                "article": "83.49",
+                                "edition": "2026",
+                                "jurisdiction": "florida",
+                                "law": "fl-stat-83-2026",
+                                "paragraph": "3"
+                              },
+                              "verified": true
+                            }
+                          ],
+                          "clause_language": "en",
+                          "clause_number": "4",
+                          "clause_text": "The Landlord will return the security deposit within 45 days after the Tenant moves out.",
+                          "confidence": 0.9,
+                          "n": 1,
+                          "severity": "conflict",
+                          "title": "The deposit comes back later than the law allows",
+                          "why": "The clause gives the landlord 45 days to return the deposit. Florida law requires its return within 15 days after the rental agreement ends when the landlord makes no claim on it, and the statute prevails over the lease."
+                        }
+                      ],
+                      "id": "HvG-KjlR9wCq2YhNKSgo-w",
+                      "language": "en",
+                      "status": "done"
+                    }
+                  }
+                },
                 "schema": {
                   "$ref": "#/components/schemas/LeaseResult"
                 }
@@ -2385,6 +2548,7 @@
         "operationId": "events_api_check_lease__run_id__events_get",
         "parameters": [
           {
+            "example": "HvG-KjlR9wCq2YhNKSgo-w",
             "in": "path",
             "name": "run_id",
             "required": true,
@@ -2394,6 +2558,7 @@
             }
           },
           {
+            "example": 0,
             "in": "header",
             "name": "last-event-id",
             "required": false,
@@ -2414,6 +2579,12 @@
           "200": {
             "content": {
               "text/event-stream": {
+                "examples": {
+                  "example": {
+                    "summary": "A check from the upload to its one finding",
+                    "value": "event: stage\ndata: {\"stage\":\"uploaded\",\"done\":null,\"total\":null}\nid: 1\n\nevent: stage\ndata: {\"stage\":\"redacting\",\"done\":null,\"total\":null}\nid: 2\n\nevent: stage\ndata: {\"stage\":\"reading\",\"done\":null,\"total\":null}\nid: 3\n\nevent: stage\ndata: {\"stage\":\"checking\",\"done\":0,\"total\":2}\nid: 4\n\nevent: finding\ndata: {\"n\":1,\"clause_number\":\"4\",\"clause_text\":\"The Landlord will return the security deposit within 45 days after the Tenant moves out.\",\"clause_language\":\"en\",\"severity\":\"conflict\",\"title\":\"The deposit comes back later than the law allows\",\"why\":\"The clause gives the landlord 45 days to return the deposit. Florida law requires its return within 15 days after the rental agreement ends when the landlord makes no claim on it, and the statute prevails over the lease.\",\"citations\":[{\"n\":1,\"chunk_id\":\"fl-stat-83-2026:37656826b4941f09\",\"ref\":{\"jurisdiction\":\"florida\",\"law\":\"fl-stat-83-2026\",\"article\":\"83.49\",\"paragraph\":\"3\",\"edition\":\"2026\"},\"label\":\"Fla. Stat. § 83.49(3)\",\"quote\":\"the landlord must return the security deposit, together with interest if otherwise required, within 15 days after the termination of the rental agreement\",\"gloss\":null,\"language\":\"en\",\"verified\":true,\"page\":1}],\"confidence\":0.9}\nid: 5\n\nevent: stage\ndata: {\"stage\":\"checking\",\"done\":2,\"total\":2}\nid: 6\n\nevent: done\ndata: {\"findings\":1,\"language\":\"en\"}\nid: 7\n\n"
+                  }
+                },
                 "itemSchema": {
                   "properties": {
                     "data": {
@@ -2478,6 +2649,7 @@
         "operationId": "chunk_article_api_chunks__chunk_id__get",
         "parameters": [
           {
+            "example": "fl-stat-83-2026:37656826b4941f09",
             "in": "path",
             "name": "chunk_id",
             "required": true,
@@ -2487,6 +2659,7 @@
             }
           },
           {
+            "example": "the landlord must return the security deposit, together with interest if otherwise required, within 15 days after the termination of the rental agreement",
             "in": "query",
             "name": "quote",
             "required": false,
@@ -2508,6 +2681,42 @@
           "200": {
             "content": {
               "application/json": {
+                "examples": {
+                  "example": {
+                    "summary": "The article a citation quotes, with the quote's span",
+                    "value": {
+                      "article": {
+                        "effective_from": null,
+                        "effective_to": null,
+                        "heading": "Deposit money or advance rent; duty of landlord and tenant",
+                        "label": "Fla. Stat. § 83.49",
+                        "language": "en",
+                        "page": 1,
+                        "ref": {
+                          "article": "83.49",
+                          "edition": "2026",
+                          "jurisdiction": "florida",
+                          "law": "fl-stat-83-2026",
+                          "paragraph": null
+                        },
+                        "status": "in_force",
+                        "text": "(1) Whenever money is deposited or advanced by a tenant …\n(3) The landlord or the landlord’s agent may disburse advance rents from the deposit account to the landlord’s benefit when the advance rental period commences and without notice to the tenant. For all other deposits:\n(a) Upon the vacating of the premises for termination of the rental agreement, if the landlord does not intend to impose a claim on the security deposit, the landlord must return the security deposit, together with interest if otherwise required, within 15 days after the termination of the rental agreement.",
+                        "validity_note": null
+                      },
+                      "chunk_id": "fl-stat-83-2026:37656826b4941f09",
+                      "restricted": false,
+                      "source": {
+                        "id": "fl-stat-83-2026",
+                        "title": "Florida Statutes 2026, chapter 83 (Landlord and Tenant), part II",
+                        "url": "https://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&URL=0000-0099/0083/0083.html&StatuteYear=2026"
+                      },
+                      "span": {
+                        "end": 583,
+                        "start": 430
+                      }
+                    }
+                  }
+                },
                 "schema": {
                   "$ref": "#/components/schemas/ChunkArticle"
                 }
@@ -2549,6 +2758,17 @@
         "requestBody": {
           "content": {
             "application/json": {
+              "examples": {
+                "example": {
+                  "summary": "A reader found the answer helpful",
+                  "value": {
+                    "helpful": true,
+                    "note": null,
+                    "reasons": [],
+                    "request_id": "req_9223edc789df35f3"
+                  }
+                }
+              },
               "schema": {
                 "$ref": "#/components/schemas/FeedbackRequest"
               }
@@ -2594,6 +2814,17 @@
           "200": {
             "content": {
               "application/json": {
+                "examples": {
+                  "example": {
+                    "summary": "The server is up",
+                    "value": {
+                      "cache_mode": "replay",
+                      "status": "ok",
+                      "tier": "full",
+                      "version": "0.9.0"
+                    }
+                  }
+                },
                 "schema": {
                   "$ref": "#/components/schemas/Health"
                 }
@@ -2624,6 +2855,7 @@
         "parameters": [
           {
             "description": "The question.",
+            "example": "How long does a Florida landlord have to return a security deposit?",
             "in": "query",
             "name": "q",
             "required": true,
@@ -2637,6 +2869,7 @@
           },
           {
             "description": "Hits to return; default: the configuration's top_k.",
+            "example": 1,
             "in": "query",
             "name": "k",
             "required": false,
@@ -2656,6 +2889,9 @@
             }
           },
           {
+            "example": [
+              "florida"
+            ],
             "in": "query",
             "name": "jurisdictions",
             "required": false,
@@ -2675,6 +2911,7 @@
             }
           },
           {
+            "example": "2026-10-20",
             "in": "query",
             "name": "as_of",
             "required": false,
@@ -2693,6 +2930,7 @@
           },
           {
             "description": "A configuration of evals/configs.",
+            "example": "A2",
             "in": "query",
             "name": "config",
             "required": false,
@@ -2714,6 +2952,67 @@
           "200": {
             "content": {
               "application/json": {
+                "examples": {
+                  "example": {
+                    "summary": "What retrieval finds for a question, with every score",
+                    "value": {
+                      "as_of": "2026-10-20",
+                      "candidates": 20,
+                      "config": "A2",
+                      "config_hash": "5b405538b487",
+                      "hits": [
+                        {
+                          "chunk": {
+                            "article": "83.49",
+                            "context_header": "[Florida | Fla. Stat. ch. 83 | s. 83.49 | Deposit money or advance rent; duty of landlord and tenant]",
+                            "context_header_llm": null,
+                            "document_id": "fl-stat-83-2026",
+                            "edition": "2026",
+                            "effective_from": null,
+                            "effective_to": null,
+                            "heading": "Deposit money or advance rent; duty of landlord and tenant",
+                            "history": null,
+                            "id": "fl-stat-83-2026:37656826b4941f09",
+                            "jurisdiction": "florida",
+                            "label": "Fla. Stat. § 83.49(3)",
+                            "language": "en",
+                            "law": "fl-stat-83-2026",
+                            "metadata": {},
+                            "page": 1,
+                            "parent_id": "fl-stat-83-2026:3b03420f9e67a613",
+                            "path": [
+                              "Part II",
+                              "83.49",
+                              "3"
+                            ],
+                            "status": "in_force",
+                            "text": "(3) The landlord or the landlord’s agent may disburse advance rents from the deposit account to the landlord’s benefit when the advance rental period commences and without notice to the tenant. For all other deposits:\n(a) Upon the vacating of the premises for termination of the rental agreement, if the landlord does not intend to impose a claim on the security deposit, the landlord must return the security deposit, together with interest if otherwise required, within 15 days after the termination of the rental agreement.",
+                            "text_for_search": "[Florida | Fla. Stat. ch. 83 | s. 83.49 | Deposit money or advance rent; duty of landlord and tenant]\n(3) The landlord or the landlord’s agent may disburse advance rents from the deposit account to the landlord’s benefit when the advance rental period commences and without notice to the tenant. For all other deposits:\n(a) Upon the vacating of the premises for termination of the rental agreement, if the landlord does not intend to impose a claim on the security deposit, the landlord must return the security deposit, together with interest if otherwise required, within 15 days after the termination of the rental agreement.",
+                            "validity_note": null
+                          },
+                          "rank": 1,
+                          "score": 0.0323,
+                          "scores": {
+                            "bm25": 14.2,
+                            "bm25_rank": 2,
+                            "dense": 0.71,
+                            "dense_rank": 1,
+                            "rerank": null,
+                            "rrf": 0.0323
+                          }
+                        }
+                      ],
+                      "jurisdictions": [
+                        "florida"
+                      ],
+                      "k": 1,
+                      "query": "How long does a Florida landlord have to return a security deposit?",
+                      "timings_ms": {
+                        "search": 84.0
+                      }
+                    }
+                  }
+                },
                 "schema": {
                   "$ref": "#/components/schemas/SearchResult"
                 }
@@ -2760,6 +3059,15 @@
           "200": {
             "content": {
               "application/json": {
+                "examples": {
+                  "example": {
+                    "summary": "The full demo: every route on",
+                    "value": {
+                      "tier": "full",
+                      "updated_at": null
+                    }
+                  }
+                },
                 "schema": {
                   "$ref": "#/components/schemas/TierState"
                 }
@@ -2789,6 +3097,7 @@
         "operationId": "page_image_api_sources__source_id__pages__n__png_get",
         "parameters": [
           {
+            "example": "fl-stat-83-2026",
             "in": "path",
             "name": "source_id",
             "required": true,
@@ -2798,6 +3107,7 @@
             }
           },
           {
+            "example": 1,
             "in": "path",
             "name": "n",
             "required": true,
@@ -2809,6 +3119,7 @@
           },
           {
             "description": "1, 2 or 3: 150, 300 or 450 dpi",
+            "example": 2,
             "in": "query",
             "name": "scale",
             "required": false,
@@ -2866,6 +3177,7 @@
         "operationId": "page_boxes_api_sources__source_id__pages__n__boxes_get",
         "parameters": [
           {
+            "example": "fl-stat-83-2026",
             "in": "path",
             "name": "source_id",
             "required": true,
@@ -2875,6 +3187,7 @@
             }
           },
           {
+            "example": 1,
             "in": "path",
             "name": "n",
             "required": true,
@@ -2885,6 +3198,7 @@
             }
           },
           {
+            "example": "the landlord must return the security deposit, together with interest if otherwise required, within 15 days after the termination of the rental agreement",
             "in": "query",
             "name": "quote",
             "required": true,
@@ -2900,6 +3214,25 @@
           "200": {
             "content": {
               "application/json": {
+                "examples": {
+                  "example": {
+                    "summary": "Where a quote is on its page",
+                    "value": {
+                      "available": true,
+                      "boxes": [
+                        {
+                          "x0": 0.12,
+                          "x1": 0.88,
+                          "y0": 0.41,
+                          "y1": 0.47
+                        }
+                      ],
+                      "found": true,
+                      "page": 1,
+                      "source_id": "fl-stat-83-2026"
+                    }
+                  }
+                },
                 "schema": {
                   "$ref": "#/components/schemas/QuoteBoxes"
                 }
@@ -2942,6 +3275,16 @@
           "200": {
             "content": {
               "application/json": {
+                "examples": {
+                  "example": {
+                    "summary": "Four of today's thirty questions used",
+                    "value": {
+                      "limit": 30,
+                      "resets_at": "2026-10-21T00:00:00Z",
+                      "used": 4
+                    }
+                  }
+                },
                 "schema": {
                   "$ref": "#/components/schemas/Usage"
                 }

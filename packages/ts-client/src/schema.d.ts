@@ -944,7 +944,9 @@ export interface operations {
     list_jobs_api_admin_jobs_get: {
         parameters: {
             query?: {
+                /** @example succeeded */
                 status?: ("queued" | "running" | "succeeded" | "failed") | null;
+                /** @example 20 */
                 limit?: number;
             };
             header?: never;
@@ -987,6 +989,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @example 0b6f3c1e-8a52-4d1e-9a51-6f2d7c3b9e10 */
                 job_id: string;
             };
             cookie?: never;
@@ -1026,9 +1029,11 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                /** @example 0 */
                 "last-event-id"?: number | null;
             };
             path: {
+                /** @example 0b6f3c1e-8a52-4d1e-9a51-6f2d7c3b9e10 */
                 job_id: string;
             };
             cookie?: never;
@@ -1161,9 +1166,15 @@ export interface operations {
     start_api_check_lease_post: {
         parameters: {
             query?: {
-                /** @description The governing jurisdiction, when the reader knows. */
+                /**
+                 * @description The governing jurisdiction, when the reader knows.
+                 * @example florida
+                 */
                 jurisdiction?: components["schemas"]["Jurisdiction"] | null;
-                /** @description When the lease was signed: the law in force then. */
+                /**
+                 * @description When the lease was signed: the law in force then.
+                 * @example 2026-08-15
+                 */
                 signed_on?: string | null;
             };
             header?: never;
@@ -1252,6 +1263,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @example HvG-KjlR9wCq2YhNKSgo-w */
                 run_id: string;
             };
             cookie?: never;
@@ -1300,9 +1312,11 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                /** @example 0 */
                 "last-event-id"?: number | null;
             };
             path: {
+                /** @example HvG-KjlR9wCq2YhNKSgo-w */
                 run_id: string;
             };
             cookie?: never;
@@ -1350,10 +1364,12 @@ export interface operations {
     chunk_article_api_chunks__chunk_id__get: {
         parameters: {
             query?: {
+                /** @example the landlord must return the security deposit, together with interest if otherwise required, within 15 days after the termination of the rental agreement */
                 quote?: string | null;
             };
             header?: never;
             path: {
+                /** @example fl-stat-83-2026:37656826b4941f09 */
                 chunk_id: string;
             };
             cookie?: never;
@@ -1461,13 +1477,28 @@ export interface operations {
     search_api_search_get: {
         parameters: {
             query: {
-                /** @description The question. */
+                /**
+                 * @description The question.
+                 * @example How long does a Florida landlord have to return a security deposit?
+                 */
                 q: string;
-                /** @description Hits to return; default: the configuration's top_k. */
+                /**
+                 * @description Hits to return; default: the configuration's top_k.
+                 * @example 1
+                 */
                 k?: number | null;
+                /**
+                 * @example [
+                 *       "florida"
+                 *     ]
+                 */
                 jurisdictions?: components["schemas"]["Jurisdiction"][] | null;
+                /** @example 2026-10-20 */
                 as_of?: string | null;
-                /** @description A configuration of evals/configs. */
+                /**
+                 * @description A configuration of evals/configs.
+                 * @example A2
+                 */
                 config?: string | null;
             };
             header?: never;
@@ -1537,12 +1568,17 @@ export interface operations {
     page_image_api_sources__source_id__pages__n__png_get: {
         parameters: {
             query?: {
-                /** @description 1, 2 or 3: 150, 300 or 450 dpi */
+                /**
+                 * @description 1, 2 or 3: 150, 300 or 450 dpi
+                 * @example 2
+                 */
                 scale?: number;
             };
             header?: never;
             path: {
+                /** @example fl-stat-83-2026 */
                 source_id: string;
+                /** @example 1 */
                 n: number;
             };
             cookie?: never;
@@ -1581,11 +1617,14 @@ export interface operations {
     page_boxes_api_sources__source_id__pages__n__boxes_get: {
         parameters: {
             query: {
+                /** @example the landlord must return the security deposit, together with interest if otherwise required, within 15 days after the termination of the rental agreement */
                 quote: string;
             };
             header?: never;
             path: {
+                /** @example fl-stat-83-2026 */
                 source_id: string;
+                /** @example 1 */
                 n: number;
             };
             cookie?: never;
