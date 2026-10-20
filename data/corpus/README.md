@@ -17,6 +17,18 @@ Lane B owns this folder. `DATA_LICENSES.md` explains each basis.
 
 Some publishers wrap the statute in parts that change from one download to the next: Online Sunshine prints the day's date, and flsenate.gov adds form tokens. For those, the declaration names the statute's own elements to keep, and the file holds those elements, cut byte for byte, one per line. Their hash is then the same on every download, and the Florida cuts hash the same on both of the Legislature's sites.
 
+## Adding a source
+
+A source is one edition of one law. `make check` fails until each of these is done.
+
+1. **Read the publisher's terms and write the basis down.** Add a row to `DATA_LICENSES.md` that names the source's id and gives its basis word for word, between backticks, as the manifest will record it. If the terms do not allow redistribution the source is fetch-only (`committed=False`): `make fetch` downloads it into `fetched/`, which git ignores, and only its manifest row is committed.
+2. **Declare it** in `SOURCES` in `plumbline/corpus/fetch.py` with a `Declared(...)`: `id` (`<law>-<edition>`, unique), `law` (stable across editions: what a gold reference's `law` names), `title`, `jurisdiction`, `language`, `url` (HTTPS; plain HTTP only for a host named in `PLAIN_HTTP_HOSTS`, with the reason), `edition` (what a reference's `edition` names; there is one source per law and edition), `format` (`pdf`, `html`, `xml`, `txt` or `md`), `license_basis` and `committed`. Add as needed `consolidated_on`, `notes`, `keep` (the page's own elements to keep, when the rest of the page changes from one download to the next), `accept` (an Accept header) and `parts` (more URLs joined into the same file).
+3. **Pin it.** `make fetch` downloads the source, cuts it as declared, writes the file (`raw/` for a committed source, `fetched/` otherwise), hashes it and writes its manifest row. Then run `uv run python -m plumbline.corpus.fetch --check`: a source that does not match its own pin straight after pinning has a part that changes between downloads, and needs `keep` markers. Commit the manifest, and the file if the source is committed.
+4. **Teach the readers.** `plumbline.corpus.refs.article_exists` and `article_text` must know how the source numbers its articles, so that a golden reference to it can be checked, and Lane D's reader in `plumbline.ingest` must read its format. Add a test with a real article of the source.
+5. **Run `make check`.** It validates the manifest, every committed file's hash, the licence rows, that no file under `raw/` lacks a manifest row, and every golden reference.
+
+When the publisher changes a pinned text, `--check` says so. `--repin ID` pins the new text once you have read the difference. A new edition of a law is a new source: a new id and edition, the same `law`, so references already written keep pointing at the text they were written against.
+
 ## Formats
 
 - Florida (`fl-stat-*`): the Florida Legislature's statute markup, UTF-8. A `div.Section` holds `span.SectionNumber` (the number, then an em space), `span.Catchline` and `span.SectionBody`, whose `div.Subsection`, `div.Paragraph`, `div.SubParagraph` and `div.SubSubParagraph` each start with a `span.Number` such as `(1)`, `(a)`, `1.` or `a.`. The `div.History` and any `div.Note` follow the body. A footnote mark (`<sup>`) can precede a section number, as on s. 83.5615.
