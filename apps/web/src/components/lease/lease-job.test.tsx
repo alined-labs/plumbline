@@ -5,6 +5,13 @@ import { WAIVER } from "@/test/lease";
 
 import { LeaseJobProvider, useLeaseJob } from "./lease-job";
 
+// The provider loads the transport with a dynamic import on the first check. Loading it here
+// first keeps its compile time out of the tests' waits, which a busy machine (the hub's) can
+// push past waitFor's second.
+beforeAll(async () => {
+  await import("@/lib/lease-check");
+});
+
 const lease = new File([new Uint8Array(10)], "lease.pdf", { type: "application/pdf" });
 
 function Probe() {
