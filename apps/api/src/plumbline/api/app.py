@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from plumbline.api import admin, chunks, problems, search, tier
 from plumbline.api.openapi import build_openapi
+from plumbline.api.quota import Counter, Quota, RedisCounter
 from plumbline.api.routes import router
 from plumbline.api.search import RetrievalFactory
 from plumbline.api.sources import Corpus
@@ -29,6 +30,7 @@ def create_app(
     sessions: async_sessionmaker[AsyncSession] | None = None,
     corpus: Corpus | None = None,
     retrieval: RetrievalFactory | None = None,
+    counter: Counter | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
     app = FastAPI(
@@ -47,11 +49,15 @@ def create_app(
     app.state.sessions = sessions or make_sessionmaker(make_engine(settings.database_url))
     app.state.tier = tier.TierStore(app.state.sessions, settings.demo_tier)
     app.state.corpus = corpus or Corpus(load_manifest, ROOT)
+    app.state.quota = Quota(
+        settings, app.state.sessions, counter or RedisCounter(settings.redis_url)
+    )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_methods=["GET", "POST"],
         allow_headers=["content-type"],
+        allow_credentials=True,  # the visitor cookie travels with the front end's requests
     )
     problems.install(app)
     app.include_router(router)

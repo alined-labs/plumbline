@@ -852,6 +852,19 @@
       },
       "Problem": {
         "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "const": "quota_reached",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Code"
+          },
           "detail": {
             "anyOf": [
               {
@@ -1497,6 +1510,31 @@
         ],
         "title": "UIMessagePart",
         "type": "object"
+      },
+      "Usage": {
+        "description": "Today's questions: `used` is the larger of the visitor's and the address's counts.",
+        "properties": {
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "resets_at": {
+            "format": "date-time",
+            "title": "Resets At",
+            "type": "string"
+          },
+          "used": {
+            "title": "Used",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "used",
+          "limit",
+          "resets_at"
+        ],
+        "title": "Usage",
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -1838,6 +1876,23 @@
               }
             },
             "description": "The request is not valid."
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Today's questions are used up, for this visitor or this address; Retry-After gives the seconds until 00:00 UTC.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           },
           "default": {
             "content": {
@@ -2314,6 +2369,38 @@
         "summary": "Page Boxes",
         "tags": [
           "sources"
+        ]
+      }
+    },
+    "/api/usage": {
+      "get": {
+        "description": "How many of today's questions this reader has used, for the sidebar's meter.",
+        "operationId": "usage_api_usage_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Usage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "An error, as problem details (RFC 9457)."
+          }
+        },
+        "summary": "Usage",
+        "tags": [
+          "answers"
         ]
       }
     }

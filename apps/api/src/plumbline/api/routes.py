@@ -12,6 +12,7 @@ from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from plumbline.api import querylog
+from plumbline.api.quota import Usage, set_visitor_cookie
 from plumbline.api.schemas import AskRequest, FeedbackRequest, Health
 from plumbline.api.stream import HEADERS, ui_message_stream
 from plumbline.api.tier import tier_store
@@ -43,7 +44,15 @@ async def health(request: Request) -> Health:
         200: {
             "description": "The answer as an AI SDK UI message stream (server-sent events).",
             "content": {"text/event-stream": {"schema": {"type": "string"}}},
-        }
+        },
+        429: {
+            "description": "Today's questions are used up, for this visitor or this address;"
+            " Retry-After gives the seconds until 00:00 UTC.",
+            "headers": {"Retry-After": {"schema": {"type": "integer"}}},
+            "content": {
+                "application/problem+json": {"schema": {"$ref": "#/components/schemas/Problem"}}
+            },
+        },
     },
 )
 async def ask(body: AskRequest, request: Request) -> StreamingResponse:
@@ -58,10 +67,13 @@ async def ask(body: AskRequest, request: Request) -> StreamingResponse:
         )
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail="The question is empty or too long.") from exc
+    visitor = await request.app.state.quota.admit(request)  # 429 past today's quota
     pipeline: AnswerPipeline = request.app.state.pipeline
     events = querylog.recorded(pipeline.stream(question), question, request.app.state.sessions)
     stream = ui_message_stream(events, message_id=f"msg_{request_id[4:]}")
-    return StreamingResponse(stream, media_type="text/event-stream", headers=HEADERS)
+    response = StreamingResponse(stream, media_type="text/event-stream", headers=HEADERS)
+    set_visitor_cookie(response, visitor, _settings(request))
+    return response
 
 
 @router.post("/feedback", tags=["answers"], status_code=204)
@@ -79,3 +91,10 @@ async def feedback(body: FeedbackRequest, request: Request) -> None:
                 note=body.note,
             )
         )
+
+
+@router.get("/usage", tags=["answers"])
+async def usage(request: Request) -> Usage:
+    """How many of today's questions this reader has used, for the sidebar's meter."""
+    result: Usage = await request.app.state.quota.usage(request)
+    return result
