@@ -160,6 +160,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/evals/online": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Online */
+        get: operations["online_api_evals_online_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/feedback": {
         parameters: {
             query?: never;
@@ -663,6 +680,34 @@ export interface components {
         LeaseStarted: {
             /** Id */
             id: string;
+        };
+        /**
+         * OnlineNight
+         * @description One night's judged sample of the previous day's answers.
+         */
+        OnlineNight: {
+            /** Answered */
+            answered: number;
+            /** Config Name */
+            config_name: string;
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /** Faithful */
+            faithful: number;
+            /** Faithfulness */
+            faithfulness: number | null;
+            /** Interval 95 */
+            interval_95: [
+                number,
+                number
+            ] | null;
+            /** Judged */
+            judged: number;
+            /** Sampled */
+            sampled: number;
         };
         /** PageBox */
         PageBox: {
@@ -1387,6 +1432,44 @@ export interface operations {
             };
             /** @description The request is not valid. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description An error, as problem details (RFC 9457). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    online_api_evals_online_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OnlineNight"][];
+                };
+            };
+            /** @description The results cannot be read right now (the database is down). */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

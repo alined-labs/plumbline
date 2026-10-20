@@ -22,6 +22,7 @@ from pydantic import BaseModel
 
 from plumbline.api import stream
 from plumbline.api.chunks import ChunkArticle, PublishedArticle, SourceLink, Span
+from plumbline.api.evals import OnlineNight
 from plumbline.api.quota import Usage
 from plumbline.api.schemas import (
     AskRequest,
@@ -266,6 +267,31 @@ EXAMPLES: Final[dict[str, Example]] = {
     "GET /api/usage": Example(
         "Four of today's thirty questions used",
         response=Usage(used=4, limit=30, resets_at=datetime(2026, 10, 21, tzinfo=UTC)),
+    ),
+    "GET /api/evals/online": Example(
+        "Two nights of judged production answers, newest first",
+        response=[
+            OnlineNight(
+                day=date(2026, 10, 24),
+                config_name="A2-claude",
+                answered=212,
+                sampled=21,
+                judged=20,
+                faithful=19,
+                faithfulness=0.95,
+                interval_95=(0.7639, 0.9911),
+            ),
+            OnlineNight(
+                day=date(2026, 10, 23),
+                config_name="A2-claude",
+                answered=96,
+                sampled=10,
+                judged=10,
+                faithful=9,
+                faithfulness=0.9,
+                interval_95=(0.5958, 0.9821),
+            ),
+        ],
     ),
     "GET /api/admin/jobs": Example(
         "The latest ingestion job", response=[JOB], parameters={"status": "succeeded", "limit": 20}
