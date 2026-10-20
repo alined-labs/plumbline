@@ -116,3 +116,10 @@ def test_merged_articles_are_unique_in_first_seen_order(
     assert [a.chunk_id for a in merged] == first_seen[:top_k]
     if len(first_seen) <= top_k:
         assert sorted(c for a in merged for c in a.matched) == sorted(h.chunk_id for h in hits)
+
+
+def test_merge_parents_refuses_a_bad_depth_or_an_unranked_list() -> None:
+    with pytest.raises(ValueError, match="top_k"):
+        merge_parents([Hit("a", None, 1.0)], 0)
+    with pytest.raises(ValueError, match="rank order"):
+        merge_parents([Hit("a", None, 0.1), Hit("b", None, 0.9)], 2)

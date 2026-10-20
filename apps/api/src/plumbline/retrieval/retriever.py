@@ -70,6 +70,10 @@ class Retriever:
         self.variant = variant_key(config)
         self.sessions = sessions
         self.embedder = embedder
+        if config.retrieval.cross_lingual_rewrite and spanish is None:
+            # Without it the Spanish field would be searched with the English question,
+            # and the configuration's results would not be what its name says.
+            raise ValueError(f"{config.name} rewrites questions into Spanish: give it spanish=")
         self.spanish = spanish if config.retrieval.cross_lingual_rewrite else None
         self.tenant_id = tenant_id
         self.today = today

@@ -16,7 +16,11 @@ hybrid statement fuses the two lists as `fusion.rrf` does, key for key: the sum 
   text here. One query scores both fields, so their scores share one ranking.
 - The as-of filter keeps the text that applied on the day: effective_from <= day <
   effective_to, a null meaning open-ended, and status in force. A day is always given:
-  without one, superseded wording would answer beside the current one.
+  without one, superseded wording would answer beside the current one. Its limit is the
+  chunker's dates: only the BOE's sources are versioned, so a Florida, Colombian or Dubai
+  text, undated, answers on any day, including one before it was enacted.
+- Ties fall to the id in byte order (COLLATE "C"), Python's order, so the statement and
+  fusion.rrf agree whatever the database's collation.
 """
 
 from __future__ import annotations
@@ -98,12 +102,12 @@ def statement(mode: Mode, where: str) -> str:
     fields, and `_where`'s clauses); every value is a bind parameter."""
     dense = f"""dense AS (
         SELECT id, 1 - (embedding <=> CAST(:vector AS vector)) AS score,
-               row_number() OVER (ORDER BY embedding <=> CAST(:vector AS vector), id) AS rank
+               row_number() OVER (ORDER BY embedding <=> CAST(:vector AS vector), id COLLATE "C") AS rank
         FROM chunks WHERE {where}
         ORDER BY rank LIMIT :candidates)"""  # noqa: S608
     bm25 = f"""bm25 AS (
         SELECT id, pdb.score(key)::float8 AS score,
-               row_number() OVER (ORDER BY pdb.score(key) DESC, id) AS rank
+               row_number() OVER (ORDER BY pdb.score(key) DESC, id COLLATE "C") AS rank
         FROM chunks WHERE ({_EN} ||| :query OR {_ES} ||| :spanish_query) AND {where}
         ORDER BY rank LIMIT :candidates)"""  # noqa: S608
     if mode == "dense":
@@ -121,7 +125,7 @@ def statement(mode: Mode, where: str) -> str:
                COALESCE(1::float8 / (:k + d.rank), 0) + COALESCE(1::float8 / (:k + b.rank), 0)
                    AS rrf
         FROM dense d FULL JOIN bm25 b ON b.id = d.id
-        ORDER BY rrf DESC, LEAST(d.rank, b.rank), id"""  # noqa: S608
+        ORDER BY rrf DESC, LEAST(d.rank, b.rank), COALESCE(d.id, b.id) COLLATE "C" """  # noqa: S608
 
 
 def _where(filters: Filters, params: dict[str, object]) -> str:

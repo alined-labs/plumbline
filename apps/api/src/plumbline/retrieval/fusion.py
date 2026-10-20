@@ -13,6 +13,7 @@ from __future__ import annotations
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass
+from itertools import pairwise
 
 
 @dataclass(frozen=True)
@@ -76,8 +77,13 @@ def merge_parents(hits: Sequence[Hit], top_k: int) -> list[Article]:
 
     An article is scored by its best chunk, not by the sum of them: a sum would favour
     long articles with many paragraphs over a short one that answers exactly. At most
-    `top_k` articles, in rank order; the hits must already be in rank order.
+    `top_k` articles, in rank order. The hits must already be in rank order, best first
+    (scores never rising), which is checked: the first hit of an article is its best.
     """
+    if top_k < 1:
+        raise ValueError("top_k must be at least 1")
+    if any(later.score > earlier.score for earlier, later in pairwise(hits)):
+        raise ValueError("hits must be in rank order, best first")
     order: list[str] = []
     best: dict[str, float] = {}
     matched: dict[str, list[str]] = {}
