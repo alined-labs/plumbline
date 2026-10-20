@@ -59,9 +59,14 @@ def test_a_quote_taken_from_the_text_is_found(text: str, data: st.DataObject) ->
     span = find_span(text, quote)
     assert span is not None
     assert normalized(quote) in normalized(text[span.start : span.end])
-    # The first match: never after the place the quote was taken from.
-    first_letter = start + (len(quote) - len(quote.lstrip()))
-    assert span.start <= first_letter
+    # The first whole-word match: never after the place the quote was taken from, when that
+    # place cuts no word in two.
+    first = start + (len(quote) - len(quote.lstrip()))
+    last = start + len(quote.rstrip()) - 1
+    cuts_start = first > 0 and text[first - 1].isalnum() and text[first].isalnum()
+    cuts_end = last < len(text) - 1 and text[last + 1].isalnum() and text[last].isalnum()
+    if not (cuts_start or cuts_end):
+        assert span.start <= first
 
 
 @given(text_st, st.data())
@@ -92,3 +97,15 @@ def test_a_quote_inside_a_folded_letter_marks_the_whole_letter() -> None:
     span = find_span("aß b", "s b")
     assert span is not None
     assert "aß b"[span.start : span.end] == "ß b"
+
+
+def test_the_mark_is_the_occurrence_the_verifier_accepts() -> None:
+    # "3 days" first appears inside "30 days", which the verifier refuses as a quote.
+    text = "Within 30 days, or 3 days after notice."
+    span = find_span(text, "3 days")
+    assert span is not None
+    assert (span.start, text[span.start : span.end]) == (text.index("or 3") + 3, "3 days")
+    # With no whole-word occurrence, the first one is still marked.
+    inside = find_span("Within 30 days.", "0 days")
+    assert inside is not None
+    assert "Within 30 days."[inside.start : inside.end] == "0 days"
