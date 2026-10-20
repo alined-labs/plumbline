@@ -12,8 +12,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from plumbline.api import admin, chunks, leases, problems, search, tier
-from plumbline.api.lease_stub import StubLeaseChecker
+from plumbline.api import admin, answering, chunks, leases, problems, search, tier
 from plumbline.api.leases import LeaseChecker
 from plumbline.api.openapi import build_openapi
 from plumbline.api.quota import Counter, Quota, RedisCounter
@@ -25,7 +24,6 @@ from plumbline.api.sources import router as sources_router
 from plumbline.core.stream import AnswerPipeline
 from plumbline.corpus.manifest import load_manifest
 from plumbline.db import make_engine, make_sessionmaker
-from plumbline.generation.stub import StubPipeline
 from plumbline.settings import ROOT, Settings, get_settings
 
 
@@ -55,9 +53,18 @@ def create_app(
         lifespan=lifespan,
     )
     app.state.settings = settings
-    app.state.pipeline = pipeline or StubPipeline(delay_ms=settings.stub_delay_ms)
-    app.state.retrieval = retrieval  # Lane A's retrieval, when the server has it
-    app.state.lease_checker = lease_checker or StubLeaseChecker(delay_ms=settings.stub_delay_ms)
+    # Lane A's retrieval, when the server has it. What answers without one, and when the
+    # stand-ins may, is api/answering.py's rule; production refuses to start on a stand-in.
+    retrieval = retrieval or answering.default_retrieval(settings)
+    app.state.retrieval = retrieval
+    meter = answering.spend_meter(settings)
+    app.state.pipeline = pipeline or answering.default_pipeline(
+        settings, retrieval, answering.sync_sessions(settings), meter
+    )
+    app.state.lease_checker = lease_checker or answering.default_lease_checker(
+        settings, retrieval, meter
+    )
+    answering.refuse_stubs(settings, app.state.pipeline, app.state.lease_checker)
     app.state.runs = Runs(leases.failure)
     # The engine connects on first use, so an app that never touches the database (the
     # stub, the OpenAPI export) runs without one.
