@@ -7,7 +7,14 @@ import pytest
 from pydantic import ValidationError
 
 from plumbline.corpus.manifest import MANIFEST, Manifest, load_manifest
-from plumbline.corpus.validate import check_golden, check_sources
+from plumbline.corpus.validate import (
+    LICENCES,
+    check_editions,
+    check_golden,
+    check_licences,
+    check_sources,
+    check_unlisted,
+)
 
 
 def source(**overrides: Any) -> dict[str, Any]:
@@ -69,6 +76,43 @@ def test_bad_rows_are_refused(overrides: dict[str, Any]) -> None:
 def test_duplicate_ids_are_refused() -> None:
     with pytest.raises(ValidationError):
         Manifest.model_validate({"sources": [source(), source()]})
+
+
+def test_a_law_has_one_source_per_edition() -> None:
+    twin = source(id="fl-stat-83-2026-copy", path="data/corpus/raw/copy.html")
+    both = Manifest.model_validate({"sources": [source(), twin]})  # the model allows it
+    assert check_editions(both) == [
+        "fl-stat-83 2026: more than one source for the same law and edition"
+    ]
+    later = source(id="fl-stat-83-2027", edition="2027", path="data/corpus/raw/2027.html")
+    assert check_editions(Manifest.model_validate({"sources": [source(), later]})) == []
+    assert check_editions(load_manifest()) == []
+
+
+def test_every_source_needs_its_licence_row() -> None:
+    manifest = Manifest.model_validate({"sources": [source()]})
+    row = "| `fl-stat-83-2026` | Online Sunshine | `Public domain (government edicts doctrine)` |"
+    assert check_licences(manifest, f"# Data licences\n{row}\n") == []
+    assert "no row" in check_licences(manifest, "| `fl-stat-718-2026` | ... |")[0]
+    wrong = row.replace("Public domain", "Public record")
+    assert "does not give the basis" in check_licences(manifest, wrong)[0]
+
+
+def test_the_committed_licences_cover_every_source() -> None:
+    assert check_licences(load_manifest(), LICENCES.read_text(encoding="utf-8")) == []
+
+
+def test_files_under_raw_need_a_manifest_row(tmp_path: Path) -> None:
+    raw = tmp_path / "data" / "corpus" / "raw"
+    raw.mkdir(parents=True)
+    (raw / ".gitattributes").write_text("* -text\n", encoding="utf-8")
+    (raw / "fl-stat-83-2026.html").write_bytes(b"<p>83.49</p>")
+    manifest = Manifest.model_validate({"sources": [source()]})
+    assert check_unlisted(manifest, tmp_path) == []
+    (raw / "stray.html").write_bytes(b"<p>no licence</p>")
+    assert check_unlisted(manifest, tmp_path) == [
+        "data/corpus/raw/stray.html: under raw/ but in no manifest row"
+    ]
 
 
 def test_golden_files_are_validated(tmp_path: Path) -> None:
