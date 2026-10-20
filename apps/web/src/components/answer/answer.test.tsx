@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { UIMessageChunk } from "ai";
 
-import { messageFrom, stubChunks } from "@/test/stream";
+import { messageFrom, stubChunks, stubChunksWith } from "@/test/stream";
 
 import { Answer } from "./answer";
 
@@ -49,5 +49,45 @@ describe("Answer", () => {
     expect(container.querySelector("a")).toBeNull();
     expect(screen.getByRole("article")).toHaveTextContent("and this link or that one");
     expect(screen.getByRole("button", { name: /^Source 1/ })).toBeInTheDocument();
+  });
+
+  it("names the part a partial answer leaves out", async () => {
+    const reason = "Rent rises at renewal follow a decree that isn't in the corpus yet.";
+    render(
+      <Answer
+        message={await messageFrom(stubChunksWith({ status: "partial", abstain_reason: reason }))}
+      />,
+    );
+    const answer = screen.getByRole("article", { name: "Answer" });
+    expect(answer).toHaveTextContent("Partial answer");
+    expect(answer).toHaveTextContent("This is a stub answer");
+    expect(answer).toHaveTextContent(`Not covered by the statutes I hold${reason}`);
+    expect(screen.getByRole("list", { name: "Sources" })).toBeInTheDocument();
+  });
+
+  it("shows an abstention calmly, with what was checked and no body or sources", async () => {
+    const message = await messageFrom(
+      stubChunksWith(
+        {
+          status: "abstained",
+          jurisdictions: [],
+          as_of: "2024-03-01",
+          abstain_reason: "The stub has no corpus.",
+        },
+        { citations: false },
+      ),
+    );
+    render(<Answer message={message} />);
+    const abstention = screen.getByRole("region", {
+      name: "I couldn't find a statute that answers this.",
+    });
+    expect(abstention).toHaveTextContent(
+      "SearchedThe tenancy statutes of Dubai, Spain, Colombia and Florida",
+    );
+    expect(abstention).toHaveTextContent("Law as of1 Mar 2024");
+    expect(abstention).toHaveTextContent("WhyThe stub has no corpus.");
+    expect(screen.getByRole("article")).toHaveTextContent("Abstained");
+    expect(screen.queryByText(/This is a stub answer/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Sources" })).not.toBeInTheDocument();
   });
 });
