@@ -138,9 +138,15 @@ jobs:
         run: docker run --rm -i hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d hadolint - < deploy/api/Dockerfile
       - name: Lint the shell scripts
         run: |
-          git ls-files -z 'deploy/*.sh' deploy/prod | xargs -0 -r docker run --rm -v "$PWD:/mnt:ro" -w /mnt \
+          git ls-files -z 'deploy/*.sh' deploy/prod infra/cloudflare/tf | xargs -0 -r docker run --rm -v "$PWD:/mnt:ro" -w /mnt \
             koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d \
             --severity=style
+      - name: Check the Terraform for Cloudflare
+        run: >-
+          docker run --rm --user "$(id -u):$(id -g)" -v "$PWD/infra/cloudflare:/work" -w /work
+          -e TF_DATA_DIR=/tmp/tf --entrypoint sh
+          hashicorp/terraform:1.16.6@sha256:bfffc1ded5fbf0a17beaaf22eb4793980abdb19d0761ff6a3a0efb2ab4d9b316
+          -c 'terraform fmt -check -diff && terraform init -backend=false -input=false -lockfile=readonly >/dev/null && terraform validate'
       - name: Build the API image
         run: |
           docker build -f deploy/api/Dockerfile -t plumbline-api:ci .
