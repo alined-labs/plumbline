@@ -191,6 +191,214 @@
         "title": "CacheMode",
         "type": "string"
       },
+      "Chunk": {
+        "additionalProperties": false,
+        "description": "A retrievable unit of statute text: an article, or a numbered paragraph of one.",
+        "properties": {
+          "article": {
+            "minLength": 1,
+            "title": "Article",
+            "type": "string"
+          },
+          "context_header": {
+            "default": "",
+            "title": "Context Header",
+            "type": "string"
+          },
+          "context_header_llm": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context Header Llm"
+          },
+          "document_id": {
+            "minLength": 1,
+            "title": "Document Id",
+            "type": "string"
+          },
+          "edition": {
+            "minLength": 1,
+            "title": "Edition",
+            "type": "string"
+          },
+          "effective_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective From"
+          },
+          "effective_to": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective To"
+          },
+          "heading": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heading"
+          },
+          "history": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "History"
+          },
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "jurisdiction": {
+            "$ref": "#/components/schemas/Jurisdiction"
+          },
+          "label": {
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "language": {
+            "$ref": "#/components/schemas/Language"
+          },
+          "law": {
+            "minLength": 1,
+            "title": "Law",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Metadata",
+            "type": "object"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "path": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Path",
+            "type": "array"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ProvisionStatus",
+            "default": "in_force"
+          },
+          "text": {
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          },
+          "text_for_search": {
+            "minLength": 1,
+            "title": "Text For Search",
+            "type": "string"
+          },
+          "validity_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validity Note"
+          }
+        },
+        "required": [
+          "id",
+          "document_id",
+          "parent_id",
+          "jurisdiction",
+          "law",
+          "language",
+          "edition",
+          "article",
+          "path",
+          "label",
+          "heading",
+          "text",
+          "text_for_search",
+          "context_header",
+          "context_header_llm",
+          "effective_from",
+          "effective_to",
+          "status",
+          "validity_note",
+          "history",
+          "page",
+          "metadata"
+        ],
+        "title": "Chunk",
+        "type": "object"
+      },
       "Citation": {
         "additionalProperties": false,
         "description": "One [n] marker in an answer and the span it quotes.",
@@ -654,6 +862,16 @@
         "title": "Problem",
         "type": "object"
       },
+      "ProvisionStatus": {
+        "description": "Validity of a provision on the edition's date. Colombian \"Nota de vigencia\" and\nINEXEQUIBLE markers map onto these values; the original note is kept in validity_note.",
+        "enum": [
+          "in_force",
+          "repealed",
+          "struck_down"
+        ],
+        "title": "ProvisionStatus",
+        "type": "string"
+      },
       "QuoteBoxes": {
         "properties": {
           "available": {
@@ -688,6 +906,187 @@
           "boxes"
         ],
         "title": "QuoteBoxes",
+        "type": "object"
+      },
+      "RetrievalScores": {
+        "additionalProperties": false,
+        "properties": {
+          "bm25": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bm25"
+          },
+          "bm25_rank": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bm25 Rank"
+          },
+          "dense": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dense"
+          },
+          "dense_rank": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dense Rank"
+          },
+          "rerank": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rerank"
+          },
+          "rrf": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rrf"
+          }
+        },
+        "required": [
+          "dense",
+          "bm25",
+          "rrf",
+          "rerank",
+          "dense_rank",
+          "bm25_rank"
+        ],
+        "title": "RetrievalScores",
+        "type": "object"
+      },
+      "Retrieved": {
+        "additionalProperties": false,
+        "properties": {
+          "chunk": {
+            "$ref": "#/components/schemas/Chunk"
+          },
+          "rank": {
+            "minimum": 1.0,
+            "title": "Rank",
+            "type": "integer"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "scores": {
+            "$ref": "#/components/schemas/RetrievalScores"
+          }
+        },
+        "required": [
+          "chunk",
+          "rank",
+          "score",
+          "scores"
+        ],
+        "title": "Retrieved",
+        "type": "object"
+      },
+      "SearchResult": {
+        "properties": {
+          "as_of": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "candidates": {
+            "title": "Candidates",
+            "type": "integer"
+          },
+          "config": {
+            "title": "Config",
+            "type": "string"
+          },
+          "config_hash": {
+            "title": "Config Hash",
+            "type": "string"
+          },
+          "hits": {
+            "items": {
+              "$ref": "#/components/schemas/Retrieved"
+            },
+            "title": "Hits",
+            "type": "array"
+          },
+          "jurisdictions": {
+            "items": {
+              "$ref": "#/components/schemas/Jurisdiction"
+            },
+            "title": "Jurisdictions",
+            "type": "array"
+          },
+          "k": {
+            "title": "K",
+            "type": "integer"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "timings_ms": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Timings Ms",
+            "type": "object"
+          }
+        },
+        "required": [
+          "query",
+          "config",
+          "config_hash",
+          "k",
+          "jurisdictions",
+          "as_of",
+          "candidates",
+          "timings_ms",
+          "hits"
+        ],
+        "title": "SearchResult",
         "type": "object"
       },
       "Stage": {
@@ -1359,6 +1758,141 @@
         "summary": "Health",
         "tags": [
           "ops"
+        ]
+      }
+    },
+    "/api/search": {
+      "get": {
+        "operationId": "search_api_search_get",
+        "parameters": [
+          {
+            "description": "The question.",
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "description": "The question.",
+              "maxLength": 2000,
+              "minLength": 1,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Hits to return; default: the configuration's top_k.",
+            "in": "query",
+            "name": "k",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 50,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Hits to return; default: the configuration's top_k.",
+              "title": "K"
+            }
+          },
+          {
+            "in": "query",
+            "name": "jurisdictions",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/components/schemas/Jurisdiction"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jurisdictions"
+            }
+          },
+          {
+            "in": "query",
+            "name": "as_of",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "As Of"
+            }
+          },
+          {
+            "description": "A configuration of evals/configs.",
+            "in": "query",
+            "name": "config",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "A configuration of evals/configs.",
+              "title": "Config"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The request is not valid."
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "An error, as problem details (RFC 9457)."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Search",
+        "tags": [
+          "admin"
         ]
       }
     },

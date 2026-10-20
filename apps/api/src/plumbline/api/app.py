@@ -10,9 +10,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from plumbline.api import admin, problems, tier
+from plumbline.api import admin, problems, search, tier
 from plumbline.api.openapi import build_openapi
 from plumbline.api.routes import router
+from plumbline.api.search import RetrievalFactory
 from plumbline.api.sources import Corpus
 from plumbline.api.sources import router as sources_router
 from plumbline.core.stream import AnswerPipeline
@@ -27,6 +28,7 @@ def create_app(
     pipeline: AnswerPipeline | None = None,
     sessions: async_sessionmaker[AsyncSession] | None = None,
     corpus: Corpus | None = None,
+    retrieval: RetrievalFactory | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
     app = FastAPI(
@@ -39,6 +41,7 @@ def create_app(
     )
     app.state.settings = settings
     app.state.pipeline = pipeline or StubPipeline(delay_ms=settings.stub_delay_ms)
+    app.state.retrieval = retrieval  # Lane A's retrieval, when the server has it
     # The engine connects on first use, so an app that never touches the database (the
     # stub, the OpenAPI export) runs without one.
     app.state.sessions = sessions or make_sessionmaker(make_engine(settings.database_url))
@@ -55,6 +58,7 @@ def create_app(
     app.include_router(admin.router)
     app.include_router(tier.router)
     app.include_router(sources_router)
+    app.include_router(search.router)
 
     def openapi() -> dict[str, Any]:
         if app.openapi_schema is None:
