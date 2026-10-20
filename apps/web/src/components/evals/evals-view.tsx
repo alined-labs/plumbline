@@ -274,6 +274,17 @@ function JudgeTable({ agreement }: { agreement: Agreement }) {
         true-positive rate is the share of good answers it passes; the true-negative rate, the share
         of flawed answers it fails. Both must reach {formatScore(bar)} before its verdicts count.
       </p>
+      {agreement.sets.some((set) => set.labels === "constructed") && (
+        <p className="text-fg-muted">
+          The constructed labels are answers built for the test from development questions: correct
+          ones, and copies with one planted error each, so their verdict is known without a person
+          grading them.{" "}
+          <ExternalLink href={`${REPO}/blob/main/evals/calibration/README.md`}>
+            How they were made
+          </ExternalLink>
+          .
+        </p>
+      )}
       <Table
         label="The judge's accuracy"
         caption="The judge's true-positive and true-negative rates per criterion, with 95% Wilson intervals and counts."
