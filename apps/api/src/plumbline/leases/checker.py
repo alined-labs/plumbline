@@ -88,7 +88,9 @@ async def stream_check(
 ) -> AsyncIterator[LeaseEvent]:
     yield LeaseStage("redacting")
     try:
-        text = redactor.redact(upload)
+        # Presidio's redaction is synchronous and takes up to a few seconds on a long lease:
+        # in a worker thread, so other readers' streams keep moving meanwhile.
+        text = await asyncio.to_thread(redactor.redact, upload)
     except RedactionRefused as exc:
         raise LeaseCheckError("redaction_refused") from exc
     # Read on the original text: redaction may replace place names ("Miami, Florida") with
