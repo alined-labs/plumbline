@@ -1,3 +1,4 @@
+import type { Schemas } from "@plumbline/ts-client";
 import { queryOptions } from "@tanstack/react-query";
 
 import { apiUrl } from "./api";
@@ -6,17 +7,9 @@ import { apiUrl } from "./api";
 // previous day's production answers judged for faithfulness, the last 14 nights newest first.
 // Fetched in the browser, since the export cannot know last night at build time.
 
-/** One night, as the API's OnlineNight writes it. */
-export type OnlineNight = {
-  day: string;
-  config_name: string;
-  answered: number;
-  sampled: number;
-  judged: number;
-  faithful: number;
-  faithfulness: number | null;
-  interval_95: [number, number] | null;
-};
+/** One night, as the API writes it: the generated client's type, so a change on either side
+ * fails to compile here. */
+export type OnlineNight = Schemas["OnlineNight"];
 
 export function onlineQuery() {
   return queryOptions({
