@@ -3,7 +3,7 @@
 import { useId, useRef, useState, type DragEvent } from "react";
 
 import { UploadIcon } from "@/components/icons";
-import { LEASE_ACCEPT } from "@/lib/lease-upload";
+import { LEASE_ACCEPT, MAX_LEASE_MB } from "@/lib/lease-upload";
 
 /** Dropzone spec: the empty state of the lease page and the way to give it a lease. The whole
  * zone is one button, so Enter or Space opens the picker; a file dropped on it, or chosen, is
@@ -51,7 +51,8 @@ export function Dropzone({
         <UploadIcon size={20} className="text-fg-muted" />
         <span className="text-body font-semibold">Drop a lease here or choose a file</span>
         <span id={helpId} className="text-small text-fg-muted">
-          PDF or DOCX, up to 20 MB. Names, IDs and addresses are removed before any model reads it.
+          PDF or DOCX, up to {MAX_LEASE_MB} MB. Names, IDs and addresses are removed before any
+          model reads it.
         </span>
       </button>
       {/* The picker itself stays out of the tab order and the accessibility tree: the button

@@ -34,10 +34,10 @@ describe("UploadForm", () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
-  it("refuses a file over 20 MB", async () => {
+  it("refuses a file over 10 MB", async () => {
     const { zone } = setup();
     drop(zone, file("lease.pdf", "application/pdf", MAX_LEASE_BYTES + 1));
-    expect(await screen.findByText("Choose a file of 20 MB or less")).toBeInTheDocument();
+    expect(await screen.findByText("Choose a file of 10 MB or less")).toBeInTheDocument();
   });
 
   it("asks for a lease when none is chosen", async () => {
