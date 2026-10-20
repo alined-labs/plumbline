@@ -1,12 +1,11 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
 import { memo, useEffect, useId, useRef, type KeyboardEvent } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 
 import { ArrowUpIcon, CircleAlertIcon, SquareIcon } from "@/components/icons";
 import { buttonClass } from "@/components/ui/button";
-import { askSchema, EMPTY_ASK, type AskValues } from "@/lib/ask-form";
+import { askResolver, EMPTY_ASK, type AskValues } from "@/lib/ask-form";
 import { prefetchAnswerChunks } from "@/lib/prefetch";
 
 import { JurisdictionFilter } from "./jurisdiction-filter";
@@ -41,7 +40,7 @@ export const Composer = memo(
 function ComposerForm({ busy, onAsk, onStop, disabledReason }: ComposerProps) {
   const ids = { question: useId(), asOf: useId(), error: useId() };
   const { register, handleSubmit, control, reset, formState } = useForm<AskValues>({
-    resolver: zodResolver(askSchema),
+    resolver: askResolver,
     defaultValues: EMPTY_ASK,
   });
   const textarea = useRef<HTMLTextAreaElement | null>(null);

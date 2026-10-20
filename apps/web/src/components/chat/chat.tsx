@@ -1,174 +1,68 @@
 "use client";
 
-import { useChat } from "@ai-sdk/react";
 import type { Jurisdiction } from "@plumbline/ts-client";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { APICallError, DefaultChatTransport } from "ai";
+import { useQuery } from "@tanstack/react-query";
+import dynamic from "next/dynamic";
 import { useRef, useState } from "react";
 
-import { Answer } from "@/components/answer/answer";
 import { AnswerSkeleton } from "@/components/answer/answer-skeleton";
-import { StatusSteps } from "@/components/answer/status-steps";
-import { RotateCwIcon } from "@/components/icons";
-import { buttonClass } from "@/components/ui/button";
-import { Callout } from "@/components/ui/callout";
-import { announcement, answerView } from "@/lib/answer";
-import { apiUrl } from "@/lib/api";
-import { askBody, type AskBody, type AskValues } from "@/lib/ask-form";
-import { untilUtcMidnight } from "@/lib/dates";
-import { messageText, type PlumblineMessage } from "@/lib/messages";
+import type { AskValues } from "@/lib/ask-form";
 import { prefetchAnswerChunks } from "@/lib/prefetch";
-import { addStatus, finishRun, startRun, type Run } from "@/lib/run";
 import { usageQuery, usageView } from "@/lib/usage";
 
+import type { EngineControls, EngineState } from "./chat-engine";
 import { ChatProfiler } from "./chat-profiler";
 import { Composer } from "./composer";
 import { EmptyState } from "./empty-state";
 
-/** Over the demo's daily quota, the API answers 429 (Patterns to rebuild: sandbox quotas). */
-function isQuotaReached(error: unknown): boolean {
-  return APICallError.isInstance(error) && error.statusCode === 429;
-}
+// Loaded on first use: the prefetch starts it when the question is focused, so by the time a
+// question is sent it has usually arrived. Until it mounts, the first question waits under a
+// skeleton. `ssr: false` keeps its scripts out of the page's HTML.
+const ChatEngine = dynamic(() => import("./chat-engine").then((module) => module.ChatEngine), {
+  ssr: false,
+  loading: () => <AnswerSkeleton />,
+});
 
+/** The chat page: the empty state and the composer, which need nothing heavy, and the engine
+ * that answers, which joins them when the first question is asked. One composer serves both,
+ * so nothing typed or chosen has to move from one to another. */
 export function Chat() {
-  // Status parts are transient: the chat keeps each request's steps itself, the live one
-  // here and the finished ones by message id. The ref lets the stream's callbacks read it.
-  const live = useRef<Run | null>(null);
-  const [liveRun, setLiveRun] = useState<Run | null>(null);
-  const [runs, setRuns] = useState<Record<string, Run>>({});
-  const [announced, setAnnounced] = useState("");
-  // The time left until the quota resets, measured when the 429 arrives.
-  const [resetIn, setResetIn] = useState<string | null>(null);
-  // The filters of the last question, so Try again asks it the same way.
-  const lastBody = useRef<AskBody>({ as_of: null, jurisdictions: [] });
+  // The question that started the engine; null until then.
+  const [first, setFirst] = useState<AskValues | null>(null);
+  const controlsRef = useRef<EngineControls | null>(null);
+  // The engine's state as the composer needs it; null until the engine has mounted.
+  const [engine, setEngine] = useState<EngineState | null>(null);
   // The day's allowance: read again after each answer, and when none is left the composer says
   // so and when it resets before a question is typed.
-  const queryClient = useQueryClient();
   const { data: usage, dataUpdatedAt } = useQuery(usageQuery());
   const spent = usage ? usageView(usage, new Date(dataUpdatedAt)) : undefined;
 
-  function setLive(run: Run | null) {
-    live.current = run;
-    setLiveRun(run);
-  }
-
-  const { messages, sendMessage, regenerate, stop, status, error } = useChat<PlumblineMessage>({
-    transport: new DefaultChatTransport({ api: apiUrl("/api/ask") }),
-    // Publish streamed text at most every 50 ms: tokens arrive faster than that, and each
-    // update re-renders the answer (docs/notes/streamed-answer-profile.md).
-    throttle: 50,
-    onData: (part) => {
-      if (part.type === "data-status" && live.current) {
-        setLive(addStatus(live.current, part.data, Date.now()));
-      }
-    },
-    onFinish: ({ message, isError, isAbort }) => {
-      const run = live.current;
-      if (run) setRuns((all) => ({ ...all, [message.id]: finishRun(run, Date.now(), isError) }));
-      setLive(null);
-      // One announcement per answer, once it is complete, instead of every token. A failure
-      // announces itself through its callout.
-      setAnnounced(isError ? "" : isAbort ? "Answer stopped." : announcement(answerView(message)));
-      void queryClient.invalidateQueries({ queryKey: ["usage"] });
-    },
-    onError: (failure) => {
-      if (isQuotaReached(failure)) setResetIn(untilUtcMidnight(new Date()));
-      void queryClient.invalidateQueries({ queryKey: ["usage"] });
-    },
-  });
-  const busy = status === "submitted" || status === "streaming";
-  const last = messages.at(-1);
-
   function ask(values: AskValues) {
     prefetchAnswerChunks();
-    lastBody.current = askBody(values);
-    setLive(startRun(Date.now(), values.jurisdictions.length || 4));
-    // The jurisdictions and as-of date travel in the body, beside the messages useChat sends.
-    void sendMessage({ text: values.question }, { body: lastBody.current });
+    if (controlsRef.current) controlsRef.current.ask(values);
+    else setFirst(values);
   }
 
   function askExample(question: string, jurisdiction: Jurisdiction) {
     ask({ question, jurisdictions: [jurisdiction], asOf: "" });
   }
 
-  function retry() {
-    setLive(startRun(Date.now(), lastBody.current.jurisdictions.length || 4));
-    void regenerate({ body: lastBody.current });
-  }
-
-  // ErrorState and Callout specs: an answer that failed shows a danger callout with Try
-  // again; a spent quota is not a failure, so it says when the demo resets.
-  const failure =
-    status !== "error" ? undefined : isQuotaReached(error) ? (
-      <Callout tone="warning" title="Today's demo questions are used up.">
-        {`They reset at 00:00 UTC${resetIn ? `, in ${resetIn}` : ""}. `}
-        {"The evaluation and the statutes' dates stay open."}
-      </Callout>
-    ) : (
-      <Callout
-        tone="danger"
-        title="Plumbline couldn't finish this answer."
-        action={
-          <button type="button" onClick={retry} className={buttonClass({ size: "sm" })}>
-            <RotateCwIcon />
-            Try again
-          </button>
-        }
-      >
-        {"The search service didn't answer. Your question is kept; try again in a moment."}
-      </Callout>
-    );
-
   return (
     <ChatProfiler>
       <div className="mt-8 flex flex-col gap-8">
-        {messages.length === 0 && <EmptyState onExample={askExample} />}
-        <section aria-label="Conversation" className="flex flex-col gap-8 empty:hidden">
-          {messages.map((message) =>
-            message.role === "assistant" ? (
-              <Answer
-                key={message.id}
-                message={message}
-                streaming={busy && message === last}
-                run={busy && message === last ? (liveRun ?? undefined) : runs[message.id]}
-                failure={message === last ? failure : undefined}
-              />
-            ) : (
-              <p
-                key={message.id}
-                className="max-w-4/5 self-end rounded-lg bg-bg-active px-3.5 py-2.5 text-body"
-              >
-                {messageText(message)}
-              </p>
-            ),
-          )}
-          {busy && last?.role === "user" && (
-            // Before the stream's first part there is no assistant message yet.
-            <div className="flex flex-col gap-4">
-              {liveRun && liveRun.steps.length > 0 ? (
-                <StatusSteps run={liveRun} />
-              ) : (
-                <AnswerSkeleton />
-              )}
-            </div>
-          )}
-          {/* A request that failed before its answer began has no message to hold the callout. */}
-          {last?.role === "user" && failure}
-        </section>
-        <p aria-live="polite" className="sr-only">
-          {announced}
-        </p>
+        {first === null ? (
+          <EmptyState onExample={askExample} />
+        ) : (
+          <ChatEngine first={first} controlsRef={controlsRef} onState={setEngine} />
+        )}
         <div className="sticky bottom-0 bg-bg pb-4 pt-2">
           <Composer
-            busy={busy}
+            // Busy from the first question until the engine says otherwise.
+            busy={first !== null && (engine?.busy ?? true)}
             onAsk={ask}
-            onStop={() => void stop()}
+            onStop={() => controlsRef.current?.stop()}
             disabledReason={
-              isQuotaReached(error)
-                ? `Demo questions reset at 00:00 UTC${resetIn ? `, in ${resetIn}` : ""}.`
-                : spent?.exhausted
-                  ? spent.composerReason
-                  : undefined
+              engine?.quotaReason ?? (spent?.exhausted ? spent.composerReason : undefined)
             }
           />
         </div>

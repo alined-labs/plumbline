@@ -49,6 +49,28 @@ test("the home page is accessible", async ({ page }) => {
   await expectNoAxeViolations(page);
 });
 
+test("a follow-up question joins the same conversation", async ({ page }) => {
+  const asked: number[] = [];
+  await page.route("**/api/ask", (route) => {
+    // useChat sends the whole conversation: one message, then three.
+    asked.push((route.request().postDataJSON() as { messages: unknown[] }).messages.length);
+    return route.fulfill({
+      status: 200,
+      headers: { "content-type": "text/event-stream", "x-vercel-ai-ui-message-stream": "v1" },
+      body: stubStream,
+    });
+  });
+  await page.goto("/");
+  await ask(page, "Can my landlord keep my deposit?");
+  const answers = page.getByRole("article", { name: "Answer" });
+  await expect(answers).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Send question" })).toBeVisible();
+  await ask(page, "And how long does the landlord have to return it?");
+  await expect(answers).toHaveCount(2);
+  await expect(page.getByText("And how long does the landlord have to return it?")).toBeVisible();
+  expect(asked).toEqual([1, 3]);
+});
+
 test("a question streams back a cited answer", async ({ page }) => {
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   await answerWithStub(page);
@@ -153,7 +175,7 @@ test("the source panel shows the cited article with the passage marked", async (
   await page.goto("/");
   await ask(page, "Can my landlord keep my deposit?");
   const answer = page.getByRole("article", { name: "Answer" });
-  await answer.getByRole("button", { name: "Source 1: Stub Act, s. 1" }).click();
+  await answer.getByRole("button", { name: "Source 1: Stub Act, s. 1", exact: true }).click();
 
   const panel = page.getByRole("dialog", { name: "Stub Act, s. 1" });
   const article = panel.getByRole("region", { name: "Article text" });
@@ -225,7 +247,7 @@ test("a restricted source shows only its quote and says why", async ({ page }) =
   await page.goto("/");
   await ask(page, "Can my landlord keep my deposit?");
   const answer = page.getByRole("article", { name: "Answer" });
-  await answer.getByRole("button", { name: "Source 1: Stub Act, s. 1" }).click();
+  await answer.getByRole("button", { name: "Source 1: Stub Act, s. 1", exact: true }).click();
 
   const panel = page.getByRole("dialog", { name: "Stub Act, s. 1" });
   await expect(panel.getByText("Only the quoted passage.")).toBeVisible();

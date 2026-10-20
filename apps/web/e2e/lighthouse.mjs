@@ -4,8 +4,8 @@
 //   lighthouserc.mobile.json  Lighthouse's default phone emulation (4x CPU, a slow connection),
 //                             what a reviewer gets from DevTools. Accessibility, best practices
 //                             and SEO must stay at or above 90; performance is reported as a
-//                             warning, because the chat page's JavaScript (the AI SDK, the form
-//                             and the combobox) costs it a few points (docs/notes/mobile-performance.md).
+//                             warning, because single runs spread by about five points around
+//                             the chat page's median of 91 (docs/notes/mobile-performance.md).
 import { spawnSync } from "node:child_process";
 
 import { chromium } from "@playwright/test";
