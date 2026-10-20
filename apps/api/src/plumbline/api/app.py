@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from plumbline.api import admin
+from plumbline.api import admin, tier
 from plumbline.api.openapi import build_openapi
 from plumbline.api.routes import router
 from plumbline.core.stream import AnswerPipeline
@@ -38,6 +38,7 @@ def create_app(
     # The engine connects on first use, so an app that never touches the database (the
     # stub, the OpenAPI export) runs without one.
     app.state.sessions = sessions or make_sessionmaker(make_engine(settings.database_url))
+    app.state.tier = tier.TierStore(app.state.sessions, settings.demo_tier)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -46,6 +47,7 @@ def create_app(
     )
     app.include_router(router)
     app.include_router(admin.router)
+    app.include_router(tier.router)
 
     def openapi() -> dict[str, Any]:
         if app.openapi_schema is None:
