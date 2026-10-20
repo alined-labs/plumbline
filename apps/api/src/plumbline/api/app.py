@@ -8,23 +8,44 @@ from contextlib import asynccontextmanager
 from importlib.metadata import version
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from plumbline.api import admin, answering, chunks, leases, problems, search, tier
+from plumbline.api import (
+    admin,
+    answering,
+    answers,
+    chunks,
+    health,
+    leases,
+    problems,
+    search,
+    sources,
+    tier,
+)
 from plumbline.api.leases import LeaseChecker
 from plumbline.api.openapi import build_openapi
 from plumbline.api.quota import Counter, Quota, RedisCounter
-from plumbline.api.routes import router
 from plumbline.api.runs import Runs
 from plumbline.api.search import RetrievalFactory
 from plumbline.api.sources import Corpus
-from plumbline.api.sources import router as sources_router
 from plumbline.core.stream import AnswerPipeline
 from plumbline.corpus.manifest import load_manifest
 from plumbline.db import make_engine, make_sessionmaker
 from plumbline.settings import ROOT, Settings, get_settings
+
+# One router per module, registered here at start-up, in the order the schema lists them.
+ROUTERS: tuple[APIRouter, ...] = (
+    health.router,
+    answers.router,
+    admin.router,
+    tier.router,
+    sources.router,
+    search.router,
+    chunks.router,
+    leases.router,
+)
 
 
 @asynccontextmanager
@@ -83,13 +104,8 @@ def create_app(
         expose_headers=["Retry-After", "Location"],  # a cross-origin page reads these too
     )
     problems.install(app)
-    app.include_router(router)
-    app.include_router(admin.router)
-    app.include_router(tier.router)
-    app.include_router(sources_router)
-    app.include_router(search.router)
-    app.include_router(chunks.router)
-    app.include_router(leases.router)
+    for module_router in ROUTERS:
+        app.include_router(module_router)
 
     def openapi() -> dict[str, Any]:
         if app.openapi_schema is None:
