@@ -1,6 +1,6 @@
 import type { Citation } from "@plumbline/ts-client";
-import { memo } from "react";
-import Markdown from "react-markdown";
+import { createContext, memo, useContext, type ComponentProps } from "react";
+import Markdown, { type Components, type ExtraProps } from "react-markdown";
 
 import { sourceNumber } from "@/lib/answer";
 
@@ -11,36 +11,45 @@ import { CitationMarker } from "./citation-marker";
 // link keeps its words and loses its address.
 const ALLOWED = ["p", "strong", "em", "ul", "ol", "li", "code", "br", "a"];
 
-type BlockProps = {
-  markdown: string;
-  /** Changes only when the citations do; the map and the callback are rebuilt on every
-   * streamed update with the same contents, so the comparison below ignores them. */
-  citationsKey: string;
+type Markers = {
   byNumber: Map<number, Citation>;
-  onSelect: (n: number) => void;
+  /** The source open in the panel, whose markers show as active. */
+  active: number | null;
+  onOpen: (n: number, opener: HTMLElement) => void;
 };
 
+// The markers read their citations from context so that the `a` component below is one
+// stable type: react-markdown's components rebuilt on each render would remount every marker,
+// losing the button the panel returns focus to.
+const MarkersContext = createContext<Markers | null>(null);
+
+function MarkerLink({ href, children }: ComponentProps<"a"> & ExtraProps) {
+  const markers = useContext(MarkersContext);
+  const n = sourceNumber(href);
+  const citation = n === null ? undefined : markers?.byNumber.get(n);
+  return citation && markers ? (
+    <CitationMarker citation={citation} active={markers.active === n} onOpen={markers.onOpen} />
+  ) : (
+    <>{children}</>
+  );
+}
+
+const COMPONENTS: Components = { a: MarkerLink };
+
+const urlTransform = (url: string) => (sourceNumber(url) === null ? "" : url);
+
 /** One paragraph or list. While an answer streams only its last block grows, so the blocks
- * before it are parsed once instead of on every update (docs/notes/streamed-answer-profile.md). */
+ * before it are parsed once instead of on every update (docs/notes/streamed-answer-profile.md).
+ * The markers inside follow the context, so only the text and the citations matter here. */
 const MarkdownBlock = memo(
-  function MarkdownBlock({ markdown, byNumber, onSelect }: BlockProps) {
+  function MarkdownBlock({ markdown }: { markdown: string; citationsKey: string }) {
     return (
       <Markdown
         allowedElements={ALLOWED}
         unwrapDisallowed
         skipHtml
-        urlTransform={(url) => (sourceNumber(url) === null ? "" : url)}
-        components={{
-          a({ href, children }) {
-            const n = sourceNumber(href);
-            const citation = n === null ? undefined : byNumber.get(n);
-            return citation ? (
-              <CitationMarker citation={citation} onSelect={onSelect} />
-            ) : (
-              <>{children}</>
-            );
-          },
-        }}
+        urlTransform={urlTransform}
+        components={COMPONENTS}
       >
         {markdown}
       </Markdown>
@@ -54,27 +63,25 @@ const MarkdownBlock = memo(
 export function AnswerBody({
   markdown,
   citations,
-  onSelect,
+  active,
+  onOpen,
 }: {
   markdown: string;
   citations: Citation[];
-  onSelect: (n: number) => void;
+  active: number | null;
+  onOpen: (n: number, opener: HTMLElement) => void;
 }) {
   const byNumber = new Map(citations.map((citation) => [citation.n, citation]));
   const citationsKey = citations.map((citation) => `${citation.n}:${citation.chunk_id}`).join();
   // Blank lines separate Markdown blocks, so splitting there renders the same elements.
   const blocks = markdown.split(/\n{2,}/);
   return (
-    <div className="text-body-lg [&_code]:font-mono [&_li]:mb-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_p:not(:last-child)]:mb-3 [&_ul]:list-disc [&_ul]:pl-5">
-      {blocks.map((block, i) => (
-        <MarkdownBlock
-          key={i}
-          markdown={block}
-          citationsKey={citationsKey}
-          byNumber={byNumber}
-          onSelect={onSelect}
-        />
-      ))}
-    </div>
+    <MarkersContext value={{ byNumber, active, onOpen }}>
+      <div className="text-body-lg [&_code]:font-mono [&_li]:mb-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_p:not(:last-child)]:mb-3 [&_ul]:list-disc [&_ul]:pl-5">
+        {blocks.map((block, i) => (
+          <MarkdownBlock key={i} markdown={block} citationsKey={citationsKey} />
+        ))}
+      </div>
+    </MarkersContext>
   );
 }

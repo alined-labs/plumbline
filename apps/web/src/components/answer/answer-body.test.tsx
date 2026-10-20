@@ -21,7 +21,8 @@ describe("AnswerBody", () => {
       <AnswerBody
         markdown={"The deposit is one month [1](#source-1).\n\nIt is returned.\n\n- One\n- Two"}
         citations={[citation]}
-        onSelect={() => {}}
+        active={null}
+        onOpen={() => {}}
       />,
     );
     const body = container.firstElementChild;

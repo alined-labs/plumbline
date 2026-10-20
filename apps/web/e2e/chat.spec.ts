@@ -50,6 +50,7 @@ test("the home page is accessible", async ({ page }) => {
 });
 
 test("a question streams back a cited answer", async ({ page }) => {
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   await answerWithStub(page);
   await page.goto("/");
   await ask(page, "Can my landlord keep my deposit?");
@@ -60,8 +61,26 @@ test("a question streams back a cited answer", async ({ page }) => {
   await expect(answer).toContainText("1 source verified");
   await expectNoAxeViolations(page);
 
-  await answer.getByRole("button", { name: "Source 1: Stub Act, s. 1" }).click();
-  await expect(sources.getByRole("listitem")).toBeFocused();
+  // A marker opens its passage in the focus-trapped source panel, and Escape returns to it.
+  const marker = answer.getByRole("button", { name: "Source 1: Stub Act, s. 1", exact: true });
+  await marker.click();
+  const panel = page.getByRole("dialog", { name: "Stub Act, s. 1" });
+  await expect(panel.getByRole("heading", { name: "Stub Act, s. 1" })).toBeFocused();
+  await expect(panel).toContainText("This section exists only to exercise the interface.");
+  await expectNoAxeViolations(page);
+  const box = await panel.boundingBox();
+  const viewport = page.viewportSize();
+  if (box && viewport && viewport.width < 768) {
+    // On a phone the panel is a bottom sheet.
+    expect(Math.round(box.y + box.height)).toBe(viewport.height);
+    expect(box.width).toBe(viewport.width);
+  }
+  // The panel sits above its scrim, so a click inside it lands on it.
+  await panel.getByRole("button", { name: "Copy reference" }).click();
+  await expect(panel.getByRole("button", { name: "Reference copied" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(panel).toHaveCount(0);
+  await expect(marker).toBeFocused();
 
   // The stream's status parts collapse into the meta line, one click away under Trace, and
   // the finished answer is announced once.
@@ -75,7 +94,6 @@ test("a question streams back a cited answer", async ({ page }) => {
   );
 
   // Copying keeps the evidence and the framing with the words.
-  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   await answer.getByRole("button", { name: "Copy answer" }).click();
   await expect(answer.getByRole("button", { name: "Answer copied" })).toBeVisible();
   const copied = await page.evaluate(() => navigator.clipboard.readText());

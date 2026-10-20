@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useId, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useId, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { CheckIcon, CircleCheckIcon, CopyIcon } from "@/components/icons";
 import { Badge } from "@/components/ui/badge";
@@ -14,11 +14,12 @@ import { Abstention, AnswerGap } from "./abstention";
 import { AnswerBody } from "./answer-body";
 import { AnswerSkeleton } from "./answer-skeleton";
 import { SourceCard } from "./source-card";
+import { SourcePanel } from "./source-panel";
 import { StatusSteps } from "./status-steps";
 
 /** Answer spec: the meta line (the status steps while it streams), Plumbline's explanation with
- * a marker after every claim, and the sources it cites. A marker selects its source card,
- * which is focused and outlined. */
+ * a marker after every claim, and the sources it cites. A marker or a source card opens its
+ * passage in the source panel, and focus returns to it when the panel closes. */
 export function Answer({
   message,
   run,
@@ -33,13 +34,13 @@ export function Answer({
   streaming?: boolean;
 }) {
   const view = useMemo(() => answerView(message), [message]);
-  const [selected, setSelected] = useState<number | null>(null);
-  const sourceId = (n: number) => `source-${message.id}-${n}`;
+  const [open, setOpen] = useState<number | null>(null);
+  const opener = useRef<HTMLElement | null>(null);
   const status = view.summary?.status;
 
-  function select(n: number) {
-    setSelected(n);
-    document.getElementById(sourceId(n))?.focus();
+  function openSource(n: number, from: HTMLElement) {
+    opener.current = from;
+    setOpen(n);
   }
 
   return (
@@ -59,7 +60,12 @@ export function Answer({
             <Abstention summary={view.summary} />
           ) : (
             view.markdown && (
-              <AnswerBody markdown={view.markdown} citations={view.citations} onSelect={select} />
+              <AnswerBody
+                markdown={view.markdown}
+                citations={view.citations}
+                active={open}
+                onOpen={openSource}
+              />
             )
           )}
           {status === "partial" && <AnswerGap reason={view.summary?.abstain_reason ?? null} />}
@@ -71,9 +77,9 @@ export function Answer({
               {view.citations.map((citation) => (
                 <SourceCard
                   key={citation.n}
-                  id={sourceId(citation.n)}
                   citation={citation}
-                  selected={selected === citation.n}
+                  selected={open === citation.n}
+                  onOpen={openSource}
                 />
               ))}
             </ol>
@@ -81,6 +87,11 @@ export function Answer({
         </>
       )}
       {!streaming && !failure && view.summary && <AnswerActions view={view} />}
+      <SourcePanel
+        citation={view.citations.find((citation) => citation.n === open) ?? null}
+        onClose={() => setOpen(null)}
+        opener={opener}
+      />
     </article>
   );
 }
