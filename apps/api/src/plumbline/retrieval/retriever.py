@@ -24,18 +24,20 @@ from plumbline.core.types import (
     Chunk,
     Jurisdiction,
     Language,
-    ProvisionStatus,
     RetrievalScores,
     Retrieved,
 )
 from plumbline.db import make_sync_engine, make_sync_sessionmaker
 from plumbline.db.models import PUBLIC_TENANT, ChunkRow
 from plumbline.db.session import tenant_session_sync
+from plumbline.generation.lawsource import to_chunk
+from plumbline.generation.llm import client_for
 from plumbline.generation.pipeline import ChunkSearch, Reranker
 from plumbline.retrieval import sql
 from plumbline.retrieval.embed import TeiEmbedder
 from plumbline.retrieval.fusion import Hit, merge_parents
 from plumbline.retrieval.index import variant_key
+from plumbline.retrieval.rewrite import REWRITE_MODEL, spanish_rewriter
 from plumbline.settings import Settings
 
 
@@ -149,33 +151,6 @@ def _retrieved(chunk: Chunk, rank: int, score: float, hit: sql.SqlHit) -> Retrie
     return Retrieved(chunk=chunk, rank=rank, score=score, scores=scores)
 
 
-def to_chunk(row: ChunkRow) -> Chunk:
-    return Chunk(
-        id=row.id,
-        document_id=row.document_id,
-        parent_id=row.parent_id,
-        jurisdiction=Jurisdiction(row.jurisdiction),
-        law=row.law,
-        language=Language(row.language),
-        edition=row.edition,
-        article=row.article,
-        path=list(row.path),
-        label=row.label,
-        heading=row.heading,
-        text=row.text,
-        text_for_search=row.text_for_search,
-        context_header=row.context_header,
-        context_header_llm=row.context_header_llm,
-        effective_from=row.effective_from,
-        effective_to=row.effective_to,
-        status=ProvisionStatus(row.status),
-        validity_note=row.validity_note,
-        history=row.history,
-        page=row.page,
-        metadata=row.metadata_,
-    )
-
-
 @dataclass(frozen=True)
 class Retrieval:
     """api.search.Retrieval: a configuration's search, and its reranker (none online)."""
@@ -192,6 +167,13 @@ def online_retrieval(settings: Settings, cache: ResponseCache) -> Callable[[Eval
 
     def build(config: EvalConfig) -> Retrieval:
         embedder = TeiEmbedder(settings.embed_url, cache, model=config.retrieval.embedding_model)
-        return Retrieval(search=Retriever(config, sessions, embedder))
+        # A6 rewrites the question into Spanish for the keyword search; the request holds
+        # only the question, so it records in the same cache as the embedding.
+        spanish = (
+            spanish_rewriter(client_for(REWRITE_MODEL, cache=cache, settings=settings))
+            if config.retrieval.cross_lingual_rewrite
+            else None
+        )
+        return Retrieval(search=Retriever(config, sessions, embedder, spanish=spanish))
 
     return build
