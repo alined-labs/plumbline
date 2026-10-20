@@ -4,6 +4,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
+from plumbline.core.config import EvalConfig
 from plumbline.core.types import (
     AnswerStatus,
     ArticleRef,
@@ -20,6 +21,8 @@ from plumbline.generation.abstain import (
     before_generation,
     missing_jurisdictions,
     names,
+    top_score,
+    tune,
     tune_threshold,
 )
 from rag_eval.schema import Category, Difficulty, SourceType, Split
@@ -187,13 +190,20 @@ def scored(
 
 
 def test_the_threshold_maximizes_balanced_accuracy() -> None:
-    # At 0.6 all three that should abstain do, and three of the four others answer.
-    assert tune_threshold(scored([0.05, 0.1, 0.3], [0.2, 0.6, 0.8, 0.9, None])) == 0.6
+    # Below 0.6 all three that should abstain do, and three of the four others answer; the
+    # threshold sits halfway between 0.3 and 0.6, the gap where that holds.
+    tuned = tune(scored([0.05, 0.1, 0.3], [0.2, 0.6, 0.8, 0.9, None]))
+    assert tuned.threshold == pytest.approx(0.45)
+    assert (tuned.caught, tuned.should, tuned.kept, tuned.should_not) == (3, 3, 3, 4)
+    assert tuned.balanced_accuracy == pytest.approx((1 + 0.75) / 2)
+    low, high = tuned.kept_interval
+    assert low < 0.75 < high
+    assert tuned.caught_interval[1] == 1.0
 
 
 def test_ties_go_to_the_threshold_that_declines_least() -> None:
-    # 0.3 and 0.5 both reach a balanced accuracy of 0.75.
-    assert tune_threshold(scored([0.1, 0.4], [0.3, 0.5])) == 0.3
+    # Below 0.3 or below 0.5, both reach a balanced accuracy of 0.75: halfway to 0.3 wins.
+    assert tune_threshold(scored([0.1, 0.4], [0.3, 0.5])) == pytest.approx(0.2)
 
 
 def test_tuning_refuses_anything_but_dev_and_one_sided_data() -> None:
@@ -214,3 +224,46 @@ def test_tuning_refuses_anything_but_dev_and_one_sided_data() -> None:
 def test_separable_scores_are_separated_perfectly(low: list[float], high: list[float]) -> None:
     threshold = tune_threshold(scored(list(low), list(high)))
     assert max(low) < threshold <= min(high)
+
+
+def dense(*similarities: float | None) -> list[Retrieved]:
+    """A hybrid list: a passage only BM25 found has no dense similarity."""
+    return [
+        Retrieved(chunk=CHUNK, rank=i, score=0.01, scores=RetrievalScores(dense=d, rrf=0.016))
+        for i, d in enumerate(similarities, start=1)
+    ]
+
+
+def test_an_online_threshold_reads_the_dense_similarity() -> None:
+    assert top_score(dense(None, 0.41, 0.62), "dense") == 0.62
+    assert top_score(dense(0.41), "rerank") is None
+    decision = before_generation([FLORIDA], [FLORIDA], dense(None, 0.41), 0.5, "dense")
+    assert decision is not None
+    assert decision.status is ABSTAINED
+    assert before_generation([FLORIDA], [FLORIDA], dense(0.62), 0.5, "dense") is None
+    # A rerank threshold with no rerank score: nothing to compare, so generation goes on.
+    assert before_generation([FLORIDA], [FLORIDA], dense(0.2), 0.5, "rerank") is None
+
+
+def config(mode: str = "hybrid", **generation: object) -> dict[str, object]:
+    return {
+        "name": "T1",
+        "description": "test",
+        "chunker": {"kind": "article"},
+        "retrieval": {"mode": mode, "rerank": "none"},
+        "generation": generation,
+    }
+
+
+def test_a_threshold_must_name_a_score_the_configuration_produces() -> None:
+    with pytest.raises(ValueError, match="nothing reranks"):
+        EvalConfig.model_validate(config(abstain_threshold=0.5))
+    online = EvalConfig.model_validate(config(abstain_threshold=0.5, abstain_score="dense"))
+    assert online.generation.abstain_score == "dense"
+    assert EvalConfig.model_validate(config()).generation.abstain_score == "rerank"
+    dense = {"abstain_threshold": 0.5, "abstain_score": "dense"}
+    for searches_no_dense_index in (config("bm25", **dense), config("none", **dense)):
+        with pytest.raises(ValueError, match="no dense index"):
+            EvalConfig.model_validate(searches_no_dense_index)
+    with pytest.raises(ValueError, match="no dense index"):
+        EvalConfig.model_validate(config("hybrid", long_context=True, **dense))

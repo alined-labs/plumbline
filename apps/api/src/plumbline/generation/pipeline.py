@@ -236,8 +236,13 @@ class Pipeline:
                 scores = await asyncio.to_thread(self.reranker.scores, question.text, texts)
                 run.retrieved = reorder(run.retrieved, scores, retrieval.top_k)
 
+        generation = self.config.generation
         early = before_generation(
-            asked, self.indexed, run.retrieved, self.config.generation.abstain_threshold
+            asked,
+            self.indexed,
+            run.retrieved,
+            generation.abstain_threshold,
+            generation.abstain_score,
         )
         if early is not None:
             yield TextDelta(text=early.reason or "")

@@ -5,8 +5,9 @@ Reviewed line by line before merge. Declining is a result, not a failure: an ans
 indexed law does not support is worse than none. It is decided at three moments.
 
 1. Before generation, with no model call (`before_generation`): none of the jurisdictions
-   the question asks about is indexed, retrieval found nothing, or the reranker's best
-   score is under the configuration's threshold.
+   the question asks about is indexed, retrieval found nothing, or the best score of the
+   kind the configuration names (`abstain_score`: the reranker's offline, the dense
+   similarity online) is under its threshold.
 2. After generation and verification (`after_generation`): the model's own abstention
    stands; an answer with no verified citation is withdrawn, because nothing in it could
    be checked against the law's text; and an answer that leaves out a jurisdiction the
@@ -21,8 +22,10 @@ from __future__ import annotations
 from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 
+from plumbline.core.config import AbstainScore
 from plumbline.core.types import AnswerStatus, GoldenItem, Jurisdiction, Retrieved
 from rag_eval.schema import Split
+from rag_eval.stats import wilson_interval
 
 
 @dataclass(frozen=True)
@@ -36,15 +39,16 @@ def before_generation(
     indexed: Collection[Jurisdiction],
     retrieved: Sequence[Retrieved],
     threshold: float | None,  # the configuration's abstain_threshold
+    score: AbstainScore = "rerank",  # the configuration's abstain_score: what the threshold reads
 ) -> Decision | None:
     """An abstention that needs no model call, or None to go on and generate."""
     if asked and not set(asked) & set(indexed):
         return _abstain(f"Plumbline does not hold the tenancy law of {names(asked)}.")
     if not retrieved:
         return _abstain("No provision of the law Plumbline holds matches this question.")
-    top = top_rerank_score(retrieved)
-    # The threshold is set on the reranker's scale. Fused or dense scores are on other
-    # scales, so with no rerank score there is nothing to compare it with.
+    top = top_score(retrieved, score)
+    # The threshold is on the scale of the score it was tuned on. A list without that score
+    # (a reranked configuration whose reranker did not run) has nothing to compare it with.
     if threshold is not None and top is not None and top < threshold:
         return _abstain(
             "No provision of the law Plumbline holds is close enough to this question to answer it."
@@ -76,9 +80,11 @@ def after_generation(
     return Decision(AnswerStatus.ANSWERED)
 
 
-def top_rerank_score(retrieved: Sequence[Retrieved]) -> float | None:
-    scores = [r.scores.rerank for r in retrieved if r.scores.rerank is not None]
-    return max(scores, default=None)
+def top_score(retrieved: Sequence[Retrieved], score: AbstainScore = "rerank") -> float | None:
+    """The best score of this kind among the retrieved, or None when none carries it (in a
+    hybrid list, a passage only BM25 found has no dense score)."""
+    values = [v for r in retrieved if (v := getattr(r.scores, score)) is not None]
+    return max(values, default=None)
 
 
 def missing_jurisdictions(
@@ -93,15 +99,44 @@ def names(jurisdictions: Collection[Jurisdiction]) -> str:
     return words[0] if len(words) == 1 else f"{', '.join(words[:-1])} or {words[-1]}"
 
 
+@dataclass(frozen=True)
+class Tuned:
+    """A tuned threshold and how it does on the items it was tuned on, per class: an
+    abstain side of about 17 dev items is uncertain by some twenty points, which the
+    interval shows."""
+
+    threshold: float
+    balanced_accuracy: float
+    caught: int  # items that should abstain and do
+    should: int
+    kept: int  # items that should answer and do
+    should_not: int
+
+    @property
+    def caught_interval(self) -> tuple[float, float]:
+        return wilson_interval(self.caught, self.should)
+
+    @property
+    def kept_interval(self) -> tuple[float, float]:
+        return wilson_interval(self.kept, self.should_not)
+
+
 def tune_threshold(items: Sequence[tuple[GoldenItem, float | None]]) -> float:
+    return tune(items).threshold
+
+
+def tune(items: Sequence[tuple[GoldenItem, float | None]]) -> Tuned:
     """The threshold with the best balanced accuracy on dev items, each paired with its top
-    rerank score: an item abstains when its score is under the threshold, and it should
-    when the golden set expects it to.
+    score of the kind the configuration names (`top_score`): an item abstains when its
+    score is under the threshold, and it should when the golden set expects it to.
 
     Balanced accuracy weighs the items that should abstain (about one in seven) as much as
     the rest, so a threshold cannot win by never abstaining. The candidates are the scores
     themselves, which covers every distinct outcome; ties go to the lowest, the threshold
-    that declines least. Items with no rerank score cannot be thresholded and are left out.
+    that declines least. The threshold returned is then the midpoint between that score and
+    the next lower one: the same decisions on these items, and not sitting exactly on the
+    score of an item that should answer, where a new question scoring a hair lower would
+    abstain. Items with no score cannot be thresholded and are left out.
     """
     for item, _ in items:
         if item.split is not Split.DEV:
@@ -112,12 +147,20 @@ def tune_threshold(items: Sequence[tuple[GoldenItem, float | None]]) -> float:
     if not should or not should_not:
         raise ValueError("tuning needs scored items that should and should not abstain")
 
-    def balanced_accuracy(threshold: float) -> float:
+    def outcome(threshold: float) -> tuple[int, int]:
         caught = sum(1 for s, abstain in scored if abstain and s < threshold)
         kept = sum(1 for s, abstain in scored if not abstain and s >= threshold)
+        return caught, kept
+
+    def balanced_accuracy(threshold: float) -> float:
+        caught, kept = outcome(threshold)
         return (caught / should + kept / should_not) / 2
 
-    return max({s for s, _ in scored}, key=lambda t: (balanced_accuracy(t), -t))
+    best = max({s for s, _ in scored}, key=lambda t: (balanced_accuracy(t), -t))
+    below = [s for s, _ in scored if s < best]
+    threshold = (max(below) + best) / 2 if below else best
+    caught, kept = outcome(threshold)
+    return Tuned(threshold, balanced_accuracy(threshold), caught, should, kept, should_not)
 
 
 def _abstain(reason: str) -> Decision:
