@@ -128,3 +128,10 @@ def test_golden_files_are_validated(tmp_path: Path) -> None:
     golden.mkdir(parents=True)
     (golden / "golden_v0.jsonl").write_text(json.dumps({"id": "x"}) + "\n", encoding="utf-8")
     assert check_golden(tmp_path)
+
+
+def test_other_lists_beside_the_golden_files_are_not_read_as_golden(tmp_path: Path) -> None:
+    drafts = tmp_path / "data" / "golden" / "drafts"
+    drafts.mkdir(parents=True)
+    (drafts / "second_sources_v1.jsonl").write_text('{"id": "x"}\n', encoding="utf-8")
+    assert check_golden(tmp_path) == []
