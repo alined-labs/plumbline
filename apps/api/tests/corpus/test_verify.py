@@ -118,6 +118,15 @@ def test_a_quote_with_a_gap_is_found_piece_by_piece_in_order() -> None:
     assert not quote_in("one three", text)
 
 
+def test_a_quote_matches_whole_words_only() -> None:
+    assert not quote_in("30 días", "dentro de los 130 días siguientes")
+    assert not quote_in("dos mes", "un mes y dos meses")
+    assert quote_in("30 días", "130 días o 30 días")
+    assert quote_in("(3) If", "83.57 (3) If the tenancy")
+    assert quote_in("two … four", "one two three four")
+    assert not quote_in("tw … four", "one two three four")
+
+
 def test_a_quote_not_in_the_statute_stops_every_record() -> None:
     items = [item(), spanish()]
     with pytest.raises(RecordError, match="fl-9001: quoted_text is not in the pinned text"):

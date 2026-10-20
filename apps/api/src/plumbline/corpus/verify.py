@@ -92,16 +92,31 @@ def squeeze(text: str) -> str:
 
 
 def quote_in(quote: str, text: str) -> bool:
-    """Whether every piece of `quote` (split at its ellipses) is in `text`, in order."""
+    """Whether every piece of `quote` (split at its ellipses) is in `text`, in order, each as
+    whole words: "30 días" must not be found inside "130 días"."""
     haystack, start = squeeze(text), 0
     for piece in (squeeze(part) for part in GAP.split(quote)):
         if not piece:
             continue
-        found = haystack.find(piece, start)
+        found = _whole(piece, haystack, start)
         if found < 0:
             return False
         start = found + len(piece)
     return True
+
+
+def _whole(piece: str, haystack: str, start: int) -> int:
+    """Where `piece` first occurs in `haystack` from `start` with no letter or digit running
+    on at either end, or -1. An end of the piece that is not a word character needs no edge."""
+    found = haystack.find(piece, start)
+    while found >= 0:
+        end = found + len(piece)
+        before = found == 0 or not (piece[0].isalnum() and haystack[found - 1].isalnum())
+        after = end == len(haystack) or not (piece[-1].isalnum() and haystack[end].isalnum())
+        if before and after:
+            return found
+        found = haystack.find(piece, found + 1)
+    return -1
 
 
 def _pinned(item: GoldenItem, ref: ArticleRef, manifest: Manifest, root: Path) -> str:
