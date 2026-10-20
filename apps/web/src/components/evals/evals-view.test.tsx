@@ -42,6 +42,13 @@ describe("EvalsView", () => {
     ).toBeInTheDocument();
   });
 
+  it("says how often a second judge agreed with the first", () => {
+    render(<EvalsView data={data} />);
+    expect(screen.getByText(/A2: a second judge agreed with the first on/)).toHaveTextContent(
+      "0.90 of faithfulness verdicts (95% CI 0.70–0.97, 20 answers) and 0.85 of correctness verdicts (95% CI 0.64–0.95, 20 answers).",
+    );
+  });
+
   it("marks the per-jurisdiction numbers descriptive and gives each its count", () => {
     render(<EvalsView data={data} />);
     expect(screen.getByText("Descriptive")).toBeInTheDocument();

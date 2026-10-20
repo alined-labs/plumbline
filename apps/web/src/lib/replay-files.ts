@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { z } from "zod";
 
-import { HEADLINE_CONFIG } from "./evals";
+import { HEADLINE_CONFIGS } from "./evals";
 import { evalsDir } from "./evals-files";
 import { JURISDICTION_IDS } from "./jurisdictions";
 import type { ReplayFile, ReplayItem } from "./replay";
@@ -66,7 +66,7 @@ export function loadReplay(dir: string = evalsDir()): ReplayFile {
         .readdirSync(replayDir)
         .filter((name) => fs.existsSync(path.join(replayDir, name, "dev.jsonl")))
     : [];
-  const config = configs.includes(HEADLINE_CONFIG) ? HEADLINE_CONFIG : configs.sort()[0];
+  const config = HEADLINE_CONFIGS.find((name) => configs.includes(name)) ?? [...configs].sort()[0];
   if (!config) return { config: null, config_hash: null, items: [] };
   const file = path.join(replayDir, config, "dev.jsonl");
   const items: ReplayItem[] = fs

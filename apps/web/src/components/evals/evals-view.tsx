@@ -12,11 +12,13 @@ import {
   formatScore,
   formatUsd,
   groupMeans,
-  HEADLINE_CONFIG,
+  baseConfig,
+  headlineRun,
   HEADLINE_METRICS,
   METRICS,
   RETRIEVAL_METRICS,
   runCost,
+  secondJudge,
   type Agreement,
   type EvalRun,
   type MetricName,
@@ -46,6 +48,14 @@ const CONFIGS: Record<string, string> = {
   R1: "Cohere reranker",
   LC: "Long context: the whole law, no search",
 };
+
+/** A configuration's words: its own, or its base's with who writes the answers. */
+function describe(name: string): string | undefined {
+  const { base, claude } = baseConfig(name);
+  const words = CONFIGS[base];
+  if (!words) return undefined;
+  return claude ? `${words}, answered by Claude Sonnet as the public site is` : words;
+}
 
 /** Per-jurisdiction columns: one retrieval number and the answer numbers that matter most. */
 const GROUP_METRICS = [
@@ -108,9 +118,9 @@ function ConfigHead({ run }: { run: EvalRun }) {
   return (
     <RowHead>
       <span className="block">{run.config_name}</span>
-      {CONFIGS[run.config_name] && (
+      {describe(run.config_name) && (
         <span className="block min-w-48 text-small font-normal text-fg-muted">
-          {CONFIGS[run.config_name]}
+          {describe(run.config_name)}
         </span>
       )}
     </RowHead>
@@ -188,6 +198,29 @@ function Headline({ run }: { run: EvalRun }) {
         detail={cost.totalUsd === null ? "Not measured" : `${formatUsd(cost.totalUsd)} for the run`}
       />
     </MetricGrid>
+  );
+}
+
+/** How far a second judge, of another model, agreed with the first on the same answers: the
+ * check that a judge's verdicts are not its own family's taste. */
+function SecondJudge({ run }: { run: EvalRun }) {
+  const rows = secondJudge(run);
+  if (rows.length === 0) return null;
+  return (
+    <p className="text-small text-fg-muted">
+      {run.config_name}: a second judge agreed with the first on{" "}
+      {rows.map(({ criterion, agreement }, index) => {
+        const interval = formatInterval(agreement.low, agreement.high);
+        return (
+          <span key={criterion}>
+            {index > 0 && (index === rows.length - 1 ? " and " : ", ")}
+            {formatScore(agreement.value)} of {METRICS[criterion].label.toLowerCase()} verdicts
+            {interval && ` (95% CI ${interval}, ${agreement.n} answers)`}
+          </span>
+        );
+      })}
+      .
+    </p>
   );
 }
 
@@ -429,8 +462,7 @@ function CostTable({ runs }: { runs: EvalRun[] }) {
  * it all costs. Each section waits quietly for its file. */
 export function EvalsView({ data }: { data: EvalsData }) {
   const { runs, agreement, thresholds } = data;
-  const headline =
-    runs.find((run) => run.config_name === HEADLINE_CONFIG) ?? runs.find((run) => run.judged);
+  const headline = headlineRun(runs);
   const times = runs.map((run) => Date.parse(run.created_at));
   const latest = times.length ? new Date(Math.max(...times)) : null;
   const questions = Math.max(0, ...runs.map((run) => run.n_items));
@@ -454,8 +486,8 @@ export function EvalsView({ data }: { data: EvalsData }) {
 
       {headline && (
         <Section id="headline" title={`The default configuration, ${headline.config_name}`}>
-          {CONFIGS[headline.config_name] && (
-            <p className="text-fg-muted">{CONFIGS[headline.config_name]}.</p>
+          {describe(headline.config_name) && (
+            <p className="text-fg-muted">{describe(headline.config_name)}.</p>
           )}
           <Headline run={headline} />
         </Section>
@@ -475,6 +507,11 @@ export function EvalsView({ data }: { data: EvalsData }) {
           runs={runs.filter((run) => run.judged)}
           metrics={ANSWER_METRICS}
         />
+        {runs
+          .filter((run) => run.judged)
+          .map((run) => (
+            <SecondJudge key={run.run_id} run={run} />
+          ))}
       </Section>
 
       {headline && (

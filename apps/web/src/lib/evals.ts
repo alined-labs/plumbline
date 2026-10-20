@@ -95,19 +95,52 @@ export const HEADLINE_METRICS = [
   "abstention_accuracy",
 ] as const satisfies readonly MetricName[];
 
-/** The configuration the headline numbers come from until Lane A's failure analysis names
- * the default (A12). */
-export const HEADLINE_CONFIG = "A2";
+/** Where the headline numbers come from, first found first: the configuration the public site
+ * answers with (A2 with Claude Sonnet generating), then A2 itself, until Lane A's failure
+ * analysis names the default (A12). */
+export const HEADLINE_CONFIGS = ["A2-claude", "A2"] as const;
 
-/** The ablation plan's order; a configuration it does not name goes last, by name. */
+export function headlineRun(runs: readonly EvalRun[]): EvalRun | undefined {
+  for (const name of HEADLINE_CONFIGS) {
+    const run = runs.find((candidate) => candidate.config_name === name);
+    if (run) return run;
+  }
+  return runs.find((run) => run.judged);
+}
+
+/** A configuration's Claude-generated twin ("A2-claude"): the same retrieval, with Claude
+ * Sonnet writing the answers as the public site does. */
+const CLAUDE = "-claude";
+
+export function baseConfig(name: string): { base: string; claude: boolean } {
+  return name.endsWith(CLAUDE)
+    ? { base: name.slice(0, -CLAUDE.length), claude: true }
+    : { base: name, claude: false };
+}
+
+/** The ablation plan's order, each Claude twin right after its configuration; a configuration
+ * the plan does not name goes last, by name. */
 const CONFIG_ORDER = ["A0", "A1", "A2", "A3", "A4", "A5", "A6", "E1", "R1", "LC"];
 
 export function byConfigOrder(a: EvalRun, b: EvalRun): number {
   const rank = (run: EvalRun) => {
-    const at = CONFIG_ORDER.indexOf(run.config_name);
-    return at === -1 ? CONFIG_ORDER.length : at;
+    const { base, claude } = baseConfig(run.config_name);
+    const at = CONFIG_ORDER.indexOf(base);
+    return (at === -1 ? CONFIG_ORDER.length : at) * 2 + (claude ? 1 : 0);
   };
   return rank(a) - rank(b) || a.config_name.localeCompare(b.config_name);
+}
+
+/** The criteria a judge scores. */
+export const JUDGED = ["faithfulness", "correctness"] as const satisfies readonly MetricName[];
+
+/** How often a second judge agreed with the first, per criterion, as the runner writes it:
+ * 'second_judge.<criterion>' with its interval and count. Empty when the run has none. */
+export function secondJudge(run: EvalRun) {
+  return JUDGED.flatMap((criterion) => {
+    const agreement = estimate(run.summary, `second_judge.${criterion}`);
+    return agreement ? [{ criterion, agreement }] : [];
+  });
 }
 
 export type Estimate = { value: number; low: number | null; high: number | null; n: number };

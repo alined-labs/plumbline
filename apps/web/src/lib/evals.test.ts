@@ -3,6 +3,8 @@ import a2 from "@/test/fixtures/evals/results/A2/dev.json";
 import {
   byConfigOrder,
   estimate,
+  headlineRun,
+  secondJudge,
   evalRunSchema,
   formatInterval,
   formatLatency,
@@ -130,7 +132,41 @@ describe("groupMeans", () => {
   });
 });
 
+describe("headlineRun", () => {
+  it("leads with the configuration the site serves, then A2, then any judged run", () => {
+    const named = (config_name: string, judged = true) => ({ ...run, config_name, judged });
+    expect(headlineRun([named("A2"), named("A2-claude")])?.config_name).toBe("A2-claude");
+    expect(headlineRun([named("A0", false), named("A2")])?.config_name).toBe("A2");
+    expect(headlineRun([named("A0", false), named("LC")])?.config_name).toBe("LC");
+    expect(headlineRun([named("A0", false)])).toBeUndefined();
+  });
+});
+
+describe("secondJudge", () => {
+  it("reads the second judge's agreement per criterion", () => {
+    expect(secondJudge(run)).toEqual([
+      { criterion: "faithfulness", agreement: { value: 0.9, low: 0.699, high: 0.9721, n: 20 } },
+      { criterion: "correctness", agreement: { value: 0.85, low: 0.6396, high: 0.9476, n: 20 } },
+    ]);
+    expect(secondJudge({ ...run, summary: {} })).toEqual([]);
+  });
+});
+
 describe("byConfigOrder", () => {
+  it("puts each Claude twin right after its configuration", () => {
+    const names = ["LC-claude", "A2-claude", "LC", "A0", "A2"].map((config_name) => ({
+      ...run,
+      config_name,
+    }));
+    expect(names.sort(byConfigOrder).map((r) => r.config_name)).toEqual([
+      "A0",
+      "A2",
+      "A2-claude",
+      "LC",
+      "LC-claude",
+    ]);
+  });
+
   it("follows the ablation plan, then names it does not know", () => {
     const names = ["LC", "Z9", "A2", "A0", "B1"].map((config_name) => ({ ...run, config_name }));
     expect(names.sort(byConfigOrder).map((r) => r.config_name)).toEqual([
