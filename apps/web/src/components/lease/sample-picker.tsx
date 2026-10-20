@@ -80,8 +80,8 @@ export function SamplePicker({
     >
       <Callout tone="info" title="Uploads are off for now.">
         Until Plumbline can remove names and other personal details from a lease before a model
-        reads it, it checks only these ten invented leases, each with clauses written to break the
-        law of its jurisdiction.
+        reads it, it checks only these invented leases, each with clauses written to break the law
+        of its jurisdiction.
       </Callout>
       <fieldset
         aria-describedby={error ? errorId : undefined}
