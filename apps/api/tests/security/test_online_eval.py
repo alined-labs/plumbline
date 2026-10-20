@@ -16,6 +16,8 @@ from typing import Any
 import pytest
 from sqlalchemy import Engine, select
 
+from plumbline.api.evals import night
+from plumbline.core.types import CacheMode
 from plumbline.db import make_engine, make_sessionmaker, make_sync_engine, make_sync_sessionmaker
 from plumbline.db.models import (
     PUBLIC_TENANT,
@@ -35,6 +37,7 @@ from plumbline.security.online_eval import (
     sample,
     save,
 )
+from plumbline.settings import Settings
 
 DAY = date(2026, 10, 22)
 QUESTION = "Can my landlord keep the deposit for repainting?"
@@ -62,15 +65,19 @@ class Verdict:
 
 
 class Judge:
-    def __init__(self, fail_on: str = "") -> None:
-        self.fail_on = fail_on
+    def __init__(
+        self, fail_on: str = "", model: str = "gemini-3.5-flash-lite", strict: bool = False
+    ) -> None:
+        self.fail_on, self.model, self.strict = fail_on, model, strict
         self.seen: list[tuple[str, str, list[str]]] = []
 
     async def faithfulness(self, question: str, answer: str, sources: Sequence[str]) -> Verdict:
         if self.fail_on and self.fail_on in answer:
             raise ValueError("unreadable verdict")
         self.seen.append((question, answer, list(sources)))
-        return Verdict(passed="0" not in answer)
+        # A strict judge also fails answers ending in 1, so the two disagree on those.
+        failing = ("0", "1") if self.strict else ("0",)
+        return Verdict(passed=not any(f"{d} [1]" in answer for d in failing))
 
 
 async def two_sources(item: Served) -> list[str]:
@@ -237,3 +244,47 @@ async def test_a_night_reads_the_days_answers_and_stores_only_verdicts(
         stored = [(r.item_id, r.metrics, r.answer) for r in results]
     assert stored == [(f"{tag}-answered", {"faithful": True}, None)]
     assert QUESTION not in json.dumps(run.summary)
+
+
+@sync
+async def test_the_second_judge_is_reported_beside_the_first_and_never_changes_the_score() -> None:
+    alone = await evaluate(DAY, served(40), two_sources, Judge())
+    both = await evaluate(
+        DAY, served(40), two_sources, Judge(), second=Judge(model="claude-haiku-5-5", strict=True)
+    )
+    assert (both.judged, both.passed) == (alone.judged, alone.passed)
+    second = both.summary()["second_judge"]
+    assert second["model"] == "claude-haiku-5-5"
+    assert second["judged"] == both.judged
+    assert second["faithful"] <= both.passed
+    assert second["agreement"] == pytest.approx(
+        (both.judged - (both.passed - second["faithful"])) / both.judged
+    )
+    assert both.summary()["judge"] == "gemini-3.5-flash-lite"
+    assert alone.summary()["second_judge"] is None
+
+
+@sync
+async def test_a_second_judge_that_fails_costs_only_its_own_count() -> None:
+    score = await evaluate(
+        DAY, served(5), two_sources, Judge(), second=Judge(fail_on="Answer", model="haiku")
+    )
+    assert score.judged == score.sampled
+    assert score.summary()["second_judge"]["judged"] == 0
+    assert score.skipped == {"second judge failed: ValueError": score.sampled}
+
+
+def test_the_night_refuses_any_cache_mode_but_live(monkeypatch: pytest.MonkeyPatch) -> None:
+    settings = Settings(_env_file=None, cache_mode=CacheMode.RECORD)
+    monkeypatch.setattr("plumbline.settings.get_settings", lambda: settings)
+    with pytest.raises(SystemExit, match="CACHE_MODE=live"):
+        asyncio.run(online_eval.run(DAY, dry_run=False))
+
+
+@sync
+async def test_the_stored_summary_is_the_shape_the_public_route_reads() -> None:
+    score = await evaluate(DAY, served(40), two_sources, Judge(), second=Judge(model="haiku"))
+    row = EvalRunRow(run_id=f"online-{DAY}", config_name="A2-claude", summary=score.summary())
+    shown = night(row)
+    assert shown is not None
+    assert (shown.day, shown.judged, shown.faithful) == (DAY, score.judged, score.passed)

@@ -5,10 +5,13 @@ beside the offline ones on /evals.
 Production answers have no gold reference, so only faithfulness is judged: is every
 statement of law in the answer supported by the sources it cites? The sources are the
 cited chunks, read back from the index the answer was served from (its configuration's
-variant). The judge is the calibrated one (judge/judge.py, Claude Haiku), live and never
-recorded: the questions are the public's, and nothing of them goes into cache/ or a log.
-Its spend is counted on the same daily counters as the site's own, so the kill switch
-sees it, and the run stops at MAX_JUDGED answers whatever the traffic.
+variant). The site answers on Claude, so the verdict that counts comes from a judge of
+another family: Gemini Flash-Lite, the one validated for Claude-generated answers on
+constructed labels (judge/judge.py's prompt, Lane C's C9), with Claude Haiku beside it as
+a second opinion and their agreement reported. Both run live and are never recorded:
+the questions are the public's, and nothing of them goes into cache/ or a log. Their
+spend is counted on the same daily counters as the site's own, so the kill switch sees
+it, and the run stops at MAX_JUDGED answers whatever the traffic.
 
 The sample is a hash of the day and the request id, so a rerun of the same day judges the
 same answers, and an answer cannot be steered into or out of the sample by its asker.
@@ -37,6 +40,7 @@ from typing import Any, Final, Protocol
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from plumbline.core.types import CacheMode
 from plumbline.db.models import PUBLIC_TENANT, ChunkRow, EvalResultRow, EvalRunRow, QueryRow
 from plumbline.db.session import tenant_session
 from rag_eval.schema import AnswerStatus
@@ -45,10 +49,13 @@ from rag_eval.stats import wilson_interval
 log = logging.getLogger("plumbline.online_eval")
 
 SHARE: Final = 0.10  # of the day's answers (PLAN.md, operations 7)
-MAX_JUDGED: Final = 30  # whatever the traffic: at most about US$0.30 a night
-# Per judgement, rounded up: Haiku reads the answer and its cited passages, a few
-# thousand tokens, and writes a short reasoning; the recorded judgements cost less.
-EST_COST_USD: Final = 0.01
+MAX_JUDGED: Final = 30  # whatever the traffic: at most about US$0.32 a night
+PRIMARY_JUDGE: Final = "gemini-3.5-flash-lite"  # another family than the served Claude
+SECOND_JUDGE: Final = "claude-haiku-5-5"
+# Per answer, both judges, rounded up: each reads the answer and its cited passages, a
+# few thousand tokens, and writes a short reasoning; Flash-Lite about US$0.0004 (Lane C),
+# Haiku under US$0.01; the recorded judgements cost less.
+EST_COST_USD: Final = 0.0105
 JUDGED_STATUSES: Final = (AnswerStatus.ANSWERED.value, AnswerStatus.PARTIAL.value)
 
 
@@ -71,6 +78,11 @@ class Score:
     sampled: int
     judged: int = 0
     passed: int = 0
+    judge: str = PRIMARY_JUDGE
+    second_judge: str | None = None
+    second_judged: int = 0  # of the judged answers, those the second judge also judged
+    second_passed: int = 0
+    agreed: int = 0  # answers both judged the same way
     cost_usd: float = 0.0
     skipped: dict[str, int] = field(default_factory=dict)  # why, and how many
     verdicts: dict[str, bool] = field(default_factory=dict)  # request id -> passed
@@ -89,13 +101,29 @@ class Score:
             "faithful": self.passed,
             "faithfulness": self.rate,
             "interval_95": [low, high] if self.judged else None,
+            "judge": self.judge,
+            "second_judge": self._second(),
             "cost_usd": round(self.cost_usd, 6),
             "skipped": self.skipped,
+        }
+
+    def _second(self) -> dict[str, Any] | None:
+        if self.second_judge is None:
+            return None
+        n = self.second_judged
+        return {
+            "model": self.second_judge,
+            "judged": n,
+            "faithful": self.second_passed,
+            "faithfulness": self.second_passed / n if n else None,
+            "agreement": self.agreed / n if n else None,
         }
 
 
 class Judging(Protocol):
     """What the run needs of judge.judge.Judge."""
+
+    model: str
 
     async def faithfulness(self, question: str, answer: str, sources: Sequence[str]) -> Any: ...
 
@@ -118,9 +146,23 @@ def sample(day: date, served: Sequence[Served], share: float = SHARE) -> list[Se
     return chosen[:MAX_JUDGED]
 
 
-async def evaluate(day: date, served: Sequence[Served], sources: Sources, judge: Judging) -> Score:
+async def evaluate(
+    day: date,
+    served: Sequence[Served],
+    sources: Sources,
+    judge: Judging,
+    second: Judging | None = None,
+) -> Score:
+    """The primary judge's verdict is the score; the second judge's is reported beside it,
+    and an answer it fails to judge is left out of its count only."""
     chosen = sample(day, served)
-    score = Score(day=day, answered=len(served), sampled=len(chosen))
+    score = Score(
+        day=day,
+        answered=len(served),
+        sampled=len(chosen),
+        judge=judge.model,
+        second_judge=second.model if second else None,
+    )
     skipped: Counter[str] = Counter()
     for item in chosen:
         texts = await sources(item)
@@ -136,6 +178,17 @@ async def evaluate(day: date, served: Sequence[Served], sources: Sources, judge:
         score.passed += bool(verdict.passed)
         score.cost_usd += float(verdict.cost_usd)
         score.verdicts[item.request_id] = bool(verdict.passed)
+        if second is None:
+            continue
+        try:
+            other = await second.faithfulness(item.question, item.answer, texts)
+        except Exception as exc:
+            skipped[f"second judge failed: {type(exc).__name__}"] += 1
+            continue
+        score.second_judged += 1
+        score.second_passed += bool(other.passed)
+        score.agreed += bool(other.passed) == bool(verdict.passed)
+        score.cost_usd += float(other.cost_usd)
     score.skipped = dict(skipped)
     return score
 
@@ -232,12 +285,16 @@ async def run(day: date, dry_run: bool) -> dict[str, Any]:
     from redis.asyncio import Redis
 
     from plumbline.db import make_engine, make_sessionmaker
-    from plumbline.generation.llm import JUDGE_MODEL, client_for
+    from plumbline.generation.llm import client_for
     from plumbline.generation.router import MeteredClient, RedisSpendMeter
     from plumbline.judge.judge import Judge
     from plumbline.settings import get_settings
 
     settings = get_settings()
+    if settings.cache_mode is not CacheMode.LIVE and not dry_run:
+        # Record would write the public's questions, and the Dubai and Colombian text
+        # their answers quote, into cache/; replay has nothing recorded to judge with.
+        raise SystemExit(f"online evaluation runs with CACHE_MODE=live, not {settings.cache_mode}")
     engine = make_engine(settings.database_url)
     sessions = make_sessionmaker(engine)
     try:
@@ -245,18 +302,24 @@ async def run(day: date, dry_run: bool) -> dict[str, Any]:
         planned = len(sample(day, served))
         # Every run states its expected cost before it starts.
         log.info(
-            "online evaluation of %s: %d answers, %d to judge on %s, expected at most US$%.2f",
+            "online evaluation of %s: %d answers, %d to judge on %s and %s, expected at most"
+            " US$%.2f",
             day,
             len(served),
             planned,
-            JUDGE_MODEL,
+            PRIMARY_JUDGE,
+            SECOND_JUDGE,
             planned * EST_COST_USD,
         )
         if dry_run:
             return {"day": day.isoformat(), "answered": len(served), "to_judge": planned}
         meter = RedisSpendMeter(Redis.from_url(settings.redis_url))
-        judge = Judge(client=MeteredClient(client_for(JUDGE_MODEL), meter))
-        score = await evaluate(day, served, IndexSources(sessions, _variants()), judge)
+        judges = [
+            Judge(client=MeteredClient(client_for(model), meter), model=model)
+            for model in (PRIMARY_JUDGE, SECOND_JUDGE)
+        ]
+        sources = IndexSources(sessions, _variants())
+        score = await evaluate(day, served, sources, judges[0], second=judges[1])
         await save(sessions, score, served)
         return score.summary()
     finally:
