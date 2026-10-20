@@ -50,10 +50,20 @@ def test_production_refuses_to_start_on_a_stand_in() -> None:
         create_app(prod, lease_checker=StubLeaseChecker(delay_ms=0))
 
 
-def test_production_without_retrieval_answers_from_the_whole_law_and_pauses_leases() -> None:
-    app = create_app(_settings(environment="prod"))
+def test_production_searches_the_index_and_checks_leases() -> None:
+    assert answering.default_retrieval(_settings()) is None  # dev and test: the stand-ins
+    app = create_app(_settings(environment="prod"))  # builds engines, connects to nothing
+    assert app.state.retrieval is not None
     assert isinstance(app.state.pipeline, ServedPipeline)
-    assert isinstance(app.state.lease_checker, PausedLeaseChecker)
+    assert isinstance(app.state.lease_checker, answering.ClaudeLeaseChecker)
+
+
+def test_a_server_without_retrieval_pauses_leases() -> None:
+    checker = answering.default_lease_checker(
+        _settings(environment="prod"), None, MemorySpendMeter()
+    )
+    assert isinstance(checker, PausedLeaseChecker)
+    app = create_app(_settings(environment="prod"), lease_checker=checker)
     with TestClient(app) as client:
         response = client.post(
             "/api/check-lease", content=b"A lease.", headers={"content-type": "text/plain"}
