@@ -67,12 +67,24 @@ bash deploy/preflight.sh                               # checks owner, group and
 3. The secrets, as above.
 4. `deploy/prod build`, then `deploy/prod up -d --wait`. The first start downloads the
    embedding weights; `embed` may take several minutes to turn healthy.
-5. The index, copied from the build's database once Lane A's embeddings are done:
+5. The index. It is built on MX1 (Lane D indexes there; Colombia's and Dubai's parses
+   and embeddings exist only on MX1 and MX2), so it arrives as a file: Lane D writes a
+   data-only custom-format dump of `documents` and `chunks` to
+   `~/plumbline-index/index-<date>.dump` on MX1 and posts its sha256, size and row
+   counts per variant in the brain. On MX3:
 
    ```sh
-   docker exec plumbline-db-1 pg_dump -U plumbline -d plumbline --data-only -t documents -t chunks -Fc |
-     deploy/prod exec -T db pg_restore -U plumbline -d plumbline --data-only --disable-triggers
+   scp <mx1>:plumbline-index/index-<date>.dump ~/plumbline-index/
+   sha256sum ~/plumbline-index/index-<date>.dump            # must match Lane D's note
+   deploy/prod exec -T db pg_restore -U plumbline -d plumbline --data-only --disable-triggers \
+     < ~/plumbline-index/index-<date>.dump
+   deploy/prod exec -T db psql -U plumbline -d plumbline -c \
+     "select variant, jurisdiction, count(*) from chunks group by 1, 2 order by 1, 2"
    ```
+
+   The counts must match Lane D's. A newer index replaces the old one: truncate
+   `chunks` and `documents` first (`truncate chunks, documents cascade`), with the API
+   stopped, since a question asked in between would find no law.
 
 6. `deploy/prod ps`: every service healthy, `migrate` exited 0, and the PORTS column shows
    no `->` mapping.
