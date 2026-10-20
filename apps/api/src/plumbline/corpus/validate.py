@@ -11,14 +11,23 @@ import hashlib
 import re
 import sys
 from collections import Counter
+from datetime import date
 from pathlib import Path
 
 from pydantic import ValidationError
 
-from plumbline.corpus.leases import clauses, load_expected, squeeze
+from plumbline.corpus.leases import ExpectedFindings, clauses, load_expected, squeeze
 from plumbline.corpus.manifest import MANIFEST, Manifest, load_manifest
+from plumbline.corpus.refs import article_exists
 from plumbline.settings import ROOT
-from rag_eval.schema import GoldenFileError, load_golden
+from rag_eval.schema import (
+    ArticleRef,
+    Category,
+    GoldenFileError,
+    GoldenItem,
+    Jurisdiction,
+    load_golden,
+)
 
 LICENCES = ROOT / "DATA_LICENSES.md"
 
@@ -83,10 +92,25 @@ def check_licences(manifest: Manifest, licences: str) -> list[str]:
     return problems
 
 
+def check_ref(
+    where: str, ref: ArticleRef, manifest: Manifest, root: Path, jurisdiction: Jurisdiction | None
+) -> list[str]:
+    """One ArticleRef: its law and edition are in the manifest, the law is of `jurisdiction`
+    when one is given, and the article is in the pinned file (when the file is here)."""
+    source = {(s.law, s.edition): s for s in manifest.sources}.get((ref.law, ref.edition))
+    if source is None:
+        return [f"{where}: {ref.law} edition {ref.edition} is not in the manifest"]
+    if source.jurisdiction != ref.jurisdiction or jurisdiction not in (None, ref.jurisdiction):
+        return [f"{where}: {ref.key} is not {(jurisdiction or ref.jurisdiction).value} law"]
+    if article_exists(source, ref.article, root) is False:
+        return [f"{where}: article {ref.article} is not in {source.id}"]
+    return []
+
+
 def check_leases(manifest: Manifest, root: Path = ROOT) -> list[str]:
     """Every synthetic lease has expected findings; every finding and lawful clause names a
-    clause of its lease, quotes it word for word, and cites a law and edition that are in
-    the manifest, of the lease's own jurisdiction."""
+    clause of its lease, quotes it word for word, and cites an article that is in the pinned
+    edition of a law in the manifest, of the lease's own jurisdiction."""
     folder = root / "data" / "leases"
     leases = {path.stem: path for path in folder.glob("*.md") if path.name != "README.md"}
     expected_file = folder / "expected_findings.json"
@@ -96,7 +120,6 @@ def check_leases(manifest: Manifest, root: Path = ROOT) -> list[str]:
         expected = load_expected(expected_file)
     except (ValidationError, ValueError) as exc:
         return [f"{expected_file.relative_to(root)}: {exc}"]
-    editions = {(source.law, source.edition): source for source in manifest.sources}
     listed = [lease.lease_id for lease in expected.leases]
     problems = [
         f"{lease_id}: listed twice"
@@ -122,11 +145,7 @@ def check_leases(manifest: Manifest, root: Path = ROOT) -> list[str]:
         cited += [(item.clause, item.quote, item.allowed_by) for item in lease.lawful]
         for clause, quote, ref in cited:
             where = f"{lease.lease_id} clause {clause}"
-            source = editions.get((ref.law, ref.edition))
-            if source is None:
-                problems.append(f"{where}: {ref.law} edition {ref.edition} is not in the manifest")
-            elif not source.jurisdiction == ref.jurisdiction == lease.jurisdiction:
-                problems.append(f"{where}: {ref.key} is not {lease.jurisdiction.value} law")
+            problems += check_ref(where, ref, manifest, root, lease.jurisdiction)
             if clause not in sections:
                 problems.append(f"{where}: the lease has no such clause")
             elif squeeze(quote) not in squeeze(sections[clause]):
@@ -160,13 +179,59 @@ def check_scans(root: Path = ROOT) -> list[str]:
     return problems
 
 
-def check_golden(root: Path = ROOT) -> list[str]:
+def check_golden(root: Path = ROOT, manifest: Manifest | None = None) -> list[str]:
+    """Every golden file validates. With the manifest, every gold reference is also checked:
+    its law and edition are in the manifest, and its article is in the pinned file. A
+    lease-check item must read a lease that exists, be dated with that lease's signing date,
+    and cite only articles the lease's expected findings plant or allow."""
     problems: list[str] = []
+    expected = _expected(root) if manifest is not None else {}
     for path in sorted((root / "data" / "golden").glob("**/*.jsonl")):
         try:
-            load_golden(path)
+            items = load_golden(path)
         except GoldenFileError as exc:
             problems.append(str(exc))
+            continue
+        if manifest is None:
+            continue
+        for item in items:
+            where = f"{path.name} {item.id}"
+            for ref in item.gold_refs:
+                problems += check_ref(where, ref, manifest, root, None)
+            if item.category is Category.LEASE_CHECK:
+                problems += _check_lease_item(where, item, expected)
+    return problems
+
+
+def _expected(root: Path) -> dict[str, tuple[date, set[str]]]:
+    """Each lease's signing date and the article keys its expected findings cite."""
+    file = root / "data" / "leases" / "expected_findings.json"
+    if not file.is_file():
+        return {}
+    found: ExpectedFindings = load_expected(file)
+    return {
+        lease.lease_id: (
+            lease.signed_on,
+            {f.violates.key for f in lease.findings} | {w.allowed_by.key for w in lease.lawful},
+        )
+        for lease in found.leases
+    }
+
+
+def _check_lease_item(
+    where: str, item: GoldenItem, expected: dict[str, tuple[date, set[str]]]
+) -> list[str]:
+    if item.lease_id not in expected:
+        return [f"{where}: there is no lease {item.lease_id} in expected_findings.json"]
+    signed, keys = expected[item.lease_id]
+    problems = []
+    if item.signed_on != signed:
+        problems.append(f"{where}: signed_on is {item.signed_on}, the lease was signed {signed}")
+    problems += [
+        f"{where}: {ref.key} is not an article {item.lease_id}'s findings cite"
+        for ref in item.gold_refs
+        if ref.key not in keys
+    ]
     return problems
 
 
@@ -183,7 +248,7 @@ def main() -> int:
         + check_licences(manifest, LICENCES.read_text(encoding="utf-8"))
         + check_leases(manifest)
         + check_scans()
-        + check_golden()
+        + check_golden(manifest=manifest)
     )
     for problem in problems:
         print(problem, file=sys.stderr)
