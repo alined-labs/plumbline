@@ -51,3 +51,23 @@ export function answerView(message: PlumblineMessage): AnswerView {
     trace: dataParts(message, "trace").at(-1),
   };
 }
+
+/** What the live region says once an answer is complete: the whole answer in plain words,
+ * read once, instead of every token as it streams. */
+export function announcement({ markdown, citations, summary }: AnswerView): string {
+  if (summary?.status === "abstained") {
+    return ["I couldn't find a statute that answers this.", summary.abstain_reason ?? ""]
+      .join(" ")
+      .trim();
+  }
+  const words = markdown
+    .replace(/ ?\[\d+\]\(#source-\d+\)/g, "")
+    .replace(/[*_`#>]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const count = citations.length;
+  const sources = `${count} ${count === 1 ? "source" : "sources"} verified.`;
+  return summary?.status === "partial"
+    ? `Partial answer: ${words} ${sources} Part of the question isn't covered by the statutes I hold.`
+    : `Answer: ${words} ${sources}`;
+}
