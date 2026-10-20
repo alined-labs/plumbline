@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from plumbline.api import admin, tier
+from plumbline.api import admin, problems, tier
 from plumbline.api.openapi import build_openapi
 from plumbline.api.routes import router
 from plumbline.api.sources import Corpus
@@ -50,6 +50,7 @@ def create_app(
         allow_methods=["GET", "POST"],
         allow_headers=["content-type"],
     )
+    problems.install(app)
     app.include_router(router)
     app.include_router(admin.router)
     app.include_router(tier.router)

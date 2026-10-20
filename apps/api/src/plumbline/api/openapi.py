@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any
 from fastapi.openapi.utils import get_openapi
 from pydantic.json_schema import models_json_schema
 
+from plumbline.api.problems import MEDIA_TYPE, Problem
 from plumbline.api.schemas import JobEventView
 from plumbline.core.stream import AnswerSummary, StatusEvent, StreamError, TraceSummary
 from plumbline.core.types import Citation
@@ -25,6 +26,9 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
 
 STREAM_MODELS = (StatusEvent, Citation, AnswerSummary, TraceSummary, StreamError, JobEventView)
+PROBLEM_REF = {"$ref": "#/components/schemas/Problem"}
+# FastAPI documents its own validation error body, which plumbline.api.problems replaces.
+FASTAPI_ERRORS = ("HTTPValidationError", "ValidationError")
 
 
 def build_openapi(app: FastAPI) -> dict[str, Any]:
@@ -35,13 +39,30 @@ def build_openapi(app: FastAPI) -> dict[str, Any]:
         routes=app.routes,
     )
     _, defs = models_json_schema(
-        [(model, "serialization") for model in STREAM_MODELS],
+        [(model, "serialization") for model in (*STREAM_MODELS, Problem)],
         ref_template="#/components/schemas/{model}",
     )
     components = schema.setdefault("components", {}).setdefault("schemas", {})
     for name, definition in defs.get("$defs", {}).items():
         components.setdefault(name, definition)
+    _problems_everywhere(schema)
+    for name in FASTAPI_ERRORS:
+        components.pop(name, None)
     return schema
+
+
+def _problems_everywhere(schema: dict[str, Any]) -> None:
+    """Every operation answers its errors as problem details (plumbline.api.problems)."""
+    content = {MEDIA_TYPE: {"schema": PROBLEM_REF}}
+    for operations in schema.get("paths", {}).values():
+        for operation in operations.values():
+            responses = operation.setdefault("responses", {})
+            if "422" in responses:
+                responses["422"] = {"description": "The request is not valid.", "content": content}
+            responses["default"] = {
+                "description": "An error, as problem details (RFC 9457).",
+                "content": content,
+            }
 
 
 def render(app: FastAPI) -> str:
