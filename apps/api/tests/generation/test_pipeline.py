@@ -4,6 +4,8 @@ and late abstention, verification, errors, and the collected answer and trace.""
 import asyncio
 import json
 import secrets
+import threading
+import time
 from collections.abc import AsyncIterator, Sequence
 from datetime import date
 from types import SimpleNamespace
@@ -537,3 +539,64 @@ def test_marked_sources_keep_a_markers_first_chunk() -> None:
     ]
     marked = marked_sources(cited, numbered)  # type: ignore[arg-type]
     assert {n: c.id for n, c in marked.items()} == {1: "forfeit"}
+
+
+class Stalling(Model):
+    """One shared client, as the API has: a question containing "stall" hangs in the
+    provider until released; every other question streams at once."""
+
+    def __init__(self, text: str) -> None:
+        super().__init__(text)
+        self.release = asyncio.Event()
+
+    async def stream(self, request: LLMRequest) -> AsyncIterator[str | LLMResult]:
+        if "stall" in request.messages[0].content:
+            await self.release.wait()
+        async for item in super().stream(request):
+            yield item
+
+
+class BlockingSearch(Search):
+    """A search that blocks its thread on "stall" questions, as a slow database would."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.release = threading.Event()
+
+    def search(self, question: str, *, k: int, **filters: Any) -> list[Retrieved]:
+        if "stall" in question:
+            self.release.wait(timeout=3)
+        return super().search(question, k=k, **filters)
+
+
+@pytest.mark.parametrize("slow", ["search", "model"])
+def test_a_stalled_answer_does_not_hold_up_another_readers(slow: str) -> None:
+    search, model = BlockingSearch(), Stalling(reply())
+    p = Pipeline(
+        config(rerank="none", threshold=None),
+        search=search,
+        detect=florida,
+        reranker=None,
+        indexed={FLORIDA},
+        client=model,
+    )
+    stalled = QUESTION.model_copy(update={"text": "Please stall: my deposit?", "request_id": "s"})
+
+    async def run() -> None:
+        start = time.monotonic()
+        hanging = asyncio.create_task(p.answer(stalled))
+        await asyncio.sleep(0.05)  # the stalled answer is now waiting in the search or model
+        if slow == "model":
+            search.release.set()
+        answer, _ = await asyncio.wait_for(p.answer(QUESTION), timeout=2)
+        assert answer.status is AnswerStatus.ANSWERED
+        # Measured from the start: a stall that blocked the event loop would delay this
+        # answer by the whole stall without tripping wait_for, which starts later.
+        assert time.monotonic() - start < 1
+        assert not hanging.done()  # still waiting, and nobody else waited for it
+        search.release.set()
+        model.release.set()
+        stalled_answer, _ = await asyncio.wait_for(hanging, timeout=2)
+        assert stalled_answer.status is AnswerStatus.ANSWERED
+
+    asyncio.run(run())
