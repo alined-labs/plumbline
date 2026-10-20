@@ -17,6 +17,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from plumbline.corpus.export import WITHHELD
 from plumbline.corpus.leases import ExpectedFindings, clauses, load_expected, squeeze
 from plumbline.corpus.manifest import MANIFEST, Manifest, load_manifest
 from plumbline.corpus.refs import article_exists
@@ -185,7 +186,9 @@ def check_golden(root: Path = ROOT, manifest: Manifest | None = None) -> list[st
     """Every golden file validates. With the manifest, every gold reference is also checked:
     its law and edition are in the manifest, and its article is in the pinned file. A
     lease-check item must read a lease that exists, be dated with that lease's signing date,
-    and cite only articles the lease's expected findings plant or allow. Only `golden_v*.jsonl`
+    and cite only articles the lease's expected findings plant or allow. A verified item that
+    cites a fetch-only source holds the withheld marker in `quoted_text`, never the text, since
+    those sources' terms forbid a copy in the repository. Only `golden_v*.jsonl`
     files are golden files; other lists beside them (second sources, the cross-check) are not."""
     problems: list[str] = []
     expected = _expected(root) if manifest is not None else {}
@@ -203,6 +206,12 @@ def check_golden(root: Path = ROOT, manifest: Manifest | None = None) -> list[st
                 problems += check_ref(where, ref, manifest, root, None)
             if item.category is Category.LEASE_CHECK:
                 problems += _check_lease_item(where, item, expected)
+            if item.verification is not None and item.verification.quoted_text != WITHHELD:
+                committed = {(s.law, s.edition): s.committed for s in manifest.sources}
+                if not all(committed.get((r.law, r.edition), False) for r in item.gold_refs):
+                    problems.append(
+                        f"{where}: quotes a fetch-only source; store the withheld marker"
+                    )
     return problems
 
 

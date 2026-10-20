@@ -19,6 +19,11 @@ whole article when the reference names no paragraph. An item with no gold refere
 out-of-scope question) has nothing to quote from, so its record must carry its own `quoted_text`,
 which is not checked.
 
+An item that cites a fetch-only source (Dubai's portal forbids redistribution; Colombia's
+compilation protects its notes) is still checked against that text, but its `quoted_text` is
+stored as the export's withheld marker, so the repository never carries a copy;
+`plumbline.corpus.validate` refuses anything else there.
+
 Nothing is written unless every record is good: an unknown id, a record for an item that is
 already verified (unless `--replace`), a quote not in the pinned text or a source that is not on
 this machine (Dubai and Colombia are fetch-only: run `make fetch`) is reported, and the file is
@@ -39,7 +44,8 @@ from typing import Annotated, Final
 
 from pydantic import BaseModel, ConfigDict, StringConstraints, ValidationError
 
-from plumbline.corpus.manifest import MANIFEST, Manifest, load_manifest
+from plumbline.corpus.export import WITHHELD
+from plumbline.corpus.manifest import MANIFEST, Manifest, Source, load_manifest
 from plumbline.corpus.refs import article_text, paragraph_text
 from plumbline.settings import ROOT
 from rag_eval.schema import ArticleRef, GoldenItem, Verification, dump_golden, load_golden
@@ -119,13 +125,18 @@ def _whole(piece: str, haystack: str, start: int) -> int:
     return -1
 
 
-def _pinned(item: GoldenItem, ref: ArticleRef, manifest: Manifest, root: Path) -> str:
-    """The cited article as it stood on the item's date, without the BOE's version header."""
+def _source(item: GoldenItem, ref: ArticleRef, manifest: Manifest) -> Source:
     source = next(
         (s for s in manifest.sources if (s.law, s.edition) == (ref.law, ref.edition)), None
     )
     if source is None:
         raise RecordError(f"{item.id}: {ref.law} edition {ref.edition} is not in the manifest")
+    return source
+
+
+def _pinned(item: GoldenItem, ref: ArticleRef, manifest: Manifest, root: Path) -> str:
+    """The cited article as it stood on the item's date, without the BOE's version header."""
+    source = _source(item, ref, manifest)
     if not (root / source.path).is_file():
         raise RecordError(f"{item.id}: {source.id} is not on this machine; run `make fetch`")
     text = article_text(source, ref.article, item.signed_on or item.as_of, root)
@@ -137,7 +148,15 @@ def _pinned(item: GoldenItem, ref: ArticleRef, manifest: Manifest, root: Path) -
 
 
 def quoted_text(item: GoldenItem, record: Record, manifest: Manifest, root: Path) -> str:
-    """The record's quote, checked against the pinned text, or one taken from it."""
+    """The record's quote, checked against the pinned text, or one taken from it; the withheld
+    marker, once checked, for an item that cites a fetch-only source."""
+    found = _quoted_text(item, record, manifest, root)
+    if not all(_source(item, ref, manifest).committed for ref in item.gold_refs):
+        return WITHHELD
+    return found
+
+
+def _quoted_text(item: GoldenItem, record: Record, manifest: Manifest, root: Path) -> str:
     if not item.gold_refs:
         if record.quoted_text is None:
             raise RecordError(f"{item.id}: cites no article, so the record must carry quoted_text")
