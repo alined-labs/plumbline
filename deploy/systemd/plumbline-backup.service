@@ -1,0 +1,10 @@
+# The nightly database backup (Lane P), as a systemd user unit of the user who runs the
+# production stack. Install: docs/runbook.md, "Backups". It expects the production checkout
+# at ~/plumbline-prod.
+[Unit]
+Description=Plumbline: back up the production database
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bash %h/plumbline-prod/deploy/backup.sh %h/plumbline-backups
