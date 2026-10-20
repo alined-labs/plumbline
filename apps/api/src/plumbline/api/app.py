@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from plumbline.api import admin, problems, search, tier
+from plumbline.api import admin, chunks, problems, search, tier
 from plumbline.api.openapi import build_openapi
 from plumbline.api.routes import router
 from plumbline.api.search import RetrievalFactory
@@ -59,6 +59,7 @@ def create_app(
     app.include_router(tier.router)
     app.include_router(sources_router)
     app.include_router(search.router)
+    app.include_router(chunks.router)
 
     def openapi() -> dict[str, Any]:
         if app.openapi_schema is None:
