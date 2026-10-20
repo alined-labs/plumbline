@@ -37,7 +37,7 @@ By jurisdiction: Florida 30, Spain 36, Colombia 34, Dubai 31 (items about one ju
 
 ## The dev/test split
 
-`uv run python -m plumbline.corpus.split data/golden/drafts/golden_v1.jsonl` prints how the 180 items fall into dev (120) and test (60); give it an output path to write the split file. The freeze branch runs it on the verified draft; the draft itself is never split. Each category keeps a third in test, to within one item; within a category each place and then each language keeps its share, by largest remainder; ties go by a hash of the seed and the id, so the result does not depend on the order of lines or on the machine. If you drop or recategorise an item before freezing, the split is recomputed from what is left. As of this commit:
+`uv run python -m plumbline.corpus.split data/golden/drafts/golden_v1.jsonl` prints how the 180 items fall into dev (120) and test (60); give it an output path to write the split file. The freeze branch runs it on the verified draft; the draft itself is never split. Each category keeps a third in test, to within one item; within a category each place and then each language keeps its share, by largest remainder; ties go by a hash of the seed and the id, so the result does not depend on the order of lines or on the machine. Dropping or recategorising an item does not move the others: the freeze splits all 180 items first and only then leaves out the dropped ones (`--drop ID`), because other lanes build on the dev items before the freeze, and a split recomputed from what is left could move some of them into test. The split depends only on each item's id, category, places and language, so correcting an item's text changes nothing. As of this commit:
 
 | category | dev | test | all |
 | --- | ---: | ---: | ---: |
