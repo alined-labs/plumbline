@@ -25,7 +25,7 @@ export function SiteFooter() {
                     : laws.map((law, i) => (
                         <span key={law.id}>
                           {i > 0 && "; "}
-                          {law.title}, updated{" "}
+                          <span lang={law.language}>{law.title}</span>, updated{" "}
                           <time dateTime={law.updatedOn}>{formatDate(law.updatedOn)}</time>
                         </span>
                       ))}

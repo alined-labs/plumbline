@@ -11,6 +11,7 @@ const sourceSchema = z.object({
   id: z.string(),
   title: z.string(),
   jurisdiction: z.enum(JURISDICTION_IDS),
+  language: z.enum(["en", "es"]),
   edition: z.string(),
   consolidated_on: z.iso.date().nullish(),
   retrieved_on: z.iso.date(),
@@ -21,6 +22,8 @@ const manifestSchema = z.object({ sources: z.array(sourceSchema) });
 export type LawEdition = {
   id: string;
   title: string;
+  /** The statute's own language: Spain's and Colombia's titles are Spanish. */
+  language: "en" | "es";
   edition: string;
   /** The consolidation date when the source has one, otherwise the day it was retrieved. */
   updatedOn: string;
@@ -38,6 +41,7 @@ export function lawsByJurisdiction(input: unknown = manifest): JurisdictionLaws[
       .map((source) => ({
         id: source.id,
         title: source.title,
+        language: source.language,
         edition: source.edition,
         updatedOn: source.consolidated_on ?? source.retrieved_on,
       })),

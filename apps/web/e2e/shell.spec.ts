@@ -49,6 +49,10 @@ test("the footer dates the law for each jurisdiction, in order", async ({ page }
     "Colombia CO",
     "Florida US-FL",
   ]);
+  // Spain's and Colombia's statutes are named in Spanish, and say so.
+  for (const title of await dates.getByText(/^Ley /).all()) {
+    await expect(title).toHaveAttribute("lang", "es");
+  }
 });
 
 test("the skip link moves focus to the page", async ({ page }) => {
