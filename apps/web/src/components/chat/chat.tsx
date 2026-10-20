@@ -4,10 +4,9 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useState, type FormEvent } from "react";
 
+import { Answer } from "@/components/answer/answer";
 import { apiUrl } from "@/lib/api";
 import { messageText, type PlumblineMessage } from "@/lib/messages";
-
-import { MessageView } from "./message-view";
 
 const STAGE_LABELS: Record<string, string> = {
   detecting: "Finding the jurisdiction…",
@@ -68,12 +67,15 @@ export function Chat() {
           The answer could not be completed. Try again in a moment.
         </p>
       )}
-      <section aria-label="Conversation" role="log" className="mt-4 space-y-4">
+      <section aria-label="Conversation" role="log" className="mt-8 flex flex-col gap-8">
         {messages.map((message) =>
           message.role === "assistant" ? (
-            <MessageView key={message.id} message={message} />
+            <Answer key={message.id} message={message} />
           ) : (
-            <p key={message.id} className="font-medium">
+            <p
+              key={message.id}
+              className="max-w-4/5 self-end rounded-lg bg-bg-active px-3.5 py-2.5 text-body"
+            >
               {messageText(message)}
             </p>
           ),

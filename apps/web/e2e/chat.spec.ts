@@ -32,7 +32,13 @@ test("a question streams back a cited answer", async ({ page }) => {
   await page.goto("/");
   await page.getByLabel("Your question").fill("Can my landlord keep my deposit?");
   await page.getByRole("button", { name: "Ask" }).click();
-  await expect(page.getByText(/This is a stub answer/)).toBeVisible();
-  await expect(page.getByRole("list", { name: "Citations" })).toContainText("Stub Act, s. 1");
+  const answer = page.getByRole("article", { name: "Answer" });
+  await expect(answer).toContainText("This is a stub answer");
+  const sources = answer.getByRole("list", { name: "Sources" });
+  await expect(sources).toContainText("Stub Act, s. 1");
+  await expect(answer).toContainText("1 source verified");
   await expectNoAxeViolations(page);
+
+  await answer.getByRole("button", { name: "Source 1: Stub Act, s. 1" }).click();
+  await expect(sources.getByRole("listitem")).toBeFocused();
 });

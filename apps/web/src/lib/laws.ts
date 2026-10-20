@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import manifest from "../../../../data/corpus/manifest.json";
 
-import { JURISDICTIONS, type JurisdictionInfo } from "./jurisdictions";
+import { JURISDICTION_IDS, JURISDICTIONS, type JurisdictionInfo } from "./jurisdictions";
 
 // Each law's last-updated date comes from Lane B's corpus manifest, read at build time,
 // until the API serves it. Only the fields the footer shows are parsed; the rest of a row
@@ -10,7 +10,7 @@ import { JURISDICTIONS, type JurisdictionInfo } from "./jurisdictions";
 const sourceSchema = z.object({
   id: z.string(),
   title: z.string(),
-  jurisdiction: z.enum(JURISDICTIONS.map((j) => j.id)),
+  jurisdiction: z.enum(JURISDICTION_IDS),
   edition: z.string(),
   consolidated_on: z.iso.date().nullish(),
   retrieved_on: z.iso.date(),
