@@ -92,6 +92,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/chunks/{chunk_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Chunk Article */
+        get: operations["chunk_article_api_chunks__chunk_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/feedback": {
         parameters: {
             query?: never;
@@ -253,11 +270,8 @@ export interface components {
             jurisdiction: components["schemas"]["Jurisdiction"];
             /** Law */
             law: string;
-            /**
-             * Paragraph
-             * @default null
-             */
-            paragraph: string | null;
+            /** Paragraph */
+            paragraph?: string | null;
         };
         /**
          * AskRequest
@@ -333,6 +347,14 @@ export interface components {
             text_for_search: string;
             /** Validity Note */
             validity_note: string | null;
+        };
+        /** ChunkArticle */
+        ChunkArticle: {
+            article: components["schemas"]["PublishedArticle"];
+            /** Chunk Id */
+            chunk_id: string;
+            source: components["schemas"]["SourceLink"] | null;
+            span: components["schemas"]["Span"] | null;
         };
         /**
          * Citation
@@ -527,6 +549,26 @@ export interface components {
          * @enum {string}
          */
         ProvisionStatus: "in_force" | "repealed" | "struck_down";
+        /** PublishedArticle */
+        PublishedArticle: {
+            /** Effective From */
+            effective_from: string | null;
+            /** Effective To */
+            effective_to: string | null;
+            /** Heading */
+            heading: string | null;
+            /** Label */
+            label: string;
+            language: components["schemas"]["Language"];
+            /** Page */
+            page: number | null;
+            ref: components["schemas"]["ArticleRef"];
+            status: components["schemas"]["ProvisionStatus"];
+            /** Text */
+            text: string;
+            /** Validity Note */
+            validity_note: string | null;
+        };
         /** QuoteBoxes */
         QuoteBoxes: {
             /** Available */
@@ -586,6 +628,22 @@ export interface components {
             timings_ms: {
                 [key: string]: number;
             };
+        };
+        /** SourceLink */
+        SourceLink: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+        };
+        /** Span */
+        Span: {
+            /** End */
+            end: number;
+            /** Start */
+            start: number;
         };
         /**
          * Stage
@@ -887,6 +945,48 @@ export interface operations {
                 };
                 content: {
                     "text/event-stream": string;
+                };
+            };
+            /** @description The request is not valid. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description An error, as problem details (RFC 9457). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    chunk_article_api_chunks__chunk_id__get: {
+        parameters: {
+            query?: {
+                quote?: string | null;
+            };
+            header?: never;
+            path: {
+                chunk_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChunkArticle"];
                 };
             };
             /** @description The request is not valid. */

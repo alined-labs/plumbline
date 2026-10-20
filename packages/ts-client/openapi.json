@@ -120,7 +120,6 @@
                 "type": "null"
               }
             ],
-            "default": null,
             "title": "Paragraph"
           }
         },
@@ -397,6 +396,45 @@
           "metadata"
         ],
         "title": "Chunk",
+        "type": "object"
+      },
+      "ChunkArticle": {
+        "properties": {
+          "article": {
+            "$ref": "#/components/schemas/PublishedArticle"
+          },
+          "chunk_id": {
+            "title": "Chunk Id",
+            "type": "string"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceLink"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "span": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Span"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "chunk_id",
+          "article",
+          "span",
+          "source"
+        ],
+        "title": "ChunkArticle",
         "type": "object"
       },
       "Citation": {
@@ -872,6 +910,98 @@
         "title": "ProvisionStatus",
         "type": "string"
       },
+      "PublishedArticle": {
+        "properties": {
+          "effective_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective From"
+          },
+          "effective_to": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective To"
+          },
+          "heading": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heading"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "language": {
+            "$ref": "#/components/schemas/Language"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          },
+          "ref": {
+            "$ref": "#/components/schemas/ArticleRef"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ProvisionStatus"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "validity_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validity Note"
+          }
+        },
+        "required": [
+          "ref",
+          "label",
+          "heading",
+          "text",
+          "language",
+          "page",
+          "status",
+          "validity_note",
+          "effective_from",
+          "effective_to"
+        ],
+        "title": "PublishedArticle",
+        "type": "object"
+      },
       "QuoteBoxes": {
         "properties": {
           "available": {
@@ -1087,6 +1217,47 @@
           "hits"
         ],
         "title": "SearchResult",
+        "type": "object"
+      },
+      "SourceLink": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "url"
+        ],
+        "title": "SourceLink",
+        "type": "object"
+      },
+      "Span": {
+        "properties": {
+          "end": {
+            "title": "End",
+            "type": "integer"
+          },
+          "start": {
+            "title": "Start",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ],
+        "title": "Span",
         "type": "object"
       },
       "Stage": {
@@ -1682,6 +1853,75 @@
         "summary": "Ask",
         "tags": [
           "answers"
+        ]
+      }
+    },
+    "/api/chunks/{chunk_id}": {
+      "get": {
+        "operationId": "chunk_article_api_chunks__chunk_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "chunk_id",
+            "required": true,
+            "schema": {
+              "title": "Chunk Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "quote",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 2000,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Quote"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChunkArticle"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The request is not valid."
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "An error, as problem details (RFC 9457)."
+          }
+        },
+        "summary": "Chunk Article",
+        "tags": [
+          "sources"
         ]
       }
     },
