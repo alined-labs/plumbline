@@ -101,6 +101,36 @@ test("a question streams back a cited answer", async ({ page }) => {
   expect(copied).toContain("Legal information, not legal advice.");
 });
 
+test("a reader says why an answer did not help", async ({ page }) => {
+  await answerWithStub(page);
+  const sent: unknown[] = [];
+  await page.route("**/api/feedback", async (route) => {
+    sent.push(route.request().postDataJSON());
+    await route.fulfill({ status: 204 });
+  });
+  await page.goto("/");
+  await ask(page, "Can my landlord keep my deposit?");
+  const answer = page.getByRole("article", { name: "Answer" });
+  await answer.getByRole("button", { name: "Not helpful" }).click();
+  const panel = answer.getByRole("group", { name: "What went wrong?" });
+  await expect(panel.getByRole("button", { name: "Wrong citation" })).toBeFocused();
+  await expectNoAxeViolations(page);
+
+  await panel.getByRole("button", { name: "Wrong citation" }).click();
+  await panel.getByLabel("Note").fill("The quote is from another section.");
+  await panel.getByRole("button", { name: "Send" }).click();
+  await expect(answer.getByText("Thanks, that helps.")).toBeVisible();
+  await expect(panel).toHaveCount(0);
+  expect(sent).toEqual([
+    {
+      request_id: "req_fixture",
+      helpful: false,
+      reasons: ["wrong_citation"],
+      note: "The quote is from another section.",
+    },
+  ]);
+});
+
 test("a partial answer names the part it leaves out", async ({ page }) => {
   await answerWithStub(page, stubStreamWith({ status: "partial", abstain_reason: null }));
   await page.goto("/");
