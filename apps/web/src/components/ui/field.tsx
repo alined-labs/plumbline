@@ -43,19 +43,27 @@ export function Field({
         "aria-describedby": described,
         "aria-invalid": error ? true : undefined,
       })}
-      {error ? (
-        <p id={messageId} className="flex items-center gap-1.5 text-small font-medium text-danger">
-          <CircleAlertIcon className="shrink-0" />
-          {error}
-        </p>
-      ) : (
-        help && (
-          <p id={messageId} className="text-small text-fg-muted">
-            {help}
-          </p>
-        )
-      )}
+      <FieldMessage id={messageId} help={help} error={error} />
     </div>
+  );
+}
+
+/** The help line, or the error that replaces it: the error says how to fix the input. */
+export function FieldMessage({ id, help, error }: { id: string; help?: string; error?: string }) {
+  if (error) {
+    return (
+      <p id={id} className="flex items-center gap-1.5 text-small font-medium text-danger">
+        <CircleAlertIcon className="shrink-0" />
+        {error}
+      </p>
+    );
+  }
+  return (
+    help && (
+      <p id={id} className="text-small text-fg-muted">
+        {help}
+      </p>
+    )
   );
 }
 
