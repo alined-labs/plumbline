@@ -138,10 +138,11 @@ def test_a_committed_parse_is_reused_only_for_the_same_file(tmp_path: Path) -> N
 
 
 def test_every_committed_parse_is_what_its_source_gives_today() -> None:
-    """data/processed is current: the readers that need no service rebuild it exactly."""
+    """data/processed is current: the readers that need no service rebuild it exactly. A
+    fetch-only source has no committed parse, and its file is not on a clean runner."""
     docling = DoclingClient("http://docling", ResponseCache(CacheMode.REPLAY, ROOT / "cache"))
     for source in load_manifest(ROOT / "data" / "corpus" / "manifest.json").sources:
-        if source.format not in {"html", "xml"}:
+        if not source.committed or source.format not in {"html", "xml"}:
             continue
         committed = read_processed(source)
         assert committed is not None, f"{source.id}: no current parse; run make ingest"
