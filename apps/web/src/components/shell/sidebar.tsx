@@ -18,6 +18,8 @@ import {
 import { buttonClass } from "@/components/ui/button";
 import { useMediaQuery } from "@/lib/use-media-query";
 
+import { ThemeSwitch } from "./theme-switch";
+
 export const DESTINATIONS: { href: Route; label: string; Icon: ComponentType<IconProps> }[] = [
   { href: "/", label: "Ask", Icon: MessageSquareIcon },
   { href: "/check-lease", label: "Check a lease", Icon: FileCheckIcon },
@@ -87,6 +89,9 @@ export function SidebarContent({
           </Link>
         </WithTooltip>
       ))}
+      <div className="mt-auto pt-3">
+        <ThemeSwitch compact={mode === "aside"} />
+      </div>
     </nav>
   );
 }

@@ -51,6 +51,22 @@ test("the footer dates the law for each jurisdiction, in order", async ({ page }
   ]);
 });
 
+test("the theme switch overrides the system theme and is remembered", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.goto("/about/");
+  if (await page.getByRole("button", { name: "Open navigation" }).isVisible()) {
+    await page.getByRole("button", { name: "Open navigation" }).click();
+  }
+  const toggle = page.getByRole("switch", { name: "Dark theme" });
+  await expect(toggle).toHaveAttribute("aria-checked", "false");
+  await toggle.click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.reload();
+  // The head script applies the stored choice before the page paints.
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expectNoAxeViolations(page);
+});
+
 test("the skip link moves focus to the page", async ({ page }) => {
   await page.goto("/about/");
   await page.keyboard.press("Tab");
