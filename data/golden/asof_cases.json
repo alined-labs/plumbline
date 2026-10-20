@@ -166,7 +166,7 @@
   "absent": [
    "Índice de Referencia para la Actualización"
   ],
-  "why": "The yearly rent update in March 2026 is capped by the CPI, not the IRAV of October 2026."
+  "why": "Art. 18.1's own wording in March 2026 still named the CPI; the IRAV entered its text only on 8 October 2026. (The eleventh additional provision, from Ley 12/2023, already set an INE index as the limit for art. 18; that provision is not this case's subject.)"
  },
  {
   "id": "asof-13",
@@ -180,7 +180,7 @@
   "absent": [
    "Índice de Garantía de Competitividad"
   ],
-  "why": "From 8 October 2026 the update refers to the IRAV."
+  "why": "From 8 October 2026 art. 18.1's own wording refers to the IRAV."
  },
  {
   "id": "asof-14",
