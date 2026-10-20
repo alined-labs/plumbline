@@ -21,7 +21,7 @@ import asyncio
 import logging
 from collections.abc import AsyncIterator, Callable, Iterable, Mapping
 from datetime import date
-from typing import Final
+from typing import Any, Final
 
 from redis.asyncio import Redis
 from sqlalchemy.orm import Session, sessionmaker
@@ -158,13 +158,16 @@ def default_lease_checker(
     if retrieval is None:
         log.warning("no retrieval on this server: lease checks are paused")
         return PausedLeaseChecker()
-    search = retrieval(served_config(settings.answer_config)).search
+    config = served_config(settings.answer_config)
+    search = retrieval(config).search
+    law = SqlLawSource(sync_sessions(settings), variant_key(config))
     # Real uploads stay refused until Presidio's redactor (P2) replaces this one.
     return ClaudeLeaseChecker(
         router=router_for(settings, meter),
         meter=meter,
         redactor=SyntheticOnlyRedactor(),
         search=search,
+        indexed=law.jurisdictions,
     )
 
 
@@ -184,7 +187,21 @@ def served_config(name: str) -> EvalConfig:
 
 
 class ClaudeLeaseChecker(RealLeaseChecker):
-    """Lane C's checker with the Router's refusals (the tier) but SERVED_ROUTE's model."""
+    """Lane C's checker with the Router's refusals (the tier) but SERVED_ROUTE's model, and
+    the jurisdictions its index holds, so a lease under any other law is refused."""
+
+    def __init__(
+        self, *, indexed: Callable[[], frozenset[Jurisdiction]] | None = None, **kwargs: Any
+    ) -> None:
+        super().__init__(**kwargs)
+        self._indexed = indexed
+
+    async def indexed(self) -> frozenset[Jurisdiction] | None:
+        if self._indexed is None:
+            return None
+        # Read on each check (one DISTINCT over the chunks): an ingest adds a jurisdiction
+        # without a restart.
+        return await asyncio.to_thread(self._indexed)
 
     async def route(self, tier: DemoTier) -> Route:
         lease = await super().route(tier)  # RouteRefused off the full tier
@@ -236,6 +253,9 @@ class PausedLeaseChecker:
         self, text: str, route: Route, *, jurisdiction: Jurisdiction, as_of: date | None
     ) -> Finding | None:
         raise RouteRefused(PAUSED)
+
+    async def indexed(self) -> frozenset[Jurisdiction] | None:
+        return None  # route() refuses first
 
 
 class ServedPipeline:

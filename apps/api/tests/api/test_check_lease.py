@@ -533,3 +533,23 @@ async def test_a_page_on_another_origin_may_read_the_headers_it_needs() -> None:
     exposed = response.headers["access-control-expose-headers"]
     assert "Retry-After" in exposed
     assert "Location" in exposed
+
+
+class FloridaOnly(Scripted):
+    async def indexed(self) -> frozenset[Jurisdiction] | None:
+        return frozenset({Jurisdiction.FLORIDA})
+
+
+async def test_a_lease_under_law_the_index_lacks_is_refused_before_it_is_read() -> None:
+    # Searching law that is not indexed finds nothing, and a check would report a lease
+    # full of problems as having none.
+    checker = FloridaOnly(*ALL_THE_WAY)
+    app = _app(checker, questions=10)  # one lease check a day
+    async with _client(app) as client:
+        refused = await _start(client, jurisdiction="dubai")
+        assert refused.status_code == 503
+        assert refused.json()["code"] == "law_not_indexed"
+        assert "Dubai" in refused.json()["detail"]
+        assert checker.seen == []
+        # Nothing was counted: the day's one check is still there, for Florida.
+        assert (await _start(client, jurisdiction="florida")).status_code == 202
