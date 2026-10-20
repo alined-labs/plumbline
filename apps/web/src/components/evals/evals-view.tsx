@@ -29,6 +29,8 @@ import {
 } from "@/lib/evals";
 import type { EvalsData } from "@/lib/evals-files";
 
+import { OnlineNightsLazy as OnlineNights } from "./online-nights-lazy";
+
 const REPO = "https://github.com/alined-labs/plumbline";
 
 /** The CI gate's workflow, and the run where it blocked a change that made answers worse.
@@ -562,6 +564,8 @@ export function EvalsView({ data }: { data: EvalsData }) {
           </p>
         )}
       </Section>
+
+      <OnlineNights />
 
       <Section id="gate" title="The gate on every change">
         <Gate run={headline} thresholds={thresholds} />
