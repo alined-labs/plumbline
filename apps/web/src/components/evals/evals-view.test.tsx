@@ -60,6 +60,15 @@ describe("EvalsView", () => {
     expect(table.getByText("Below it")).toBeInTheDocument();
   });
 
+  it("says how the constructed labels were made, and links the method", () => {
+    render(<EvalsView data={data} />);
+    expect(screen.getByText(/one planted error each/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "How they were made" })).toHaveAttribute(
+      "href",
+      expect.stringMatching(/evals\/calibration\/README\.md$/),
+    );
+  });
+
   it("says the judge's accuracy is still to come when there is no table", () => {
     render(<EvalsView data={{ ...data, agreement: null }} />);
     expect(screen.queryByRole("region", { name: "The judge's accuracy" })).not.toBeInTheDocument();
