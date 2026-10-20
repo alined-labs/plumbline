@@ -458,7 +458,10 @@ def test_the_long_context_baseline_reads_the_whole_law() -> None:
     assert law.calls == [([FLORIDA], date(2026, 1, 15))]
     request = model.requests[0]
     assert request.model == STRONG_MODEL
-    assert request.messages[0].content.count("<source n=") == len(HITS)  # all of it
+    # All of the law, first, as the cacheable prefix; the question after it, outside it.
+    assert request.prefix.count("<source n=") == len(HITS)
+    assert "<question>" not in request.prefix
+    assert request.messages[0].content.startswith("<question>")
     # The strong model thinks: low, with room beside the answer's own budget.
     assert request.thinking == "low"
     assert request.max_output_tokens == 1024 + THINKING_ROOM
