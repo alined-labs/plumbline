@@ -23,6 +23,7 @@ from plumbline.settings import ROOT
 
 LEASES = ROOT / "data" / "leases"
 EXPECTED = LEASES / "expected_findings.json"
+DISCLAIMER = LEASES / "disclaimer.txt"
 Slug = Annotated[str, StringConstraints(pattern=r"^[a-z0-9][a-z0-9._-]*$", max_length=80)]
 NonEmpty = Annotated[str, StringConstraints(min_length=1, strip_whitespace=True)]
 CLAUSE = re.compile(r"^## Clause (\d+)\. ", re.MULTILINE)
@@ -61,6 +62,13 @@ class ExpectedLease(Frozen):
 class ExpectedFindings(Frozen):
     version: Literal[1] = 1
     leases: list[ExpectedLease]
+
+
+def lease_disclaimer(path: Path = DISCLAIMER) -> str:
+    """The text shown wherever a lease check appears, as plumbline.core.stream.DISCLAIMER is
+    with every answer: information and not advice, what the check cannot know, and that no
+    lawyer has reviewed it."""
+    return path.read_text(encoding="utf-8").strip()
 
 
 def load_expected(path: Path = EXPECTED) -> ExpectedFindings:
