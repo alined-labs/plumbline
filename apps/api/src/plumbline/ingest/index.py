@@ -31,8 +31,6 @@ from plumbline.db.session import tenant_session
 class Embedder(Protocol):
     """What indexing needs from Lane A's embedder: document vectors, in order."""
 
-    model: str
-
     def embed_documents(self, texts: Sequence[str]) -> list[list[float]]: ...
 
 
