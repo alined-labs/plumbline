@@ -31,6 +31,8 @@ class Profile:
     label: Callable[[str, str, Sequence[str]], str]  # (law name, article, markers)
     heading_before: bool = False  # the heading is the line above the article (Dubai)
     markers: bool = False  # inline <...> validity markers and ~~struck~~ text (Colombia)
+    versioned: bool = False  # articles open only after a version marker (Spain's BOE reader)
+    reproduces_laws: bool = False  # a source may restate other laws' articles (Dubai)
 
 
 def _spain_label(law: str, article: str, markers: Sequence[str]) -> str:
@@ -52,7 +54,10 @@ def _colombia_label(law: str, article: str, markers: Sequence[str]) -> str:
 
 
 def _dubai_label(law: str, article: str, markers: Sequence[str]) -> str:
-    return f"{law}, Art. {article}" + "".join(f"({m.rstrip('.')})" for m in markers)
+    # "Law No. 26 of 2007, Art. 25(1)"; a law the guide reproduces names itself:
+    # "DLD Tenancy Guide, Decree 43/2013 art. 1(a)".
+    head = article if " art. " in article else f"Art. {article}"
+    return f"{law}, {head}" + "".join(f"({m.rstrip('.')})" for m in markers)
 
 
 def _florida_label(law: str, article: str, markers: Sequence[str]) -> str:
@@ -63,38 +68,39 @@ def _florida_label(law: str, article: str, markers: Sequence[str]) -> str:
 SPANISH_DIVISION = re.compile(r"^(T[ÍI]TULO|CAP[ÍI]TULO|SECCI[ÓO]N)\s+\S+$", re.IGNORECASE)
 
 PROFILES: dict[Jurisdiction, Profile] = {
-    # BOE consolidated text: "Artículo 9. Plazo mínimo." or "Disposición transitoria
-    # primera. Contratos ...". The index at the top lists bare "Artículo 9" lines; requiring
-    # the heading keeps them out. After each article the BOE lists its amendments and the
-    # dates each version came into force.
+    # The BOE's open-data record, as its reader writes it: each version of an article after
+    # a version marker, opening with "Artículo 9. Plazo mínimo.", "Artículo veintiuno."
+    # (the LPH numbers in words) or "Disposición transitoria primera. Contratos ...". Only
+    # the line after a marker opens an article, so a body that quotes an article of
+    # another law never does. Notes on each version follow it as quotes.
     Jurisdiction.SPAIN: Profile(
         articles=(
             re.compile(
-                r"^Art[íi]culo (?P<id>\d+(?: (?:bis|ter|quater|quinquies))?)\. (?P<heading>.+?)\.?$"
+                r"^Art[íi]culo (?P<id>\d+(?: (?:bis|ter|quater|quinquies))?|[a-záéíóú]+)\.(?: (?P<heading>.+?)\.?)?$"
             ),
             re.compile(
-                r"^Disposici[óo]n (?P<kind>adicional|transitoria|derogatoria|final) (?P<ord>\w+)\. (?P<heading>.+?)\.?$"
+                r"^Disposici[óo]n (?P<kind>adicional|transitoria|derogatoria|final)(?: (?P<ord>\w+))?\.?(?: (?P<heading>.+?)\.?)?$",
+                re.IGNORECASE,
             ),
         ),
         name="Artículo {}",
         division=SPANISH_DIVISION,
         levels=(re.compile(r"[A-Z]\)"), re.compile(r"\d+\."), re.compile(r"[a-zñ]\)")),
-        note=re.compile(
-            r"^(Se (modifica|añade|suprime|deroga|declara|deja sin efecto|da nueva redacción)\b"
-            r"|Téngase en cuenta|Seleccionar redacción|Última actualización, publicada"
-            r"|Modificación publicada|Texto (original|añadido), publicado)"
-        ),
-        skip=re.compile(r"^(Subir|Jurisprudencia|\[Bloque \d+: #\w+\])$"),
+        note=NEVER,
+        skip=NEVER,
         label=_spain_label,
+        versioned=True,
     ),
     # Secretaría del Senado: "ARTÍCULO 8o. OBLIGACIONES DEL ARRENDADOR. Son ..." with the
-    # heading in capitals. Validity markers sit inline in angle brackets; struck-down words
-    # are struck through; the headings of the collapsed note boxes have no text in them.
+    # heading in capitals, or no heading ("ARTÍCULO 60. Las sanciones ...", "ARTÍCULO 40.
+    # <Artículo derogado ...>"). Validity markers sit inline in angle brackets; struck-down
+    # words are struck through; the headings of the collapsed note boxes have no text.
     Jurisdiction.COLOMBIA: Profile(
         articles=(
             re.compile(
                 r"^ART[ÍI]CULO (?P<id>\d+)\s*[oº°]?\. (?P<heading>[^a-záéíóúüñ<]+?)\.(?: (?P<rest>.*))?$"
             ),
+            re.compile(r"^ART[ÍI]CULO (?P<id>\d+)\s*[oº°]?\.(?: (?P<rest>.*))?$"),
         ),
         name="Artículo {}",
         division=re.compile(r"^CAP[ÍI]TULO [IVXLC]+\.?$", re.IGNORECASE),
@@ -108,7 +114,9 @@ PROFILES: dict[Jurisdiction, Profile] = {
         markers=True,
     ),
     # Dubai Legislation Portal (English translation): a heading line, then "Article (4)"
-    # on its own; a heading covers the articles after it until the next one.
+    # on its own; a heading covers the articles after it until the next one. The DLD's
+    # guide reproduces three laws one after another, and Law No. (33) of 2008 restates
+    # Law No. (26) of 2007's articles, so numbers repeat within a source.
     Jurisdiction.DUBAI: Profile(
         articles=(re.compile(r"^Article \((?P<id>\d+)\)$"),),
         name="Article {}",
@@ -118,6 +126,7 @@ PROFILES: dict[Jurisdiction, Profile] = {
         skip=NEVER,
         label=_dubai_label,
         heading_before=True,
+        reproduces_laws=True,
     ),
     # Online Sunshine: "83.49 Deposit money or advance rent; duty of landlord and tenant.—"
     # then subsections (1), paragraphs (a), subparagraphs 1. and sub-subparagraphs a.,
