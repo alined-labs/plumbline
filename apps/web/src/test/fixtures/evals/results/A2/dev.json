@@ -596,7 +596,15 @@
     "recall@5.n": 20.0,
     "recall@5": 0.7545,
     "recall@5.low": 0.6345,
-    "recall@5.high": 0.8545
+    "recall@5.high": 0.8545,
+    "second_judge.faithfulness": 0.9,
+    "second_judge.faithfulness.low": 0.699,
+    "second_judge.faithfulness.high": 0.9721,
+    "second_judge.faithfulness.n": 20.0,
+    "second_judge.correctness": 0.85,
+    "second_judge.correctness.low": 0.6396,
+    "second_judge.correctness.high": 0.9476,
+    "second_judge.correctness.n": 20.0
   },
   "notes": "Fixture for the web app's tests, not a measurement."
 }
