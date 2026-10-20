@@ -215,6 +215,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/law/check-clause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Check Clause */
+        post: operations["check_clause_api_law_check_clause_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/law/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search Law */
+        get: operations["search_law_api_law_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/search": {
         parameters: {
             query?: never;
@@ -468,6 +502,23 @@ export interface components {
             /** Verified */
             verified: boolean;
         };
+        /** ClauseRequest */
+        ClauseRequest: {
+            /** As Of */
+            as_of?: string | null;
+            /** Clause */
+            clause: string;
+            jurisdiction: components["schemas"]["Jurisdiction"];
+        };
+        /** ClauseResult */
+        ClauseResult: {
+            /** As Of */
+            as_of: string | null;
+            /** Disclaimer */
+            disclaimer: string;
+            finding: components["schemas"]["Finding"] | null;
+            jurisdiction: components["schemas"]["Jurisdiction"];
+        };
         /**
          * DemoTier
          * @description The degradation ladder: full (premium route on), free (free-tier models only),
@@ -612,6 +663,41 @@ export interface components {
          * @enum {string}
          */
         Language: "en" | "es";
+        /** LawHit */
+        LawHit: {
+            /** Chunk Id */
+            chunk_id: string;
+            /** Effective From */
+            effective_from: string | null;
+            /** Effective To */
+            effective_to: string | null;
+            /** Heading */
+            heading: string | null;
+            /** Label */
+            label: string;
+            language: components["schemas"]["Language"];
+            /** Rank */
+            rank: number;
+            ref: components["schemas"]["ArticleRef"];
+            /** Restricted */
+            restricted: boolean;
+            source: components["schemas"]["SourceLink"] | null;
+            status: components["schemas"]["ProvisionStatus"];
+            /** Text */
+            text: string;
+        };
+        /** LawSearch */
+        LawSearch: {
+            /** As Of */
+            as_of: string | null;
+            /** Config Name */
+            config_name: string;
+            /** Hits */
+            hits: components["schemas"]["LawHit"][];
+            jurisdiction: components["schemas"]["Jurisdiction"] | null;
+            /** Query */
+            query: string;
+        };
         /**
          * LeaseDoneEvent
          * @description Data of the `done` event, the last of a check that worked.
@@ -726,7 +812,7 @@ export interface components {
              * Code
              * @default null
              */
-            code: ("unsupported_type" | "too_large" | "unreadable" | "quota_reached" | "not_found" | "lease_checks_paused" | "busy") | null;
+            code: ("unsupported_type" | "too_large" | "unreadable" | "quota_reached" | "not_found" | "lease_checks_paused" | "busy" | "redaction_refused") | null;
             /**
              * Detail
              * @default null
@@ -1544,6 +1630,143 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Health"];
+                };
+            };
+            /** @description An error, as problem details (RFC 9457). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    check_clause_api_law_check_clause_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClauseRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClauseResult"];
+                };
+            };
+            /** @description The request is not valid. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `quota_reached`: today's lease checks are used up (a clause counts as one). */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `lease_checks_paused` (the demo tier or today's budget does not run them) or `redaction_refused` (the clause cannot be redacted, so no model may read it). */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description An error, as problem details (RFC 9457). */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    search_law_api_law_search_get: {
+        parameters: {
+            query: {
+                /**
+                 * @description What to look for.
+                 * @example How long does a Florida landlord have to return a security deposit?
+                 */
+                q: string;
+                /**
+                 * @description Search one jurisdiction; all when absent.
+                 * @example florida
+                 */
+                jurisdiction?: components["schemas"]["Jurisdiction"] | null;
+                /**
+                 * @description The law in force on this date; today when absent.
+                 * @example 2026-10-20
+                 */
+                as_of?: string | null;
+                /**
+                 * @description How many provisions.
+                 * @example 1
+                 */
+                k?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LawSearch"];
+                };
+            };
+            /** @description The request is not valid. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `quota_reached`: today's searches are used up; Retry-After gives the seconds until 00:00 UTC. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description This server has no retrieval (a development server). */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description An error, as problem details (RFC 9457). */

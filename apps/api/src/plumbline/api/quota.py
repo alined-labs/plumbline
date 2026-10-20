@@ -4,7 +4,8 @@ A visitor is a random id in a signed, HttpOnly, SameSite=Lax cookie. Each questi
 against two daily counters, the visitor's and the IP address's, which expire at the next
 UTC midnight; past DAILY_QUESTIONS_PER_IP on either, /api/ask answers 429 with
 Retry-After set to that midnight, and the front end shows its quota-reached state.
-Lease checks are counted apart, at a tenth of that: a check is many model calls.
+Lease checks are counted apart, at a tenth of that: a check is many model calls. Law
+searches (/api/law/search) are counted apart too, at ten times it: no model call.
 
 - The cookie's signing secret is made once and kept in the settings table, so every
   worker, and the next process, accepts the cookies the others set.
@@ -44,10 +45,12 @@ COOKIE: Final = "plumbline_visitor"
 COOKIE_DAYS: Final = 365
 SIGNING_SETTING: Final = "visitor_cookie_secret"  # the settings row holding it
 LEASE_SHARE: Final = 10  # one lease check is allowed for every ten questions
-Kind = Literal["question", "lease"]
+SEARCH_SHARE: Final = 10  # ten law searches for every question: no model call, one embedding
+Kind = Literal["question", "lease", "search"]
 WORDS: Final[dict[Kind, tuple[str, str]]] = {
     "question": ("questions", "asking"),
     "lease": ("lease checks", "checking"),
+    "search": ("searches", "searching"),
 }
 
 
@@ -114,6 +117,7 @@ class Quota:
         self._limits: dict[Kind, int] = {
             "question": settings.daily_questions_per_ip,
             "lease": max(1, settings.daily_questions_per_ip // LEASE_SHARE),
+            "search": settings.daily_questions_per_ip * SEARCH_SHARE,
         }
         self._sessions = sessions
         self._counter = counter
@@ -141,7 +145,8 @@ class Quota:
         known = visitor if visitor is not None else _visitor(request.cookies.get(COOKIE), secret)
         now = datetime.now(UTC)
         midnight = _next_midnight(now)
-        prefix = f"quota:{now.date().isoformat()}:" + ("lease:" if kind == "lease" else "")
+        # Questions keep the bare prefix, which /api/usage reads; other kinds count apart.
+        prefix = f"quota:{now.date().isoformat()}:" + ("" if kind == "question" else f"{kind}:")
         keys = [f"{prefix}visitor:{known.id}", f"{prefix}ip:{_sign(secret, _address(request))}"]
         noun, verb = WORDS[kind]
         try:

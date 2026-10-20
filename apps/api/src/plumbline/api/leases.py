@@ -84,6 +84,18 @@ class LeaseChecker(Protocol):
         as_of: date | None,
     ) -> AsyncIterator[LeaseEvent]: ...
 
+    async def clause(
+        self,
+        text: str,
+        route: Route,
+        *,
+        jurisdiction: Jurisdiction,
+        as_of: date | None,
+    ) -> Finding | None:
+        """One clause, redacted, checked against the law it touches; None when that law does
+        not address it. RedactionRefused when the text cannot be redacted."""
+        ...
+
 
 router = APIRouter(prefix="/api/check-lease", tags=["leases"])
 

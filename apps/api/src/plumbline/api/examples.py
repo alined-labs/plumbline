@@ -23,6 +23,7 @@ from pydantic import BaseModel
 from plumbline.api import stream
 from plumbline.api.chunks import ChunkArticle, PublishedArticle, SourceLink, Span
 from plumbline.api.evals import OnlineNight
+from plumbline.api.law import ClauseRequest, ClauseResult, LawHit, LawSearch
 from plumbline.api.quota import Usage
 from plumbline.api.schemas import (
     AskRequest,
@@ -101,6 +102,12 @@ PARAGRAPH: Final = (
     " notice to the tenant. For all other deposits:\n(a) Upon the vacating of the premises for"
     " termination of the rental agreement, if the landlord does not intend to impose a claim"
     f" on the security deposit, {QUOTE}."
+)
+SOURCE: Final = SourceLink(
+    id=DOCUMENT,
+    title="Florida Statutes 2026, chapter 83 (Landlord and Tenant), part II",
+    url="https://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute"
+    "&URL=0000-0099/0083/0083.html&StatuteYear=2026",
 )
 CITATION: Final = Citation(
     n=1,
@@ -349,6 +356,47 @@ EXAMPLES: Final[dict[str, Example]] = {
             "config": "A2",
         },
     ),
+    "GET /api/law/search": Example(
+        "The Florida provision on returning a deposit, found without asking for an answer",
+        response=LawSearch(
+            query=QUESTION,
+            jurisdiction=Jurisdiction.FLORIDA,
+            as_of=date(2026, 10, 20),
+            config_name="A2-claude",
+            hits=[
+                LawHit(
+                    rank=1,
+                    chunk_id=CHUNK_ID,
+                    ref=REF,
+                    label="Fla. Stat. § 83.49(3)",
+                    heading=HEADING,
+                    text=PARAGRAPH,
+                    language=Language.EN,
+                    status=ProvisionStatus.IN_FORCE,
+                    effective_from=None,
+                    effective_to=None,
+                    source=SOURCE,
+                    restricted=False,
+                )
+            ],
+        ),
+        parameters={"q": QUESTION, "jurisdiction": "florida", "as_of": "2026-10-20", "k": 1},
+    ),
+    "POST /api/law/check-clause": Example(
+        "A deposit clause that gives the landlord longer than Florida law allows",
+        request=ClauseRequest(
+            clause=FINDING.clause_text,
+            jurisdiction=Jurisdiction.FLORIDA,
+            as_of=date(2026, 3, 1),
+        ),
+        response=ClauseResult(
+            jurisdiction=Jurisdiction.FLORIDA,
+            as_of=date(2026, 3, 1),
+            finding=FINDING.model_copy(update={"clause_number": "1"}),
+            # The route sends data/leases/disclaimer.txt; the schema must build without data/.
+            disclaimer="The lease checker's disclaimer (data/leases/disclaimer.txt).",
+        ),
+    ),
     "GET /api/chunks/{chunk_id}": Example(
         "The article a citation quotes, with the quote's span",
         response=ChunkArticle(
@@ -366,12 +414,7 @@ EXAMPLES: Final[dict[str, Example]] = {
                 effective_to=None,
             ),
             span=Span(start=ARTICLE_TEXT.index(QUOTE), end=ARTICLE_TEXT.index(QUOTE) + len(QUOTE)),
-            source=SourceLink(
-                id=DOCUMENT,
-                title="Florida Statutes 2026, chapter 83 (Landlord and Tenant), part II",
-                url="https://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute"
-                "&URL=0000-0099/0083/0083.html&StatuteYear=2026",
-            ),
+            source=SOURCE,
             restricted=False,
         ),
         parameters={"chunk_id": CHUNK_ID, "quote": QUOTE},
