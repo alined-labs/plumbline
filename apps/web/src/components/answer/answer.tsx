@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { Fragment, useId, useMemo, useState, type ReactNode } from "react";
 
 import { CheckIcon, CircleCheckIcon, CopyIcon } from "@/components/icons";
@@ -11,12 +12,19 @@ import type { PlumblineMessage } from "@/lib/messages";
 import { seconds, type Run } from "@/lib/run";
 
 import { Abstention, AnswerGap } from "./abstention";
-import { AnswerBody } from "./answer-body";
 import { AnswerSkeleton } from "./answer-skeleton";
 import { FeedbackButtons, FeedbackPanel, useFeedback } from "./feedback";
 import { usePanel } from "./panel-context";
 import { SourceCard } from "./source-card";
 import { StatusSteps } from "./status-steps";
+
+// The Markdown renderer is the largest piece an answer needs and a first paint does not, so it
+// is its own chunk. The composer starts loading it on focus (lib/prefetch.ts), and ssr: false
+// keeps Next from preloading it with every page; nothing is lost, since an answer only exists
+// once the reader has asked.
+const AnswerBody = dynamic(() => import("./answer-body").then((module) => module.AnswerBody), {
+  ssr: false,
+});
 
 /** Answer spec: the meta line (the status steps while it streams), Plumbline's explanation with
  * a marker after every claim, and the sources it cites. A marker or a source card opens its

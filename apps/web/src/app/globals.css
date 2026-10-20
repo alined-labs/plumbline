@@ -19,6 +19,14 @@
     outline: 2px solid var(--pl-color-focus);
     outline-offset: 2px;
   }
+
+  /* Emphasis uses the italic face, which loads only when such text is on the page. */
+  em,
+  i,
+  cite,
+  dfn {
+    font-family: var(--pl-face-sans-italic), var(--pl-font-sans);
+  }
 }
 
 /* The sidebar is a rail below 1024px, and from 1024 to 1279px while the source panel is open

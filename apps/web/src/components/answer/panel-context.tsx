@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import {
   createContext,
   useCallback,
@@ -11,9 +12,15 @@ import {
   type ReactNode,
 } from "react";
 
-import { SourcePanel, type PanelSubject } from "./source-panel";
+import type { PanelSubject } from "./source-panel";
 
 export type { PanelSubject };
+
+// The panel (a Dialog, Tabs and their positioning code) is the largest piece of the shell and
+// no page needs it until a source or a trace is opened, so it loads then, as its own chunk.
+const SourcePanel = dynamic(() => import("./source-panel").then((module) => module.SourcePanel), {
+  ssr: false,
+});
 
 type PanelApi = {
   subject: PanelSubject | null;
@@ -61,17 +68,23 @@ export function PanelProvider({ children }: { children: ReactNode }) {
     };
   }, [isOpen]);
 
+  // Rendered from the first open on, and kept after, so the closing animation can finish.
+  const [mounted, setMounted] = useState(false);
+  if (subject && !mounted) setMounted(true);
+
   return (
     <PanelContext value={api}>
       <SlotContext value={setSlot}>
         {children}
-        <SourcePanel
-          subject={subject}
-          onChange={update}
-          onClose={close}
-          opener={opener}
-          slot={slot}
-        />
+        {mounted && (
+          <SourcePanel
+            subject={subject}
+            onChange={update}
+            onClose={close}
+            opener={opener}
+            slot={slot}
+          />
+        )}
       </SlotContext>
     </PanelContext>
   );
