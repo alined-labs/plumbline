@@ -14,6 +14,7 @@ from plumbline.corpus.export import (
     ExportError,
     build,
     main,
+    second_source_of,
     statistics,
     unpublishable,
     withhold_quotes,
@@ -226,3 +227,18 @@ def test_statistics_count_every_item_once() -> None:
     assert "| several | 1 | 0 | 1 |" in text
     assert "| synthetic | 5 |" in text
     assert "| v1 | 5 |" in text
+    assert "| found | 5 |" in text
+
+
+def test_the_card_counts_items_without_a_second_source() -> None:
+    found = item(1, [FLORIDA])
+    assert second_source_of(found) == "found"
+    assert second_source_of(item(2, [FLORIDA], verified=False)) == "not verified"
+    # A verification may lack a second source once the schema allows it (its notes say why);
+    # built here without validation, to count it before that change lands.
+    assert found.verification is not None
+    bare = Verification.model_construct(**{**found.verification.__dict__, "second_source": None})
+    none_found = found.model_copy(update={"verification": bare})
+    assert second_source_of(none_found) == "none found"
+    out_of_scope = none_found.model_copy(update={"expected_abstain": True})
+    assert second_source_of(out_of_scope) == "not applicable (out of scope)"
