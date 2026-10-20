@@ -17,7 +17,9 @@ import json
 import re
 from typing import Any, Final
 
-from plumbline.generation.llm import FAST_MODEL, LLMClient, LLMRequest, Message
+from plumbline.generation.llm import JUDGE_MODEL, LLMClient, LLMRequest, Message
+
+REWRITE_MODEL: Final = JUDGE_MODEL  # claude-haiku-5-5: cheap, and not the generator
 
 _DELIMITER: Final = re.compile(r"<(\s*/?\s*)question\b", re.IGNORECASE)
 
@@ -39,7 +41,7 @@ SCHEMA: Final[dict[str, Any]] = {
 }
 
 
-def rewrite_request(question: str, model: str = FAST_MODEL) -> LLMRequest:
+def rewrite_request(question: str, model: str = REWRITE_MODEL) -> LLMRequest:
     defused = _DELIMITER.sub(lambda m: f"‹{m.group(1)}question", question)
     return LLMRequest(
         model=model,
@@ -51,7 +53,9 @@ def rewrite_request(question: str, model: str = FAST_MODEL) -> LLMRequest:
     )
 
 
-async def rewrite_to_spanish(question: str, client: LLMClient, *, model: str = FAST_MODEL) -> str:
+async def rewrite_to_spanish(
+    question: str, client: LLMClient, *, model: str = REWRITE_MODEL
+) -> str:
     """The question as a Spanish keyword query."""
     result = await client.complete(rewrite_request(question, model))
     query = " ".join(str(json.loads(result.text)["query"]).split())
