@@ -38,11 +38,21 @@ Each provider has a daily spend cap. The router (C6) sends premium questions to 
 | Setting | Default | Production |
 | --- | --- | --- |
 | `GEMINI_DAILY_CAP_USD` | US$1.00 | US$0.30 |
-| `ANTHROPIC_DAILY_CAP_USD` | US$1.00 | US$1.00 |
+| `ANTHROPIC_DAILY_CAP_USD` | US$1.00 | US$5.00 |
 | `COHERE_DAILY_CAP_USD` | US$0.50 | US$0 (R1 dropped) |
 | `DAILY_QUESTIONS_PER_IP` | 30 | 30 |
 
-At production's caps the worst day spends US$1.30 on models, plus the calls in flight during the switch's reaction time (about 40 s: a 30-second check and the tier's 10-second cache). The worst 30-day month would be US$39, more than the US$4.73 left on Gemini: a run of full-cap days ends when that balance does, and the static tier carries the demo from there. The site answers on Claude: a long-context answer on Florida measured US$0.144 (Lane D, 2026-10-20, the whole law sent uncached), so at the US$1.00 Anthropic cap the tier drops to `free` after the sixth such answer of the day (US$0.86) and to `static` after the seventh (US$1.01); a cached law prefix would lower that cost.
+At production's caps the worst day spends US$5.30 on models (US$5.00 on Claude, US$0.30 on Gemini), plus the calls in flight during the switch's reaction time (about 40 s: a 30-second check and the tier's 10-second cache); the API also refuses a live answer itself once Anthropic's cap is spent, so the overshoot is at most the answers already streaming. The human set the Anthropic cap on 2026-10-20 (relayed by Lane D): the Anthropic key has a US$25 spend limit, and at most US$100 is spent in all, so Claude spending inside these limits needs no further question.
+
+The worst 30-day month at the caps would be US$159, but two hard limits end it sooner: the Anthropic key's US$25 limit lasts at least five full-cap days (Tuesday 20 October to the end of launch week, shared with the lanes' judged dev runs), and Gemini's US$4.73 at least fifteen. When either balance is spent its counter stops growing, so the tier must be set to `static` by hand ([runbook](runbook.md#set-the-tier-by-hand)), and the static tier carries the demo from there.
+
+What the Anthropic cap buys, at the per-answer costs measured on 2026-10-20 (Lanes C and D): the tier drops to `free` once the day's spend reaches US$4.00 and to `static` at US$5.00.
+
+| Served answer | Cost each | `free` after answer | `static` after answer |
+| --- | --- | --- | --- |
+| A2-claude, the served configuration (24,418 input tokens, Florida) | US$0.054 | 75th | 93rd |
+| Long context, the whole law uncached | US$0.144 | 28th | 35th |
+| Long context, a repeat question on the cached law prefix (C14) | US$0.011 | 364th | 455th |
 
 ## 4. Cost per question
 

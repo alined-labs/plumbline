@@ -163,6 +163,20 @@ deploy/prod run --rm --no-deps api python -m plumbline.security.online_eval --da
 
 Read a night's score: `deploy/prod exec -T db psql -U plumbline -c "select summary from eval_runs where run_id = 'online-2026-10-22'"`.
 
+## Set the tier by hand
+
+The admin token lives in the root-only `api.env`, so on MX3 the tier is set in the
+database, the row the admin route writes; every API worker rereads it within 10 seconds,
+and the kill switch treats a tier set by hand as the human's and never raises it back.
+Set `static` when a provider's balance or key limit is spent (its counter then stops
+growing, so the kill switch cannot see it; `docs/cost-model.md`, section 3), and `full`
+to bring the live demo back:
+
+```sh
+deploy/prod exec -T db psql -U plumbline -d plumbline -c "insert into settings (key, value, updated_at) values ('demo_tier', '\"static\"', now()) on conflict (key) do update set value = excluded.value, updated_at = now()"
+curl -fsS https://plumbline-api.alinedlabs.co/api/settings/tier     # {"tier":"static",...}
+```
+
 ## Uptime monitoring (the human, once; last run: not yet)
 
 UptimeRobot's free plan checks every 5 minutes and emails on failure.
