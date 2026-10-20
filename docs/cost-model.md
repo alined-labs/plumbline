@@ -6,30 +6,35 @@ Per-token prices are not repeated here. They live in code, in `PRICES` in [`gene
 
 ## 1. Budget
 
-The budget behind [ADR-0002](adr/0002-home-server-behind-a-tunnel-with-a-static-tier.md) is measured in tens of dollars.
+What there is to spend, as of 2026-10-20 (the planning decision "Run to Thursday"). Figures are prepaid balances, not credit lines: when one runs out, that provider stops.
 
 | Item | Amount | Since | Source |
 | --- | --- | --- | --- |
-| API credit | US$100 | *to fill* | ADR-0002 |
-| Cloud credit | one month | *to fill* | ADR-0002 |
-| Google AI Studio, prepaid balance | *to fill* | *to fill* | billing page |
-| Anthropic, prepaid credit and spend limit | *to fill* | *to fill* | Claude Console |
+| Google AI Studio (Gemini), prepaid balance | US$4.73 left, no top-up coming | 2026-10-20 | billing page, as reported in the decision |
+| Anthropic, prepaid credit | about US$25, and up to US$100 more this week if needed | 2026-10-20 | Claude Console, as reported in the decision |
+| Cohere | none: configuration R1 is dropped | 2026-10-20 | the decision |
+
+How it is rationed while building:
+
+- **Gemini** answers Plumbline's own questions and runs the golden set's cross-check. The lanes together stop at **US$4.50 recorded** (Lane C's cost tally, `observability`, sums every recording), leaving US$0.23 of headroom for what is not recorded. Every Gemini run states its expected cost before it starts, and a run of more than 100 calls goes through Google's Batch API at half price.
+- **Claude Haiku 5.5** (US$0.10 in and US$0.50 out per million tokens) does everything else: the contextual headers, the query rewrite, the red team's attacks.
+- **Production** draws on the same balances from Thursday. Its daily caps (section 3) keep the worst day at US$1.30, and the kill switch takes the demo to `static` before Gemini's cap is passed.
 
 ## 2. Accounts, plans and the limits that matter
 
-The human fills this table when each account is opened (task H2) and rechecks it before launch. "Limit" is the quota that could stop the service or start a charge.
+The accounts in use on 2026-10-20. "Limit" is what could stop the service or start a charge. Cells marked *to fill* are filled when the account is opened or rechecked before launch.
 
 | Provider | Plan | Used for | Limit that matters | Price | Checked on |
 | --- | --- | --- | --- | --- | --- |
-| Google AI Studio | paid tier, prepaid | generation (fast and strong models) | *to fill* | per token, in `PRICES` | *to fill* |
-| Anthropic | prepaid credit with a spend limit | the premium route and the judge | *to fill* | per token, in `PRICES` | *to fill* |
-| Cohere | trial key | the API reranker comparison (R1) | *to fill* | *to fill* | *to fill* |
-| Langfuse Cloud | Hobby (free) | traces, cost and error alerts | *to fill* | *to fill* | *to fill* |
-| Cloudflare | *to fill* | domain, Tunnel, Pages, WAF, rate limits, Turnstile | *to fill* | *to fill* | *to fill* |
-| SonarCloud | free for public repositories | the quality gate | *to fill* | *to fill* | *to fill* |
-| UptimeRobot | *to fill* | uptime checks on `/api/health` and the web root | *to fill* | *to fill* | *to fill* |
-| Sentry | *to fill* | errors in the API and the web | *to fill* | *to fill* | *to fill* |
-| GitHub | free for public repositories | CI, Dependabot, secret scanning | *to fill* | *to fill* | *to fill* |
+| Google AI Studio | paid tier, prepaid | generation (fast and strong routes), lease checks, the golden cross-check | the prepaid balance (section 1); the paid tier's rate limits | per token, in `PRICES` | 2026-10-20 |
+| Anthropic | prepaid credit | the premium route, the judge, Haiku for headers, rewrites and attacks | the prepaid balance; the Console's monthly spend limit | per token, in `PRICES` | 2026-10-20 |
+| Langfuse Cloud | Hobby (free) | traces of each answer | the plan's monthly event allowance | free | *to fill* |
+| Cloudflare | Free | DNS, the Tunnel, Pages, one rate-limiting rule | the free plan's single rate-limiting rule; Pages' 500 builds a month (we upload, we do not build there) | free | *to fill* |
+| UptimeRobot | Free | checks of `/api/health` and the web root every 5 minutes | 50 monitors, 5-minute interval | free | *to fill* |
+| SonarCloud | free for public repositories | the quality gate | the token must exist for the job to run | free | *to fill* |
+| GitHub | free for public repositories | CI, Dependabot, secret scanning, the Pages deploy | Actions minutes are unlimited on public repositories | free | *to fill* |
+
+Dropped and not in use: Cohere (R1 dropped), Sentry (dropped for now).
 
 ## 3. Daily caps and the worst month
 
@@ -60,12 +65,14 @@ Questions a day each cap pays for: the cap divided by the cost per question of t
 
 | Item | Per month | How it is computed | Source |
 | --- | --- | --- | --- |
-| Domain | *to fill* | yearly price ÷ 12 | registrar invoice |
-| Electricity for the server | *to fill* | average watts × 720 h ÷ 1,000 × price per kWh | a plug meter over a week; the electricity bill |
-| Cloudflare (Tunnel, Pages, WAF, Turnstile) | *to fill* | plan price | Cloudflare dashboard |
-| Monitoring (UptimeRobot, Sentry, Langfuse) | *to fill* | plan prices | section 2 |
-| Backups (nightly `pg_dump` to a second home machine) | *to fill* | that machine's share of electricity | as above |
-| Models | at most the caps (section 3) | measured spend | provider dashboards; the spend counters |
+| Domain | *to fill* | yearly price ÷ 12 | registrar invoice for `alinedlabs.co` |
+| Electricity for MX3 | *to fill* | average watts × 720 h ÷ 1,000 × price per kWh | a plug meter over a week; the electricity bill |
+| Cloudflare (DNS, Tunnel, Pages, one rate-limiting rule) | US$0 | Free plan | section 2 |
+| Monitoring (UptimeRobot, Langfuse) | US$0 | free plans | section 2 |
+| Backups (nightly `pg_dump` on MX3, `docs/runbook.md`) | US$0 beyond MX3's electricity | local disk | the runbook |
+| Models | at most US$1.30 a day: Gemini US$0.30 and Anthropic US$1.00 | the production caps (section 3), enforced by the router and the kill switch | the spend counters; the provider dashboards |
+
+Gemini's US$4.73 lasts at least 15 days at its full production cap, and longer at real traffic: at US$0.0007 a fast-route answer, 400 questions a day would spend about US$0.28. When the balance is gone, Gemini refuses every call; the spend counters stop growing, so the kill switch does not notice, and the tier must be set to `static` by hand through the admin route.
 
 ## 6. Building: recording costs
 
