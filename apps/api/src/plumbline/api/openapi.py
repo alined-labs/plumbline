@@ -1,5 +1,6 @@
-"""The OpenAPI schema, plus the stream's data-part payloads as components, so the browser's
-types come from one generated file (packages/ts-client).
+"""The OpenAPI schema, plus the payloads of the event streams (the answer's data parts and
+an ingestion job's events) as components, so the browser's types come from one generated
+file (packages/ts-client).
 
     uv run python -m plumbline.api.openapi > packages/ts-client/openapi.json
     uv run python -m plumbline.api.openapi --check packages/ts-client/openapi.json
@@ -16,13 +17,14 @@ from typing import TYPE_CHECKING, Any
 from fastapi.openapi.utils import get_openapi
 from pydantic.json_schema import models_json_schema
 
+from plumbline.api.schemas import JobEventView
 from plumbline.core.stream import AnswerSummary, StatusEvent, StreamError, TraceSummary
 from plumbline.core.types import Citation
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
-STREAM_MODELS = (StatusEvent, Citation, AnswerSummary, TraceSummary, StreamError)
+STREAM_MODELS = (StatusEvent, Citation, AnswerSummary, TraceSummary, StreamError, JobEventView)
 
 
 def build_openapi(app: FastAPI) -> dict[str, Any]:
