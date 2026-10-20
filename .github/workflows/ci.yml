@@ -80,7 +80,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: gitleaks over the full history
+      - name: Install gitleaks
         env:
           VERSION: 8.30.1
           SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
@@ -88,7 +88,28 @@ jobs:
           curl -sSfL -o "$RUNNER_TEMP/gitleaks.tgz" "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz"
           echo "${SHA256}  $RUNNER_TEMP/gitleaks.tgz" | sha256sum --check
           tar -xzf "$RUNNER_TEMP/gitleaks.tgz" -C "$RUNNER_TEMP" gitleaks
-          "$RUNNER_TEMP/gitleaks" git --redact --no-banner --exit-code 1 .
+      # A pull request is scanned over its own commits only: the checkout fetches every
+      # branch, and other lanes' unmerged branches are not its business. main, and a manual
+      # run, are scanned over the full history of the commit checked out. What can silence
+      # a finding is always main's: gitleaks reads .gitleaks.toml and .gitleaksignore from
+      # the tree it scans, so a pull request's own copies are swapped for main's (or
+      # removed) first, and inline gitleaks:allow comments count for nothing.
+      - name: gitleaks over the pull request's commits, or main's full history
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            range="$BASE_SHA..$HEAD_SHA"
+            for f in .gitleaks.toml .gitleaksignore; do
+              git show "$BASE_SHA:$f" > "$f" 2>/dev/null || rm -f "$f"
+            done
+          else
+            range="$GITHUB_SHA"
+          fi
+          "$RUNNER_TEMP/gitleaks" git --redact --no-banner --exit-code 1 --ignore-gitleaks-allow \
+            --log-opts="--full-history --diff-filter=tuxdb $range" .
 
   # The deploy/ files on a clean runner. The production image builds from the lock,
   # migrates a fresh database, and serves /api/health as uid 10001 on a read-only

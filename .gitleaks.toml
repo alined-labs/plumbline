@@ -1,0 +1,13 @@
+# gitleaks configuration: the default rules, plus one narrow exception.
+[extend]
+useDefault = true
+
+# Recordings under cache/ are content-addressed: their "key" field is the sha256 of the
+# request, which the generic-api-key rule mistakes for a secret. Only that exact line, in
+# that folder, is exempt; anything else in a recording is still scanned.
+[[allowlists]]
+description = "cache/ recordings: the key is the sha256 of the request"
+condition = "AND"
+regexTarget = "line"
+paths = ['''^cache/''']
+regexes = ['''^\s*"key": "[0-9a-f]{64}",?$''']
