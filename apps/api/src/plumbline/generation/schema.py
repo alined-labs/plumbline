@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Any, Final
 
-from pydantic import Field, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from plumbline.core.types import AnswerStatus, Frozen, Jurisdiction
 
@@ -76,7 +76,12 @@ class GeneratedAnswer(Frozen):
 
 
 def answer_json_schema() -> dict[str, Any]:
-    raw = GeneratedAnswer.model_json_schema()
+    return portable_schema(GeneratedAnswer)
+
+
+def portable_schema(model: type[BaseModel]) -> dict[str, Any]:
+    """A model's JSON Schema in the form every provider accepts (see the module docstring)."""
+    raw = model.model_json_schema()
     return _portable(raw, raw.get("$defs", {}))
 
 

@@ -39,7 +39,7 @@ _MONTHS: Final = [
     "November",
     "December",
 ]
-_DELIMITER: Final = re.compile(r"<(\s*/?\s*)(question|sources?)\b", re.IGNORECASE)
+_DELIMITER: Final = re.compile(r"<(\s*/?\s*)(question|sources?|answer|reference)\b", re.IGNORECASE)
 
 SYSTEM: Final = """\
 You are Plumbline. You give legal information, not legal advice, about residential \
@@ -142,8 +142,9 @@ def render_source(n: int, chunk: Chunk) -> str:
 
 
 def defuse(text: str) -> str:
-    """Break anything shaped like a question or source delimiter, so untrusted text cannot
-    close its block and open a new one. Real statutes never contain these."""
+    """Break anything shaped like one of the prompts' delimiters (question, sources, and the
+    judge's answer and reference), so untrusted text cannot close its block and open a new
+    one. Real statutes never contain these."""
     return _DELIMITER.sub(lambda m: f"‹{m.group(1)}{m.group(2)}", text)
 
 
