@@ -24,10 +24,14 @@ export function Composer({
   busy,
   onAsk,
   onStop,
+  disabledReason,
 }: {
   busy: boolean;
   onAsk: (values: AskValues) => void;
   onStop: () => void;
+  /** Set when no question can be sent (the demo quota is spent): shown in the disclaimer's
+   * place, and every control is disabled. */
+  disabledReason?: string;
 }) {
   const ids = { question: useId(), asOf: useId(), error: useId() };
   const { register, handleSubmit, control, reset, formState } = useForm<AskValues>({
@@ -66,71 +70,77 @@ export function Composer({
 
   return (
     <form onSubmit={submit} noValidate>
-      <div className="flex flex-col gap-2 rounded-lg border border-border-control bg-surface py-2.5 pl-4 pr-3 shadow-1 focus-within:border-focus focus-within:ring-1 focus-within:ring-focus">
-        <label htmlFor={ids.question} className="sr-only">
-          Your question
-        </label>
-        <textarea
-          id={ids.question}
-          rows={2}
-          placeholder="Ask about a lease in Dubai, Spain, Colombia or Florida"
-          aria-invalid={formState.errors.question ? true : undefined}
-          aria-describedby={error ? ids.error : undefined}
-          onKeyDown={onKeyDown}
-          {...question}
-          ref={(element) => {
-            registerQuestion(element);
-            textarea.current = element;
-          }}
-          className="field-sizing-content min-h-12 max-h-[calc(8*var(--pl-text-input--line-height))] resize-none bg-transparent pt-0.5 text-input text-fg placeholder:text-fg-subtle focus-visible:outline-none"
-        />
-        <div className="flex flex-wrap items-center gap-2">
-          <Controller
-            control={control}
-            name="jurisdictions"
-            render={({ field }) => (
-              <JurisdictionFilter value={field.value} onChange={field.onChange} />
-            )}
-          />
-          <label
-            htmlFor={ids.asOf}
-            className="inline-flex items-center gap-1.5 text-small text-fg-muted"
-          >
-            Law as of
-            <input
-              id={ids.asOf}
-              type="date"
-              aria-invalid={formState.errors.asOf ? true : undefined}
-              aria-describedby={error ? ids.error : undefined}
-              {...register("asOf")}
-              className="h-8 rounded-md border border-border-control bg-surface px-2 text-ui text-fg max-md:h-(--pl-control-lg) max-md:text-input"
-            />
+      <fieldset disabled={disabledReason !== undefined} className="disabled:opacity-60">
+        <div className="flex flex-col gap-2 rounded-lg border border-border-control bg-surface py-2.5 pl-4 pr-3 shadow-1 focus-within:border-focus focus-within:ring-1 focus-within:ring-focus">
+          <label htmlFor={ids.question} className="sr-only">
+            Your question
           </label>
-          {busy ? (
-            <button
-              type="button"
-              onClick={onStop}
-              className={buttonClass({ size: "sm", className: "ml-auto" })}
+          <textarea
+            id={ids.question}
+            rows={2}
+            placeholder="Ask about a lease in Dubai, Spain, Colombia or Florida"
+            aria-invalid={formState.errors.question ? true : undefined}
+            aria-describedby={error ? ids.error : undefined}
+            onKeyDown={onKeyDown}
+            {...question}
+            ref={(element) => {
+              registerQuestion(element);
+              textarea.current = element;
+            }}
+            className="field-sizing-content min-h-12 max-h-[calc(8*var(--pl-text-input--line-height))] resize-none bg-transparent pt-0.5 text-input text-fg placeholder:text-fg-subtle focus-visible:outline-none"
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Controller
+              control={control}
+              name="jurisdictions"
+              render={({ field }) => (
+                <JurisdictionFilter value={field.value} onChange={field.onChange} />
+              )}
+            />
+            <label
+              htmlFor={ids.asOf}
+              className="inline-flex items-center gap-1.5 text-small text-fg-muted"
             >
-              <SquareIcon />
-              Stop
-              <kbd className="rounded-xs border border-border-strong px-1 font-mono text-code-sm text-fg-muted">
-                Esc
-              </kbd>
-            </button>
-          ) : (
-            <button
-              type="submit"
-              aria-label="Send question"
-              disabled={empty}
-              className={buttonClass({ variant: "primary", icon: true, className: "ml-auto" })}
-            >
-              <ArrowUpIcon />
-            </button>
-          )}
+              Law as of
+              <input
+                id={ids.asOf}
+                type="date"
+                aria-invalid={formState.errors.asOf ? true : undefined}
+                aria-describedby={error ? ids.error : undefined}
+                {...register("asOf")}
+                className="h-8 rounded-md border border-border-control bg-surface px-2 text-ui text-fg max-md:h-(--pl-control-lg) max-md:text-input"
+              />
+            </label>
+            {busy ? (
+              <button
+                type="button"
+                onClick={onStop}
+                className={buttonClass({ size: "sm", className: "ml-auto" })}
+              >
+                <SquareIcon />
+                Stop
+                <kbd className="rounded-xs border border-border-strong px-1 font-mono text-code-sm text-fg-muted">
+                  Esc
+                </kbd>
+              </button>
+            ) : (
+              <button
+                type="submit"
+                aria-label="Send question"
+                disabled={empty}
+                className={buttonClass({ variant: "primary", icon: true, className: "ml-auto" })}
+              >
+                <ArrowUpIcon />
+              </button>
+            )}
+          </div>
         </div>
-      </div>
-      {error ? (
+      </fieldset>
+      {disabledReason ? (
+        <p role="status" className="mt-2 text-center text-small text-fg-muted">
+          {disabledReason}
+        </p>
+      ) : error ? (
         <p
           id={ids.error}
           role="alert"

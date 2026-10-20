@@ -1,4 +1,4 @@
-import { formatDate, formatDateTime } from "./dates";
+import { formatDate, formatDateTime, untilUtcMidnight } from "./dates";
 
 describe("dates", () => {
   it("writes a calendar day the way the content rules do", () => {
@@ -12,5 +12,11 @@ describe("dates", () => {
 
   it("writes a moment with its UTC time", () => {
     expect(formatDateTime(new Date("2026-10-19T14:32:09Z"))).toBe("19 Oct 2026, 14:32 UTC");
+  });
+
+  it("counts the time left until the demo resets at 00:00 UTC", () => {
+    expect(untilUtcMidnight(new Date("2026-10-19T20:48:00Z"))).toBe("3 h 12 min");
+    expect(untilUtcMidnight(new Date("2026-10-19T23:15:30Z"))).toBe("45 min");
+    expect(untilUtcMidnight(new Date("2026-10-19T23:59:59Z"))).toBe("1 min");
   });
 });
