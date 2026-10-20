@@ -2,11 +2,14 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 
 import { Answer } from "@/components/answer/answer";
 import { apiUrl } from "@/lib/api";
+import { askBody, type AskValues } from "@/lib/ask-form";
 import { messageText, type PlumblineMessage } from "@/lib/messages";
+
+import { Composer } from "./composer";
 
 const STAGE_LABELS: Record<string, string> = {
   detecting: "Finding the jurisdiction…",
@@ -17,9 +20,8 @@ const STAGE_LABELS: Record<string, string> = {
 };
 
 export function Chat() {
-  const [input, setInput] = useState("");
   const [stage, setStage] = useState<string | null>(null);
-  const { messages, sendMessage, status, error } = useChat<PlumblineMessage>({
+  const { messages, sendMessage, stop, status, error } = useChat<PlumblineMessage>({
     transport: new DefaultChatTransport({ api: apiUrl("/api/ask") }),
     onData: (part) => {
       if (part.type === "data-status") setStage(part.data.stage);
@@ -28,46 +30,14 @@ export function Chat() {
   });
   const busy = status === "submitted" || status === "streaming";
 
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const text = input.trim();
-    if (!text || busy) return;
-    void sendMessage({ text });
-    setInput("");
+  function ask(values: AskValues) {
+    // The jurisdictions and as-of date travel in the body, beside the messages useChat sends.
+    void sendMessage({ text: values.question }, { body: askBody(values) });
   }
 
   return (
-    <div className="mt-8">
-      <form onSubmit={submit} className="flex flex-col gap-2 sm:flex-row">
-        <label htmlFor="question" className="sr-only">
-          Your question
-        </label>
-        <input
-          id="question"
-          name="question"
-          value={input}
-          onChange={(event) => setInput(event.target.value)}
-          placeholder="Can my landlord keep my deposit for cleaning?"
-          maxLength={2000}
-          className="min-h-11 flex-1 rounded-md border border-border-control bg-bg px-3 text-input"
-        />
-        <button
-          type="submit"
-          disabled={busy}
-          className="min-h-11 rounded-md bg-accent px-4 font-medium text-accent-fg disabled:opacity-60"
-        >
-          Ask
-        </button>
-      </form>
-      <p aria-live="polite" className="mt-3 min-h-6 text-small text-fg-muted">
-        {busy ? (stage ? STAGE_LABELS[stage] : "Sending…") : ""}
-      </p>
-      {error && (
-        <p role="alert" className="mt-3 text-small text-danger">
-          The answer could not be completed. Try again in a moment.
-        </p>
-      )}
-      <section aria-label="Conversation" role="log" className="mt-8 flex flex-col gap-8">
+    <div className="mt-8 flex flex-col gap-8">
+      <section aria-label="Conversation" role="log" className="flex flex-col gap-8 empty:hidden">
         {messages.map((message) =>
           message.role === "assistant" ? (
             <Answer key={message.id} message={message} />
@@ -81,6 +51,17 @@ export function Chat() {
           ),
         )}
       </section>
+      <p aria-live="polite" className="min-h-6 text-small text-fg-muted empty:hidden">
+        {busy ? (stage ? STAGE_LABELS[stage] : "Sending…") : ""}
+      </p>
+      {error && (
+        <p role="alert" className="text-small text-danger">
+          The answer could not be completed. Try again in a moment.
+        </p>
+      )}
+      <div className="sticky bottom-0 bg-bg pb-4 pt-2">
+        <Composer busy={busy} onAsk={ask} onStop={() => void stop()} />
+      </div>
     </div>
   );
 }
