@@ -3,7 +3,7 @@ import type { UIMessageChunk } from "ai";
 
 import { messageFrom, stubChunks } from "@/test/stream";
 
-import { answerView, linkMarkers, sourceNumber } from "./answer";
+import { announcement, answerView, linkMarkers, sourceNumber } from "./answer";
 
 function citation(n: number, verified = true): UIMessageChunk {
   const data: Citation = {
@@ -72,5 +72,15 @@ describe("answerView", () => {
     const view = answerView(await messageFrom(chunksWithText("First [3], then [2], then [1].")));
     expect(view.citations.map((c) => c.n)).toEqual([3, 1]);
     expect(view.markdown).toBe("First [3](#source-3), then, then [1](#source-1).");
+  });
+});
+
+describe("announcement", () => {
+  it("reads the finished answer once, without its markers", async () => {
+    const view = answerView(await messageFrom(stubChunks()));
+    expect(announcement(view)).toBe(
+      "Answer: This is a stub answer from the Plumbline seed. Retrieval and generation are " +
+        "not connected yet, so nothing here is legal information. 1 source verified.",
+    );
   });
 });

@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { UIMessageChunk } from "ai";
 
+import { addStatus, finishRun, startRun } from "@/lib/run";
 import { messageFrom, stubChunks, stubChunksWith } from "@/test/stream";
 
 import { Answer } from "./answer";
@@ -89,5 +90,35 @@ describe("Answer", () => {
     expect(screen.getByRole("article")).toHaveTextContent("Abstained");
     expect(screen.queryByText(/This is a stub answer/)).not.toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "Sources" })).not.toBeInTheDocument();
+  });
+
+  it("shows its status steps while it streams, and announces the active one", async () => {
+    const run = addStatus(
+      addStatus(startRun(0, 2), { stage: "detecting", detail: null }, 100),
+      { stage: "retrieving", detail: null },
+      300,
+    );
+    render(<Answer message={await messageFrom(stubChunks())} run={run} streaming />);
+    const steps = screen.getByRole("list", { name: "What Plumbline is doing" });
+    expect(steps).toHaveTextContent("Reading your question0.2 s");
+    expect(steps).toHaveTextContent("Searching 2 jurisdictions");
+    expect(screen.getByText("Searching 2 jurisdictions…")).toHaveClass("sr-only");
+    expect(screen.queryByText(/Answered in/)).not.toBeInTheDocument();
+  });
+
+  it("collapses the steps into the meta line, one click away under Trace", async () => {
+    const run = finishRun(
+      addStatus(startRun(0, 4), { stage: "retrieving", detail: "40 passages" }, 200),
+      4200,
+    );
+    render(<Answer message={await messageFrom(stubChunks())} run={run} />);
+    expect(screen.getByRole("article")).toHaveTextContent("Answered in 4.2 s");
+    const trace = screen.getByRole("button", { name: "Trace" });
+    expect(trace).toHaveAttribute("aria-expanded", "false");
+    await userEvent.setup().click(trace);
+    expect(trace).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("list", { name: "What Plumbline is doing" })).toHaveTextContent(
+      "Searching 4 jurisdictions · 40 passages4.0 s",
+    );
   });
 });

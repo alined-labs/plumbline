@@ -62,6 +62,17 @@ test("a question streams back a cited answer", async ({ page }) => {
 
   await answer.getByRole("button", { name: "Source 1: Stub Act, s. 1" }).click();
   await expect(sources.getByRole("listitem")).toBeFocused();
+
+  // The stream's status parts collapse into the meta line, one click away under Trace, and
+  // the finished answer is announced once.
+  await expect(answer).toContainText(/Answered in \d+\.\d s/);
+  await answer.getByRole("button", { name: "Trace" }).click();
+  await expect(answer.getByRole("list", { name: "What Plumbline is doing" })).toContainText(
+    "Reading your question",
+  );
+  await expect(page.locator("[aria-live=polite]").filter({ hasText: "Answer:" })).toContainText(
+    "This is a stub answer from the Plumbline seed. Retrieval",
+  );
 });
 
 test("a partial answer names the part it leaves out", async ({ page }) => {
