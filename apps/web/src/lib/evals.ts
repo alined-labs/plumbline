@@ -66,6 +66,8 @@ type MetricInfo = { label: string; group: "retrieval" | "answers"; better: Direc
  * (metrics.py) and the judge's (faithfulness, correctness). */
 export const METRICS = {
   "recall@5": { label: "Recall@5", group: "retrieval", better: "higher" },
+  // What a top_k of 8, the served configuration's, hands the generator.
+  "recall@8": { label: "Recall@8", group: "retrieval", better: "higher" },
   "recall@20": { label: "Recall@20", group: "retrieval", better: "higher" },
   mrr: { label: "MRR", group: "retrieval", better: "higher" },
   "ndcg@10": { label: "nDCG@10", group: "retrieval", better: "higher" },
@@ -108,25 +110,25 @@ export function headlineRun(runs: readonly EvalRun[]): EvalRun | undefined {
   return runs.find((run) => run.judged);
 }
 
-/** A configuration's Claude-generated twin ("A2-claude"): the same retrieval, with Claude
- * Sonnet writing the answers as the public site does. */
-const CLAUDE = "-claude";
+/** A configuration's variants, by name: its Claude-generated twin ("A2-claude": the same
+ * retrieval, with Claude Sonnet writing the answers as the public site does) and a different
+ * number of passages read ("A2-claude-k16": top_k 16). */
+const VARIANT = /^(.+?)(-claude)?(?:-k(\d+))?$/;
 
-export function baseConfig(name: string): { base: string; claude: boolean } {
-  return name.endsWith(CLAUDE)
-    ? { base: name.slice(0, -CLAUDE.length), claude: true }
-    : { base: name, claude: false };
+export function baseConfig(name: string): { base: string; claude: boolean; topK: number | null } {
+  const [, base = name, claude, topK] = VARIANT.exec(name) ?? [];
+  return { base, claude: claude !== undefined, topK: topK === undefined ? null : Number(topK) };
 }
 
 /** The ablation plan's order, each Claude twin right after its configuration; a configuration
  * the plan does not name goes last, by name. */
-const CONFIG_ORDER = ["A0", "A1", "A2", "A3", "A4", "A5", "A6", "E1", "R1", "LC"];
+const CONFIG_ORDER = ["A0", "A1", "A2", "A2-llm", "A3", "A4", "A5", "A6", "E1", "R1", "LC"];
 
 export function byConfigOrder(a: EvalRun, b: EvalRun): number {
   const rank = (run: EvalRun) => {
-    const { base, claude } = baseConfig(run.config_name);
+    const { base, claude, topK } = baseConfig(run.config_name);
     const at = CONFIG_ORDER.indexOf(base);
-    return (at === -1 ? CONFIG_ORDER.length : at) * 2 + (claude ? 1 : 0);
+    return (at === -1 ? CONFIG_ORDER.length : at) * 4 + (claude ? 1 : 0) + (topK === null ? 0 : 2);
   };
   return rank(a) - rank(b) || a.config_name.localeCompare(b.config_name);
 }
