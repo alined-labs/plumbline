@@ -41,11 +41,14 @@ export function ChatEngine({
   first,
   controlsRef,
   onState,
+  onReplay,
 }: {
   /** The question that loaded the engine, asked as soon as it mounts. */
   first: AskValues;
   controlsRef: RefObject<EngineControls | null>;
   onState: (state: EngineState) => void;
+  /** Offered when the API did not answer: the static tier's recorded answers instead. */
+  onReplay: () => void;
 }) {
   // Status parts are transient: the chat keeps each request's steps itself, the live one
   // here and the finished ones by message id. The ref lets the stream's callbacks read it.
@@ -145,7 +148,15 @@ export function ChatEngine({
           </button>
         }
       >
-        {"The search service didn't answer. Your question is kept; try again in a moment."}
+        The search service didn&apos;t answer. Your question is kept; try again in a moment, or{" "}
+        <button
+          type="button"
+          onClick={onReplay}
+          className="text-accent underline underline-offset-2 hover:text-accent-hover"
+        >
+          read the answers Plumbline recorded
+        </button>{" "}
+        for the benchmark&apos;s questions.
       </Callout>
     );
 

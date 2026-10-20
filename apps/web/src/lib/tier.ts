@@ -3,8 +3,10 @@ import { queryOptions, useQuery } from "@tanstack/react-query";
 import { api, ApiError, type ApiClient } from "./api";
 
 // Which demo the page is: the live chat, or the static tier's replay of stored answers. The API
-// says so (GET /api/settings/tier); when it cannot be reached at all, the export is being served
-// without it, which is the static tier too.
+// says so (GET /api/settings/tier). An API that does not answer leaves the page live: swapping
+// the empty state and the composer for the replay after the page has drawn moves the whole page
+// (a layout shift of 0.68 on a phone), so the reader is offered the replay when a question fails
+// instead.
 
 export function tierQuery(client: ApiClient = api) {
   return queryOptions({
@@ -22,9 +24,10 @@ export function tierQuery(client: ApiClient = api) {
 
 export type DemoMode = "checking" | "live" | "replay";
 
-/** "replay" when the tier is static or the API does not answer; "checking" until it does. */
+/** "replay" when the API says the tier is static; "checking" until it answers; "live"
+ * otherwise, including when it does not answer at all. */
 export function useDemoMode(): DemoMode {
   const { data, isError } = useQuery(tierQuery());
-  if (isError || data === "static") return "replay";
-  return data === undefined ? "checking" : "live";
+  if (data === "static") return "replay";
+  return data === undefined && !isError ? "checking" : "live";
 }
