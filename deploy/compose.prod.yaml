@@ -147,7 +147,7 @@ services:
   # the API, and DNS routes only the API's hostname to it (the web app is on Pages).
   cloudflared:
     <<: *service
-    image: cloudflare/cloudflared:2026.10.0@sha256:9b49eed8f62806d5d45ddf59ecefb5710429598ea6d3fcccd2af938f621b2b07
+    image: cloudflare/cloudflared:2026.10.3@sha256:faa8e0a1475f137c910be6025f43c8e4092fdd35461b31e19fd1390657a1ff39
     command: ["tunnel", "--no-autoupdate", "--metrics", "127.0.0.1:2000", "run",
               "--credentials-file", "/etc/cloudflared/credentials.json",
               "--url", "http://api:8000", "${TUNNEL_ID:?set in deploy/prod.env}"]
