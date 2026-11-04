@@ -1,0 +1,57 @@
+# Opens the pull request for a lane's branch and enables auto-merge, which is what the hub
+# did on MX3 until the restart of 4 November 2026. A branch named <lane>/<task>-<slug>
+# (one lowercase letter, a slash, the task) gets a pull request titled with its commit's
+# subject and bodied with its bullets; CI runs on the pull request; a core module or a
+# frozen path waits for the code owner's review (.github/CODEOWNERS); the rest merges on
+# green. Needs two repository settings: "Allow GitHub Actions to create and approve pull
+# requests" and "Allow auto-merge". Without the second, the merge step only prints a line.
+name: Open the pull request
+
+on:
+  push:
+    branches:
+      - '[a-z]/**'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  open:
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Open the pull request, or leave the existing one alone
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          if gh pr list --repo "$REPO" --head "$BRANCH" --state open --json number --jq '.[0].number' | grep -q .; then
+            echo "a pull request for $BRANCH is already open"
+            exit 0
+          fi
+          title="$(git log -1 --format=%s)"
+          body="$(git log -1 --format=%b)"
+          lane="${BRANCH%%/*}"
+          task="$(printf '%s' "${BRANCH#*/}" | cut -d- -f1)"
+          printf '%s\n\n---\nLane %s, task %s. Opened by the workflow from the branch'"'"'s commit; CI runs the checks, and a core module or a frozen path waits for the code owner'"'"'s review.\n' \
+            "$body" "$lane" "$task" > "$RUNNER_TEMP/body.md"
+          label="lane:$lane"
+          gh label list --repo "$REPO" --search "$label" --json name --jq '.[].name' | grep -qx "$label" || label=""
+          if ! gh pr create --repo "$REPO" --base main --head "$BRANCH" --title "$title" --body-file "$RUNNER_TEMP/body.md" ${label:+--label "$label"}; then
+            echo "::error::Could not open the pull request. If the message above says GitHub Actions is not permitted to create pull requests, turn on 'Allow GitHub Actions to create and approve pull requests' (Settings, Actions, General, Workflow permissions). Until then, open it by hand from the branch's page."
+            exit 1
+          fi
+      - name: Enable auto-merge (squash)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh pr merge --repo "$REPO" --auto --squash "$BRANCH" \
+            || echo "auto-merge is not enabled on the repository (Settings, General, Pull Requests): merge it by hand when CI is green"
