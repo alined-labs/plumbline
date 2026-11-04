@@ -66,7 +66,9 @@ class ChunkArticle(BaseModel):
 
 
 def find_span(text: str, quote: str) -> Span | None:
-    """The first place `quote` appears in `text`, ignoring case and whitespace."""
+    """Where `quote` appears in `text`, ignoring case and whitespace: the first occurrence
+    that cuts no word in two, which is the one the citation verifier accepts ("3 days"
+    inside "30 days" is not a match), else the first occurrence at all."""
     wanted = " ".join(quote.casefold().split())
     if not wanted:
         return None
@@ -82,10 +84,23 @@ def find_span(text: str, quote: str) -> Span | None:
         folded = char.casefold()
         normalized.extend(folded)
         origin.extend([index] * len(folded))
-    start = "".join(normalized).find(wanted)
-    if start < 0:
+    haystack = "".join(normalized)
+    first = start = haystack.find(wanted)
+    while start >= 0 and not _whole(haystack, wanted, start):
+        start = haystack.find(wanted, start + 1)
+    found = start if start >= 0 else first
+    if found < 0:
         return None
-    return Span(start=origin[start], end=origin[start + len(wanted) - 1] + 1)
+    return Span(start=origin[found], end=origin[found + len(wanted) - 1] + 1)
+
+
+def _whole(haystack: str, needle: str, start: int) -> bool:
+    """generation.verifier's rule: an edge cuts a word only with a letter or digit on both
+    sides of it ("no" inside "notificará", "3" inside "30")."""
+    end = start + len(needle)
+    cut_start = start > 0 and haystack[start - 1].isalnum() and needle[0].isalnum()
+    cut_end = end < len(haystack) and haystack[end].isalnum() and needle[-1].isalnum()
+    return not (cut_start or cut_end)
 
 
 @lru_cache(maxsize=1)
