@@ -8,8 +8,9 @@ Each answerable item in the golden set carries a `verification` field (`rag_eval
 
 | Field | What it holds |
 | --- | --- |
-| `quoted_text` | The article text that supports the reference answer, verbatim and in its original language, from the edition the item's `gold_refs` pin |
-| `second_source` | Title and URL of a second source that agrees: an official FAQ, government guidance, a bar association pamphlet |
+| `quoted_text` | The article text that supports the reference answer, verbatim and in its original language, from the edition the item's `gold_refs` pin; empty only for an item that cites no article (an out-of-scope question). Where a cited source is fetch-only (Dubai's portal forbids redistribution; Colombia's compilation protects its notes) the field holds the export's withheld marker instead of a copy: the checker reads the text, the repository does not carry it |
+| `second_source` | Title and URL of a second source that agrees: an official FAQ, government guidance, a bar association pamphlet; empty where no official source covers the item, never a source invented to fill the field |
+| `no_second_source` | Set exactly when `second_source` is empty: what was searched and not found, or that the item cites no article |
 | `checked_on` | The date of the check |
 | `checked_by` | Who checked it |
 | `notes` | What the adversarial pass raised and how it was settled |
