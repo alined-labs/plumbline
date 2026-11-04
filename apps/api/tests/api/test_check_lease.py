@@ -18,7 +18,7 @@ from fastapi.sse import ServerSentEvent
 from plumbline.api import leases
 from plumbline.api.app import create_app
 from plumbline.api.lease_stub import CITATION, StubLeaseChecker
-from plumbline.api.leases import LeaseChecker
+from plumbline.api.leases import SAMPLES, LeaseChecker, sample_digests
 from plumbline.api.quota import COOKIE, MemoryCounter
 from plumbline.api.runs import Run, Runs
 from plumbline.api.schemas import LeaseDoneEvent, LeaseStageEvent
@@ -206,6 +206,19 @@ async def test_what_the_reader_gives_reaches_the_checker() -> None:
     assert (upload.language, upload.synthetic) == (Language.EN, False)
     assert (jurisdiction, as_of) == (Jurisdiction.SPAIN, date(2026, 3, 1))
     assert (spanish.language, none, never) == (Language.ES, None, None)
+
+
+async def test_only_the_invented_leases_count_as_synthetic() -> None:
+    sample = SAMPLES / "fl-lease-01.md"
+    assert len(sample_digests()) >= 10  # the ten leases and the scans
+    checker = Scripted(*ALL_THE_WAY)
+    app = _app(checker)
+    async with _client(app) as client:
+        await _checked(app, client, sample.read_bytes())
+        await _checked(app, client, sample.read_bytes() + b"\nJohn Smith, tenant.")
+    (invented, _, _), (changed, _, _) = checker.seen
+    assert invented.synthetic  # the stand-in redactor lets it through
+    assert not changed.synthetic  # one byte off is a real upload: refused until P2
 
 
 @pytest.mark.parametrize(

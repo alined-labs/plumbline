@@ -11,16 +11,10 @@ import { buttonClass } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
 import { JURISDICTIONS } from "@/lib/jurisdictions";
 import { messageText } from "@/lib/messages";
-import { toMessages, type ReplayFile, type ReplayItem } from "@/lib/replay";
+import { replayQuery, toMessages, type ReplayItem } from "@/lib/replay";
 
 // The static tier's chat: the live demo is paused, and the reader reads the answers Plumbline
 // recorded for the benchmark's development questions instead, in the same answer view.
-
-async function fetchReplay(): Promise<ReplayFile> {
-  const response = await fetch("/replay.json");
-  if (!response.ok) throw new Error(`/replay.json answered ${response.status}`);
-  return (await response.json()) as ReplayFile;
-}
 
 /** The recorded questions by jurisdiction in the fixed order, then the rest under one heading. */
 function groups(items: ReplayItem[]) {
@@ -42,12 +36,7 @@ function groups(items: ReplayItem[]) {
 }
 
 export function Replay() {
-  const { data, isPending, isError } = useQuery({
-    queryKey: ["replay"],
-    queryFn: fetchReplay,
-    staleTime: Infinity,
-    retry: false,
-  });
+  const { data, isPending, isError } = useQuery(replayQuery());
   const [chosen, setChosen] = useState<ReplayItem | null>(null);
   // The question last read, to put the focus back on it in the list.
   const back = useRef<string | null>(null);

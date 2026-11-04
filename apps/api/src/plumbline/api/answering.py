@@ -2,7 +2,7 @@
 checker, wired to the index in Postgres, and the rule for when the stand-ins may serve.
 
 The configuration is the settings' `answer_config`. One that retrieves needs a retrieval
-factory (Lane A's Retriever, task A5b); until the server has one, the API answers with the
+factory (Lane A's Retriever, `default_retrieval`); a server without one answers with the
 long-context baseline (LC) instead, which reads the whole law of the question's
 jurisdictions from the index (Lane C's SqlLawSource), and the answer's trace names LC, so
 nobody mistakes it for the configured one. Either way the API serves the configuration's
@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from plumbline.api.lease_stub import StubLeaseChecker
 from plumbline.api.leases import LeaseChecker
 from plumbline.api.search import CONFIGS, Retrieval, RetrievalFactory
+from plumbline.cache import get_cache
 from plumbline.core.config import EvalConfig, load_config
 from plumbline.core.stream import AnswerPipeline, Question, StreamError, StreamEvent
 from plumbline.core.types import DemoTier, Jurisdiction
@@ -49,10 +50,14 @@ from plumbline.generation.router import (
     Upload,
 )
 from plumbline.generation.stub import StubPipeline
+from plumbline.ingest.upload import guess_language
+from plumbline.leases.check import check_clause
 from plumbline.leases.checker import LeaseEvent
+from plumbline.leases.schema import Finding
 from plumbline.leases.service import LeaseChecker as RealLeaseChecker
 from plumbline.retrieval.index import variant_key
 from plumbline.retrieval.jurisdiction import detect as detect_jurisdictions
+from plumbline.retrieval.retriever import online_retrieval
 from plumbline.settings import Settings
 
 log = logging.getLogger(__name__)
@@ -62,6 +67,10 @@ LONG_CONTEXT: Final = "LC"
 # the golden cross-check and nothing else, while Claude's spend is not the constraint.
 SERVED_ROUTE: Final = "premium"
 PAUSED: Final = "Lease checks are not available on this server yet."
+SPENT: Final = (
+    "Today's budget for live answers is used up. Plumbline answers again from 00:00 UTC;"
+    " until then, browse the stored answers and the cited articles."
+)
 # The most law the long-context path sends in one call. Claude counted Florida's whole law
 # (208,467 characters) as 69,257 input tokens, about 3 characters a token; 150k tokens keeps
 # an answer well inside the context window, at about US$0.30 on Sonnet.
@@ -90,8 +99,12 @@ def refuse_stubs(settings: Settings, pipeline: object, lease_checker: object) ->
 
 
 def default_retrieval(settings: Settings) -> RetrievalFactory | None:
-    """Lane A's retrieval for a configuration. None until A5b's Retriever lands."""
-    return None
+    """Lane A's retrieval (A5b) where the API answers for real: SQL search over the index, the
+    question embedded by TEI through the response cache. Outside production, None: the
+    stand-ins need no search, and the debug route answers 503."""
+    if not wants_real(settings):
+        return None
+    return online_retrieval(settings, get_cache(settings.cache_mode, settings.cache_dir))
 
 
 def router_for(settings: Settings, meter: SpendMeter) -> Router:
@@ -101,6 +114,15 @@ def router_for(settings: Settings, meter: SpendMeter) -> Router:
         "cohere": settings.cohere_daily_cap_usd,
     }
     return Router(meter, caps)
+
+
+async def spent(router: Router) -> bool:
+    """Whether SERVED_ROUTE's provider has spent its daily cap. The API checks before every
+    live answer and lease check, so the cap holds on its own; the kill switch (P5) reads the
+    same counters and lowers the tier for the site as a whole. A call already running when
+    the cap is crossed finishes, so a day can end over the cap by every call then in flight."""
+    provider = ROUTES[SERVED_ROUTE].provider
+    return await router.meter.spent_today(provider) >= router.caps.get(provider, 0.0)
 
 
 def spend_meter(settings: Settings) -> SpendMeter:
@@ -166,8 +188,37 @@ class ClaudeLeaseChecker(RealLeaseChecker):
 
     async def route(self, tier: DemoTier) -> Route:
         lease = await super().route(tier)  # RouteRefused off the full tier
+        if await spent(self.router):
+            raise RouteRefused(SPENT)
         served = ROUTES[SERVED_ROUTE]
         return Route(lease.name, served.model, served.provider)
+
+    async def clause(
+        self,
+        text: str,
+        route: Route,
+        *,
+        jurisdiction: Jurisdiction,
+        as_of: date | None,
+    ) -> Finding | None:
+        # As a whole lease is (leases/checker.py): redacted before any model sees it, in a
+        # worker thread, refused rather than sent unredacted.
+        language = guess_language(text)
+        upload = Upload(text=text, language=language, synthetic=False)
+        redacted = await asyncio.to_thread(self.redactor.redact, upload)
+        kwargs = {"cache": self.cache} if self.cache is not None else {}
+        client = MeteredClient(self.client_for_model(route.model, **kwargs), self.meter)
+        checked = await check_clause(
+            "1",
+            redacted,
+            language,
+            jurisdiction=jurisdiction,
+            search=self.search,
+            client=client,
+            as_of=as_of,
+            model=route.model,
+        )
+        return checked.finding
 
 
 class PausedLeaseChecker:
@@ -179,6 +230,11 @@ class PausedLeaseChecker:
     def stream(
         self, upload: Upload, route: Route, *, jurisdiction: Jurisdiction | None, as_of: date | None
     ) -> AsyncIterator[LeaseEvent]:
+        raise RouteRefused(PAUSED)
+
+    async def clause(
+        self, text: str, route: Route, *, jurisdiction: Jurisdiction, as_of: date | None
+    ) -> Finding | None:
         raise RouteRefused(PAUSED)
 
 
@@ -198,6 +254,9 @@ class ServedPipeline:
             await self._router.route(Kind.QUESTION, tier=question.tier)
         except RouteRefused as exc:
             yield StreamError(message=str(exc), retryable=False)
+            return
+        if await spent(self._router):
+            yield StreamError(message=SPENT, retryable=False)
             return
         async with self._lock:
             if self._pipeline is None:

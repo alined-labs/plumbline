@@ -331,3 +331,29 @@ def test_a_missing_or_empty_key_is_refused_by_name(value: str | None) -> None:
     with pytest.raises(RuntimeError, match="ANTHROPIC_API_KEY is not set"):
         client._key(settings.anthropic_api_key, "ANTHROPIC_API_KEY")
     assert client._key(SecretStr(" sk-test "), "ANTHROPIC_API_KEY") == "sk-test"
+
+
+def test_a_prefix_is_claudes_cached_block_and_the_others_leading_text() -> None:
+    law = "<sources>The whole chapter.</sources>"
+    request = REQUEST.model_copy(update={"prefix": law})
+    claude = AnthropicClient(price=PRICE).payload(request)["messages"]
+    assert claude == [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": law, "cache_control": {"type": "ephemeral"}},
+                {"type": "text", "text": "What is the deposit cap?"},  # never inside the cache
+            ],
+        }
+    ]
+    joined = f"{law}\n\nWhat is the deposit cap?"
+    gemini = GeminiClient(price=PRICE).payload(request)["contents"]
+    assert gemini == [{"role": "user", "parts": [{"text": joined}]}]
+    openai_messages = OpenAICompatibleClient(price=PRICE).payload(request)["messages"]
+    assert openai_messages[-1] == {"role": "user", "content": joined}
+    # Without a prefix, every payload, and so every recording's key, is what it was.
+    assert AnthropicClient(price=PRICE).payload(REQUEST)["messages"] == [
+        {"role": "user", "content": "What is the deposit cap?"}
+    ]
+    with pytest.raises(ValueError, match="must be the user's"):
+        LLMRequest(model="m", messages=[Message(role="assistant", content="Hi.")], prefix=law)

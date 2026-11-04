@@ -3,7 +3,7 @@
     "collect": {
       "staticDistDir": "./out",
       "url": ["/index.html", "/check-lease/index.html", "/evals/index.html", "/about/index.html"],
-      "numberOfRuns": 1,
+      "numberOfRuns": 3,
       "settings": {
         "preset": "desktop",
         "chromeFlags": "--headless=new --no-sandbox"
@@ -14,7 +14,8 @@
         "categories:performance": [
           "error",
           {
-            "minScore": 0.9
+            "minScore": 0.9,
+            "aggregationMethod": "median"
           }
         ],
         "categories:accessibility": [

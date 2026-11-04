@@ -67,12 +67,30 @@ bash deploy/preflight.sh                               # checks owner, group and
 3. The secrets, as above.
 4. `deploy/prod build`, then `deploy/prod up -d --wait`. The first start downloads the
    embedding weights; `embed` may take several minutes to turn healthy.
-5. The index, copied from the build's database once Lane A's embeddings are done:
+5. The index. It is built on MX1 (Lane D indexes there; Colombia's and Dubai's parses
+   and embeddings exist only on MX1 and MX2), so it arrives as a file: Lane D writes a
+   data-only custom-format dump of `documents` and `chunks` to
+   `~/plumbline-index/index-<date>.dump` on MX1 and posts its sha256, size and row
+   counts per variant in the brain. MX1 runs no SSH server, so Lane D serves the file
+   for ten minutes on the LAN only (`timeout 600 python3 -m http.server 8765 --bind
+   <MX1's LAN address>` in `~/plumbline-index`), and on MX3:
 
    ```sh
-   docker exec plumbline-db-1 pg_dump -U plumbline -d plumbline --data-only -t documents -t chunks -Fc |
-     deploy/prod exec -T db pg_restore -U plumbline -d plumbline --data-only --disable-triggers
+   mkdir -p -m 700 ~/plumbline-index
+   curl -fsS -o ~/plumbline-index/index-<date>.dump http://<MX1's LAN address>:8765/index-<date>.dump
+   sha256sum ~/plumbline-index/index-<date>.dump            # must match Lane D's note
+   deploy/prod exec -T db pg_restore -U plumbline -d plumbline --data-only --disable-triggers \
+     < ~/plumbline-index/index-<date>.dump
+   deploy/prod exec -T db psql -U plumbline -d plumbline -c \
+     "select variant, jurisdiction, count(*) from chunks group by 1, 2 order by 1, 2"
    ```
+
+   The counts must match Lane D's. The dump holds Colombia's fetch-only text: it moves
+   only between our machines, never into git, a release or a public bucket, and is
+   deleted from `~/plumbline-index` once the index is restored (the nightly backups keep
+   a copy inside the database dump). A newer index replaces the old one: truncate
+   `chunks` and `documents` first (`truncate chunks, documents cascade`), with the API
+   stopped, since a question asked in between would find no law.
 
 6. `deploy/prod ps`: every service healthy, `migrate` exited 0, and the PORTS column shows
    no `->` mapping.
@@ -139,6 +157,45 @@ deploy/prod up -d --wait
 
 A copy off this machine (the second home machine in `docs/cost-model.md`) is not set up
 yet; until it is, a disk failure on MX3 loses the backups with the database.
+
+## Online evaluation (last run: not yet; tested on a seeded database, 2026-10-20)
+
+Every night at 04:15 UTC, `python -m plumbline.security.online_eval` judges a tenth of
+yesterday's production answers (at least one, at most 30) for faithfulness against the
+passages they cite. The verdict that counts is Gemini Flash-Lite's, a judge of another
+family than the Claude that served the answers; Claude Haiku judges beside it, and the
+night reports its rate and the two judges' agreement. Both run live and are never
+recorded: the run refuses any `CACHE_MODE` but `live`. It logs the expected cost before
+it judges (at most about US$0.32 a night, counted on the same daily counters as the site)
+and stores the night as eval run `online-<day>`: the score with its 95% interval, and one
+verdict per judged answer, with no question or answer copied. Install the timer once, beside the backup's:
+
+```sh
+cp deploy/systemd/plumbline-online-eval.{service,timer} ~/.config/systemd/user/
+systemctl --user daemon-reload && systemctl --user enable --now plumbline-online-eval.timer
+```
+
+By hand, for one day (`--dry-run` counts and prices without judging):
+
+```sh
+deploy/prod run --rm --no-deps api python -m plumbline.security.online_eval --day 2026-10-22 --dry-run
+```
+
+Read a night's score: `deploy/prod exec -T db psql -U plumbline -c "select summary from eval_runs where run_id = 'online-2026-10-22'"`.
+
+## Set the tier by hand
+
+The admin token lives in the root-only `api.env`, so on MX3 the tier is set in the
+database, the row the admin route writes; every API worker rereads it within 10 seconds,
+and the kill switch treats a tier set by hand as the human's and never raises it back.
+Set `static` when a provider's balance or key limit is spent (its counter then stops
+growing, so the kill switch cannot see it; `docs/cost-model.md`, section 3), and `full`
+to bring the live demo back:
+
+```sh
+deploy/prod exec -T db psql -U plumbline -d plumbline -c "insert into settings (key, value, updated_at) values ('demo_tier', '\"static\"', now()) on conflict (key) do update set value = excluded.value, updated_at = now()"
+curl -fsS https://plumbline-api.alinedlabs.co/api/settings/tier     # {"tier":"static",...}
+```
 
 ## Uptime monitoring (the human, once; last run: not yet)
 

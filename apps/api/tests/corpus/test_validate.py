@@ -6,6 +6,7 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
+from plumbline.corpus.export import WITHHELD
 from plumbline.corpus.manifest import MANIFEST, Manifest, load_manifest
 from plumbline.corpus.validate import (
     LICENCES,
@@ -135,3 +136,36 @@ def test_other_lists_beside_the_golden_files_are_not_read_as_golden(tmp_path: Pa
     drafts.mkdir(parents=True)
     (drafts / "second_sources_v1.jsonl").write_text('{"id": "x"}\n', encoding="utf-8")
     assert check_golden(tmp_path) == []
+
+
+def test_a_verified_item_never_carries_a_fetch_only_source_s_text(tmp_path: Path) -> None:
+    fetch_only = Manifest.model_validate(
+        {"sources": [source(committed=False, path="data/corpus/fetched/fl-stat-83-2026.html")]}
+    )
+    ref = {"jurisdiction": "florida", "law": "fl-stat-83", "article": "83.57", "edition": "2026"}
+    row = {
+        "id": "fl-9001",
+        "question": "How much notice ends a month-to-month tenancy in Florida?",
+        "source_language": "en",
+        "jurisdictions": ["florida"],
+        "category": "single_article",
+        "difficulty": "easy",
+        "gold_refs": [ref],
+        "reference_answer": "At least 30 days.",
+        "source_type": "synthetic",
+        "source_note": "Synthetic: a test.",
+        "added_in": "v1",
+    }
+    checked = {"second_source": "A pamphlet, https://x", "checked_on": "2026-10-21"}
+    golden = tmp_path / "data" / "golden"
+    golden.mkdir(parents=True)
+    for quote in ("(3) If the tenancy is from month to month...", WITHHELD):
+        verification = {**checked, "checked_by": "a checker", "quoted_text": quote}
+        line = json.dumps({**row, "verification": verification})
+        (golden / "golden_v1.jsonl").write_text(line + "\n", encoding="utf-8")
+        problems = check_golden(tmp_path, fetch_only)
+        assert problems == (
+            []
+            if quote == WITHHELD
+            else ["golden_v1.jsonl fl-9001: quotes a fetch-only source; store the withheld marker"]
+        )

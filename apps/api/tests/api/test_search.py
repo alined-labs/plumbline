@@ -11,6 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
+from plumbline.api import search as search_module
 from plumbline.api.app import create_app
 from plumbline.core.config import EvalConfig
 from plumbline.core.types import (
@@ -21,6 +22,7 @@ from plumbline.core.types import (
     Retrieved,
 )
 from plumbline.generation.pipeline import ChunkSearch, Reranker
+from plumbline.generation.router import utc_today
 from plumbline.settings import Settings
 
 AUTH = {"Authorization": "Bearer search-test-token"}
@@ -135,6 +137,11 @@ def test_a_configuration_without_a_reranker_shows_retrievals_own_scores(
         headers=AUTH,
     ).json()
     assert (body["config"], body["k"], body["candidates"]) == ("A2", 8, 3)
+    assert (body["as_of"], body["as_of_filter"], body["law_date"]) == (
+        "2026-05-01",
+        True,
+        "2026-05-01",
+    )
     assert [hit["chunk"]["article"] for hit in body["hits"]] == ["83.49", "83.50", "83.51"]
     first = body["hits"][0]["scores"]
     assert first["dense"] == pytest.approx(0.89)
@@ -150,6 +157,26 @@ def test_a_configuration_without_a_reranker_shows_retrievals_own_scores(
             "as_of": date(2026, 5, 1),
         }
     ]
+
+
+def test_the_law_searched_is_of_one_day_as_the_pipeline_picks_it(
+    client: TestClient, fakes: Fakes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    today = client.get("/api/search", params={"q": "deposit"}, headers=AUTH).json()
+    assert (today["as_of"], today["law_date"]) == (None, utc_today().isoformat())
+    assert fakes.search_.calls[-1]["as_of"] is None  # the retriever reads today's law
+
+    a2 = search_module._config("A2")
+    retrieval = a2.retrieval.model_copy(update={"as_of_filter": False})
+    unfiltered = a2.model_copy(update={"retrieval": retrieval})
+    monkeypatch.setattr(search_module, "_config", lambda name: unfiltered)
+    asked = client.get(
+        "/api/search", params={"q": "deposit", "as_of": "2020-01-01"}, headers=AUTH
+    ).json()
+    # Not filtered by date, an answer would read today's law; the debug route shows the same.
+    assert fakes.search_.calls[-1]["as_of"] is None
+    assert (asked["as_of"], asked["as_of_filter"]) == ("2020-01-01", False)
+    assert asked["law_date"] == utc_today().isoformat()
 
 
 def test_a_reranking_configuration_asks_for_candidates_then_cuts_by_rerank_score(

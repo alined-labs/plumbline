@@ -66,6 +66,8 @@ type MetricInfo = { label: string; group: "retrieval" | "answers"; better: Direc
  * (metrics.py) and the judge's (faithfulness, correctness). */
 export const METRICS = {
   "recall@5": { label: "Recall@5", group: "retrieval", better: "higher" },
+  // What a top_k of 8, the served configuration's, hands the generator.
+  "recall@8": { label: "Recall@8", group: "retrieval", better: "higher" },
   "recall@20": { label: "Recall@20", group: "retrieval", better: "higher" },
   mrr: { label: "MRR", group: "retrieval", better: "higher" },
   "ndcg@10": { label: "nDCG@10", group: "retrieval", better: "higher" },
@@ -95,19 +97,52 @@ export const HEADLINE_METRICS = [
   "abstention_accuracy",
 ] as const satisfies readonly MetricName[];
 
-/** The configuration the headline numbers come from until Lane A's failure analysis names
- * the default (A12). */
-export const HEADLINE_CONFIG = "A2";
+/** Where the headline numbers come from, first found first: the configuration the public site
+ * answers with (A2 with Claude Sonnet generating), then A2 itself, until Lane A's failure
+ * analysis names the default (A12). */
+export const HEADLINE_CONFIGS = ["A2-claude", "A2"] as const;
 
-/** The ablation plan's order; a configuration it does not name goes last, by name. */
-const CONFIG_ORDER = ["A0", "A1", "A2", "A3", "A4", "A5", "A6", "E1", "R1", "LC"];
+export function headlineRun(runs: readonly EvalRun[]): EvalRun | undefined {
+  for (const name of HEADLINE_CONFIGS) {
+    const run = runs.find((candidate) => candidate.config_name === name);
+    if (run) return run;
+  }
+  return runs.find((run) => run.judged);
+}
+
+/** A configuration's variants, by name: its Claude-generated twin ("A2-claude": the same
+ * retrieval, with Claude Sonnet writing the answers as the public site does) and a different
+ * number of passages read ("A2-claude-k16": top_k 16). */
+const VARIANT = /^(.+?)(-claude)?(?:-k(\d+))?$/;
+
+export function baseConfig(name: string): { base: string; claude: boolean; topK: number | null } {
+  const [, base = name, claude, topK] = VARIANT.exec(name) ?? [];
+  return { base, claude: claude !== undefined, topK: topK === undefined ? null : Number(topK) };
+}
+
+/** The ablation plan's order, each Claude twin right after its configuration; a configuration
+ * the plan does not name goes last, by name. */
+const CONFIG_ORDER = ["A0", "A1", "A2", "A2-llm", "A3", "A4", "A5", "A6", "E1", "R1", "LC"];
 
 export function byConfigOrder(a: EvalRun, b: EvalRun): number {
   const rank = (run: EvalRun) => {
-    const at = CONFIG_ORDER.indexOf(run.config_name);
-    return at === -1 ? CONFIG_ORDER.length : at;
+    const { base, claude, topK } = baseConfig(run.config_name);
+    const at = CONFIG_ORDER.indexOf(base);
+    return (at === -1 ? CONFIG_ORDER.length : at) * 4 + (claude ? 1 : 0) + (topK === null ? 0 : 2);
   };
   return rank(a) - rank(b) || a.config_name.localeCompare(b.config_name);
+}
+
+/** The criteria a judge scores. */
+export const JUDGED = ["faithfulness", "correctness"] as const satisfies readonly MetricName[];
+
+/** How often a second judge agreed with the first, per criterion, as the runner writes it:
+ * 'second_judge.<criterion>' with its interval and count. Empty when the run has none. */
+export function secondJudge(run: EvalRun) {
+  return JUDGED.flatMap((criterion) => {
+    const agreement = estimate(run.summary, `second_judge.${criterion}`);
+    return agreement ? [{ criterion, agreement }] : [];
+  });
 }
 
 export type Estimate = { value: number; low: number | null; high: number | null; n: number };
@@ -242,4 +277,41 @@ export function groupMeans(run: EvalRun, metrics: readonly MetricName[]): GroupR
     }
     return [{ group, items: results.length, means }];
   });
+}
+
+export type ChartPoint = {
+  label: string;
+  value: number;
+  low: number | null;
+  high: number | null;
+  n: number;
+};
+
+/** One metric across runs, for the interval chart: the runs that measured it, in their order. */
+export function chartPoints(runs: readonly EvalRun[], name: MetricName): ChartPoint[] {
+  return runs.flatMap((run) => {
+    const value = estimate(run.summary, name);
+    return value ? [{ label: run.config_name, ...value }] : [];
+  });
+}
+
+/** The chart's takeaway in a sentence: which configuration scores best, and whether its interval
+ * clears the next one's, since overlapping intervals are not a measured difference. */
+export function takeaway(points: readonly ChartPoint[], metric: MetricName): string {
+  const lower = METRICS[metric].better === "lower";
+  const ranked = [...points].sort((a, b) => (lower ? a.value - b.value : b.value - a.value));
+  const [best, next] = ranked;
+  if (!best) return "";
+  const interval = formatInterval(best.low, best.high);
+  const lead = `${best.label} scores ${lower ? "lowest" : "highest"}, ${formatScore(best.value)}${interval ? ` (95% CI ${interval})` : ""}.`;
+  if (!next) return lead;
+  const separated =
+    best.low !== null &&
+    best.high !== null &&
+    next.low !== null &&
+    next.high !== null &&
+    (lower ? best.high < next.low : best.low > next.high);
+  return separated
+    ? `${lead} Its interval clears ${next.label}'s, the next best.`
+    : `${lead} Its interval overlaps ${next.label}'s, so the two are not measurably apart.`;
 }

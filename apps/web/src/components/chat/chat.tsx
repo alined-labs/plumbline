@@ -7,8 +7,10 @@ import { useRef, useState } from "react";
 import { AnswerSkeleton } from "@/components/answer/answer-skeleton";
 import type { AskValues } from "@/lib/ask-form";
 import { prefetchAnswerChunks } from "@/lib/prefetch";
+import { replayQuery } from "@/lib/replay";
 import { useDemoMode } from "@/lib/tier";
 import { usageView, useUsage } from "@/lib/usage";
+import { useQuery } from "@tanstack/react-query";
 
 import type { EngineControls, EngineState } from "./chat-engine";
 import { ChatProfiler } from "./chat-profiler";
@@ -42,7 +44,12 @@ export function Chat() {
   // so and when it resets before a question is typed.
   // Live until the API says otherwise; a question already asked keeps its conversation.
   const mode = useDemoMode();
-  const replay = mode === "replay" && first === null;
+  // The reader may also choose the recorded answers when a live question fails.
+  const [replayChosen, setReplayChosen] = useState(false);
+  const replay = (mode === "replay" && first === null) || replayChosen;
+  // Whether the export holds recorded answers, read with the replay itself.
+  const { data: recorded } = useQuery({ ...replayQuery(), enabled: replay });
+  const hasRecorded = (recorded?.items.length ?? 0) > 0;
   const { data: usage, dataUpdatedAt } = useUsage();
   const spent = usage ? usageView(usage, new Date(dataUpdatedAt)) : undefined;
 
@@ -64,21 +71,29 @@ export function Chat() {
         ) : first === null ? (
           <EmptyState onExample={askExample} />
         ) : (
-          <ChatEngine first={first} controlsRef={controlsRef} onState={setEngine} />
+          <ChatEngine
+            first={first}
+            controlsRef={controlsRef}
+            onState={setEngine}
+            onReplay={() => setReplayChosen(true)}
+          />
         )}
-        {!replay && (
-          <div className="sticky bottom-0 bg-bg pb-4 pt-2">
-            <Composer
-              // Busy from the first question until the engine says otherwise.
-              busy={first !== null && (engine?.busy ?? true)}
-              onAsk={ask}
-              onStop={() => controlsRef.current?.stop()}
-              disabledReason={
-                engine?.quotaReason ?? (spent?.exhausted ? spent.composerReason : undefined)
-              }
-            />
-          </div>
-        )}
+        {/* The composer stays in the replay too, so the page does not move under the reader. */}
+        <div className="sticky bottom-0 bg-bg pb-4 pt-2">
+          <Composer
+            // Busy from the first question until the engine says otherwise.
+            busy={!replay && first !== null && (engine?.busy ?? true)}
+            onAsk={ask}
+            onStop={() => controlsRef.current?.stop()}
+            disabledReason={
+              replay
+                ? hasRecorded
+                  ? "The live demo is paused: choose one of the recorded questions above."
+                  : "The live demo is paused for now."
+                : (engine?.quotaReason ?? (spent?.exhausted ? spent.composerReason : undefined))
+            }
+          />
+        </div>
       </div>
     </ChatProfiler>
   );

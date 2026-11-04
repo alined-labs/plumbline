@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from plumbline.corpus.export import WITHHELD
 from plumbline.corpus.manifest import load_manifest
 from plumbline.corpus.verify import (
     Record,
@@ -118,6 +119,15 @@ def test_a_quote_with_a_gap_is_found_piece_by_piece_in_order() -> None:
     assert not quote_in("one three", text)
 
 
+def test_a_quote_matches_whole_words_only() -> None:
+    assert not quote_in("30 días", "dentro de los 130 días siguientes")
+    assert not quote_in("dos mes", "un mes y dos meses")
+    assert quote_in("30 días", "130 días o 30 días")
+    assert quote_in("(3) If", "83.57 (3) If the tenancy")
+    assert quote_in("two … four", "one two three four")
+    assert not quote_in("tw … four", "one two three four")
+
+
 def test_a_quote_not_in_the_statute_stops_every_record() -> None:
     items = [item(), spanish()]
     with pytest.raises(RecordError, match="fl-9001: quoted_text is not in the pinned text"):
@@ -142,6 +152,24 @@ def test_an_item_without_references_needs_its_own_quote() -> None:
     [verified] = apply([out_of_scope()], record(id="oos-9001", quoted_text=note))
     assert verified.verification is not None
     assert verified.verification.quoted_text == note
+
+
+def test_a_fetch_only_source_is_checked_but_never_copied() -> None:
+    # Florida's file stands in for a fetch-only source: it is on this machine in CI too.
+    fetch_only = MANIFEST.model_copy(
+        update={
+            "sources": [
+                s.model_copy(update={"committed": False}) if s.law == "fl-stat-83" else s
+                for s in MANIFEST.sources
+            ]
+        }
+    )
+    run = apply_records
+    with pytest.raises(RecordError, match="not in the pinned text"):
+        run([item()], [record(quoted_text="Not in the statute.")], "c", DAY, fetch_only)
+    [verified] = run([item()], [record()], "a checker", DAY, fetch_only)
+    assert verified.verification is not None
+    assert verified.verification.quoted_text == WITHHELD
 
 
 def test_a_source_that_is_not_on_this_machine_is_reported(tmp_path: Path) -> None:

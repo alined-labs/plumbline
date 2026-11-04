@@ -1,7 +1,7 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { APICallError, DefaultChatTransport } from "ai";
 import { useEffect, useRef, useState, type RefObject } from "react";
 
@@ -12,10 +12,11 @@ import { RotateCwIcon } from "@/components/icons";
 import { buttonClass } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
 import { announcement, answerView } from "@/lib/answer";
-import { apiUrl } from "@/lib/api";
+import { apiUrl, WITH_COOKIE } from "@/lib/api";
 import { askBody, type AskBody, type AskValues } from "@/lib/ask-form";
 import { untilUtcMidnight } from "@/lib/dates";
 import { messageText, type PlumblineMessage } from "@/lib/messages";
+import { replayQuery } from "@/lib/replay";
 import { addStatus, finishRun, startRun, type Run } from "@/lib/run";
 
 // The chat's engine: the AI SDK's useChat, its transport and the conversation it streams. It is
@@ -32,6 +33,16 @@ export type EngineState = {
 /** How the shell's composer drives the engine once it has loaded. */
 export type EngineControls = { ask: (values: AskValues) => void; stop: () => void };
 
+/** The API's own words when it stopped an answer in the stream (its error part): its daily
+ * Claude budget spent, more law than one answer reads, a pipeline failure. A refusal before the
+ * stream (an HTTP status) or a connection that failed carries no words of the API's. */
+export function streamErrorText(error: unknown): string | null {
+  if (!(error instanceof Error) || APICallError.isInstance(error) || error instanceof TypeError) {
+    return null;
+  }
+  return error.message.trim() || null;
+}
+
 /** Over the demo's daily quota, the API answers 429 (Patterns to rebuild: sandbox quotas). */
 function isQuotaReached(error: unknown): boolean {
   return APICallError.isInstance(error) && error.statusCode === 429;
@@ -41,11 +52,14 @@ export function ChatEngine({
   first,
   controlsRef,
   onState,
+  onReplay,
 }: {
   /** The question that loaded the engine, asked as soon as it mounts. */
   first: AskValues;
   controlsRef: RefObject<EngineControls | null>;
   onState: (state: EngineState) => void;
+  /** Offered when the API did not answer: the static tier's recorded answers instead. */
+  onReplay: () => void;
 }) {
   // Status parts are transient: the chat keeps each request's steps itself, the live one
   // here and the finished ones by message id. The ref lets the stream's callbacks read it.
@@ -65,7 +79,8 @@ export function ChatEngine({
   }
 
   const { messages, sendMessage, regenerate, stop, status, error } = useChat<PlumblineMessage>({
-    transport: new DefaultChatTransport({ api: apiUrl("/api/ask") }),
+    // The visitor cookie goes with each question, so the day's allowance counts the visitor.
+    transport: new DefaultChatTransport({ api: apiUrl("/api/ask"), ...WITH_COOKIE }),
     // Publish streamed text at most every 50 ms: tokens arrive faster than that, and each
     // update re-renders the answer (docs/notes/streamed-answer-profile.md).
     throttle: 50,
@@ -89,6 +104,9 @@ export function ChatEngine({
     },
   });
   const busy = status === "submitted" || status === "streaming";
+  // A failed answer may offer the recorded answers, when the export holds any.
+  const { data: recorded } = useQuery({ ...replayQuery(), enabled: status === "error" });
+  const canReplay = (recorded?.items.length ?? 0) > 0;
   const last = messages.at(-1);
   const quotaReason = isQuotaReached(error)
     ? `Demo questions reset at 00:00 UTC${resetIn ? `, in ${resetIn}` : ""}.`
@@ -145,7 +163,22 @@ export function ChatEngine({
           </button>
         }
       >
-        {"The search service didn't answer. Your question is kept; try again in a moment."}
+        {streamErrorText(error) ?? "The search service didn't answer."} Your question is kept; try
+        again in a moment
+        {canReplay && (
+          <>
+            , or{" "}
+            <button
+              type="button"
+              onClick={onReplay}
+              className="text-accent underline underline-offset-2 hover:text-accent-hover"
+            >
+              read the answers Plumbline recorded
+            </button>{" "}
+            for the benchmark&apos;s questions
+          </>
+        )}
+        .
       </Callout>
     );
 

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { Badge, CodeBadge } from "@/components/ui/badge";
 import { Metric, MetricGrid } from "@/components/ui/metric";
+import { IntervalChart } from "@/components/ui/interval-chart";
 import { RowHead, Table, Td, Th, Tr } from "@/components/ui/table";
 import { formatDate } from "@/lib/dates";
 import {
@@ -12,17 +13,23 @@ import {
   formatScore,
   formatUsd,
   groupMeans,
-  HEADLINE_CONFIG,
+  baseConfig,
+  chartPoints,
+  headlineRun,
   HEADLINE_METRICS,
   METRICS,
   RETRIEVAL_METRICS,
   runCost,
+  secondJudge,
+  takeaway,
   type Agreement,
   type EvalRun,
   type MetricName,
   type Rate,
 } from "@/lib/evals";
 import type { EvalsData } from "@/lib/evals-files";
+
+import { OnlineNightsLazy as OnlineNights } from "./online-nights-lazy";
 
 const REPO = "https://github.com/alined-labs/plumbline";
 
@@ -38,6 +45,7 @@ const CONFIGS: Record<string, string> = {
   A0: "Naive baseline: fixed chunks, dense search",
   A1: "Article-aware chunks",
   A2: "Hybrid search: dense and keyword, fused",
+  "A2-llm": "A2 with written contextual headers alone, for the replication",
   A3: "A2 with the local reranker",
   A4: "A3 with a context header per chunk",
   A5: "A4 with written contextual headers",
@@ -46,6 +54,19 @@ const CONFIGS: Record<string, string> = {
   R1: "Cohere reranker",
   LC: "Long context: the whole law, no search",
 };
+
+/** A configuration's words: its own, or its base's with who writes the answers. */
+function describe(name: string): string | undefined {
+  const { base, claude, topK } = baseConfig(name);
+  const words = CONFIGS[base];
+  if (!words) return undefined;
+  const parts = [
+    words,
+    claude ? "answered by Claude Sonnet as the public site is" : null,
+    topK === null ? null : `reading ${topK} passages`,
+  ];
+  return parts.filter(Boolean).join(", ");
+}
 
 /** Per-jurisdiction columns: one retrieval number and the answer numbers that matter most. */
 const GROUP_METRICS = [
@@ -108,9 +129,9 @@ function ConfigHead({ run }: { run: EvalRun }) {
   return (
     <RowHead>
       <span className="block">{run.config_name}</span>
-      {CONFIGS[run.config_name] && (
+      {describe(run.config_name) && (
         <span className="block min-w-48 text-small font-normal text-fg-muted">
-          {CONFIGS[run.config_name]}
+          {describe(run.config_name)}
         </span>
       )}
     </RowHead>
@@ -188,6 +209,51 @@ function Headline({ run }: { run: EvalRun }) {
         detail={cost.totalUsd === null ? "Not measured" : `${formatUsd(cost.totalUsd)} for the run`}
       />
     </MetricGrid>
+  );
+}
+
+/** How far a second judge, of another model, agreed with the first on the same answers: the
+ * check that a judge's verdicts are not its own family's taste. */
+/** One metric across configurations as dots with their intervals, when two or more measured it. */
+function MetricChart({
+  runs,
+  metric,
+  threshold,
+}: {
+  runs: EvalRun[];
+  metric: MetricName;
+  threshold: number | undefined;
+}) {
+  const points = chartPoints(runs, metric);
+  if (points.length < 2) return null;
+  return (
+    <IntervalChart
+      title={`${METRICS[metric].label} by configuration`}
+      caption={takeaway(points, metric)}
+      points={points}
+      threshold={threshold}
+    />
+  );
+}
+
+function SecondJudge({ run }: { run: EvalRun }) {
+  const rows = secondJudge(run);
+  if (rows.length === 0) return null;
+  return (
+    <p className="text-small text-fg-muted">
+      {run.config_name}: a second judge agreed with the first on{" "}
+      {rows.map(({ criterion, agreement }, index) => {
+        const interval = formatInterval(agreement.low, agreement.high);
+        return (
+          <span key={criterion}>
+            {index > 0 && (index === rows.length - 1 ? " and " : ", ")}
+            {formatScore(agreement.value)} of {METRICS[criterion].label.toLowerCase()} verdicts
+            {interval && ` (95% CI ${interval}, ${agreement.n} answers)`}
+          </span>
+        );
+      })}
+      .
+    </p>
   );
 }
 
@@ -429,8 +495,7 @@ function CostTable({ runs }: { runs: EvalRun[] }) {
  * it all costs. Each section waits quietly for its file. */
 export function EvalsView({ data }: { data: EvalsData }) {
   const { runs, agreement, thresholds } = data;
-  const headline =
-    runs.find((run) => run.config_name === HEADLINE_CONFIG) ?? runs.find((run) => run.judged);
+  const headline = headlineRun(runs);
   const times = runs.map((run) => Date.parse(run.created_at));
   const latest = times.length ? new Date(Math.max(...times)) : null;
   const questions = Math.max(0, ...runs.map((run) => run.n_items));
@@ -454,8 +519,8 @@ export function EvalsView({ data }: { data: EvalsData }) {
 
       {headline && (
         <Section id="headline" title={`The default configuration, ${headline.config_name}`}>
-          {CONFIGS[headline.config_name] && (
-            <p className="text-fg-muted">{CONFIGS[headline.config_name]}.</p>
+          {describe(headline.config_name) && (
+            <p className="text-fg-muted">{describe(headline.config_name)}.</p>
           )}
           <Headline run={headline} />
         </Section>
@@ -468,13 +533,24 @@ export function EvalsView({ data }: { data: EvalsData }) {
           is the long-context baseline: no search, the whole law in one prompt.
         </p>
         <h3 className="text-heading-3">Finding the right article</h3>
+        <MetricChart runs={runs} metric="recall@5" threshold={thresholds["recall@5"]} />
         <MetricsTable label="Retrieval" runs={runs} metrics={RETRIEVAL_METRICS} />
         <h3 className="text-heading-3">Answering</h3>
+        <MetricChart
+          runs={runs.filter((run) => run.judged)}
+          metric="correctness"
+          threshold={thresholds.correctness}
+        />
         <MetricsTable
           label="Answers"
           runs={runs.filter((run) => run.judged)}
           metrics={ANSWER_METRICS}
         />
+        {runs
+          .filter((run) => run.judged)
+          .map((run) => (
+            <SecondJudge key={run.run_id} run={run} />
+          ))}
       </Section>
 
       {headline && (
@@ -494,6 +570,8 @@ export function EvalsView({ data }: { data: EvalsData }) {
           </p>
         )}
       </Section>
+
+      <OnlineNights />
 
       <Section id="gate" title="The gate on every change">
         <Gate run={headline} thresholds={thresholds} />

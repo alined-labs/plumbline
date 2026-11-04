@@ -6,11 +6,11 @@ import { expect, test } from "@playwright/test";
 // compressed as Cloudflare Pages serves it. The size-limit budget counts every chunk the export
 // ships, lazy ones too; this one holds what a first visit pays, which is what the mobile score
 // and a reader on a slow connection feel (docs/notes/mobile-performance.md).
-// Measured on 2026-10-20, with the chat engine loaded on first use, plus about 5%: 223.5,
-// 246.1, 191.8 and 191.8 kB.
+// Measured on 2026-10-20, with the chat engine loaded on first use and the upload form only
+// when uploads are on, plus about 5%: 223.5, 198.6, 191.8 and 191.8 kB.
 const BUDGETS_KB: Record<string, number> = {
   "/": 235,
-  "/check-lease/": 258,
+  "/check-lease/": 209,
   "/evals/": 202,
   "/about/": 202,
 };

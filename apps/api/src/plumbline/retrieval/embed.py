@@ -30,9 +30,15 @@ from typing import Final
 import httpx
 
 from plumbline.cache import Fresh, Json, ResponseCache, decode_vector, encode_vector
+from plumbline.chunking.text import count_tokens
 
 DIMENSIONS: Final = 1024
 TEI_BATCH: Final = 32
+# A request of 32 long texts can outlast the client's timeout on a CPU server: the LAU's 30
+# A0 windows, about 24,000 tokens, took over ten minutes at 50 tokens a second and timed
+# out twice. So a request also stops at about 4,000 of the chunker's tokens (some 6,000
+# of the model's in Spanish, two minutes at that rate); a single longer text goes alone.
+BATCH_TOKENS: Final = 4_000
 # Qwen3-Embedding's model card: queries are f'Instruct: {task_description}\nQuery:{query}',
 # with no space after "Query:", and this is its example task description.
 QUERY_TASK: Final = "Given a web search query, retrieve relevant passages that answer the query"
@@ -40,6 +46,21 @@ QUERY_TASK: Final = "Given a web search query, retrieve relevant passages that a
 
 def query_text(question: str) -> str:
     return f"Instruct: {QUERY_TASK}\nQuery:{question}"
+
+
+def batches(texts: Sequence[str]) -> list[Sequence[str]]:
+    """The texts in order, in requests of at most TEI_BATCH texts and BATCH_TOKENS tokens."""
+    out: list[Sequence[str]] = []
+    start, size = 0, 0
+    for end, text in enumerate(texts):
+        tokens = count_tokens(text)
+        if end > start and (end - start == TEI_BATCH or size + tokens > BATCH_TOKENS):
+            out.append(texts[start:end])
+            start, size = end, 0
+        size += tokens
+    if start < len(texts):
+        out.append(texts[start:])
+    return out
 
 
 @dataclass(frozen=True)
@@ -74,12 +95,8 @@ class TeiEmbedder:
             else httpx.Client(timeout=self.timeout_s)
         )
         with session as client:
-            for start in range(0, len(texts), TEI_BATCH):
-                body = {
-                    "inputs": texts[start : start + TEI_BATCH],
-                    "normalize": True,
-                    "truncate": True,
-                }
+            for batch in batches(texts):
+                body = {"inputs": list(batch), "normalize": True, "truncate": True}
                 response = client.post(f"{self.url.rstrip('/')}/embed", json=body)
                 response.raise_for_status()
                 vectors += response.json()

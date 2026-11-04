@@ -110,6 +110,19 @@ def test_untrusted_text_cannot_open_or_close_a_block() -> None:
     ]
 
 
+def test_the_whole_law_goes_first_and_the_question_after_it() -> None:
+    prompt = build_prompt(QUESTION, RETRIEVED, QUESTION.jurisdictions, sources_first=True)
+    assert prompt.prefix.startswith("<sources>")
+    assert prompt.prefix.endswith("</sources>")
+    assert prompt.prefix in build_prompt(QUESTION, RETRIEVED).user  # the same sources
+    assert "<sources>" not in prompt.user
+    assert prompt.user.startswith("<question>")
+    assert prompt.user.endswith("from the sources above alone, in the required JSON format.")
+    other = QUESTION.model_copy(update={"text": "Can my landlord keep the deposit?"})
+    assert build_prompt(other, RETRIEVED, sources_first=True).prefix == prompt.prefix
+    assert build_prompt(QUESTION, RETRIEVED).prefix == ""
+
+
 def test_markers_map_to_chunks_in_order() -> None:
     assert build_prompt(QUESTION, RETRIEVED).sources == {
         1: "fla-83.49-3-a",

@@ -79,3 +79,25 @@ class StubLeaseChecker:
             )
             yield LeaseStage("checking", done=n, total=total)
         yield LeaseDone(findings=total, language=Language.EN)
+
+    async def clause(
+        self,
+        text: str,
+        route: Route,
+        *,
+        jurisdiction: Jurisdiction,
+        as_of: date | None,
+    ) -> Finding | None:
+        await asyncio.sleep(self.delay)
+        return Finding(
+            n=1,
+            clause_number="1",
+            clause_text=text,
+            clause_language=Language.EN,
+            severity=Severity.CHECK,
+            title=TITLES[Severity.CHECK],
+            why="This is a stub finding from the Plumbline seed. The clause checker is not "
+            "connected here, so nothing here is legal information.",
+            citations=[CITATION],
+            confidence=0.5,
+        )

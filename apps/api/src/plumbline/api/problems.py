@@ -36,6 +36,7 @@ ProblemCode = Literal[
     "not_found",  # 404: a check that does not exist, has expired or is another visitor's
     "lease_checks_paused",  # 503: the demo tier does not run lease checks right now
     "busy",  # 503: too many checks are running; Retry-After says when to try again
+    "redaction_refused",  # 503: the text cannot be redacted, so no model may read it
 ]
 
 

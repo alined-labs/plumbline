@@ -114,6 +114,19 @@ def test_verify_keeps_good_citations_and_counts_every_failure() -> None:
     )
 
 
+def test_a_number_used_by_a_dropped_citation_stays_used() -> None:
+    # The first [1] names the wrong chunk and is dropped; a later [1] is not given a
+    # second chance to say what [1] cites.
+    citations = [
+        Cited(1, "lau", "within 15 days after the termination"),
+        Cited(1, "fl", "within 15 days after the termination"),
+        Cited(2, "lau", "fianza en metálico"),
+    ]
+    result = verify(citations, SOURCES)
+    assert [c.n for c in result.citations] == [2]
+    assert result.invalid == 2
+
+
 def test_an_unverified_quote_is_kept_flagged_and_counted() -> None:
     result = verify([Cited(1, "fl", "the landlord may keep the deposit")], SOURCES)
     assert [c.verified for c in result.citations] == [False]

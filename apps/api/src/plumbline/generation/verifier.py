@@ -83,12 +83,17 @@ def verify(citations: Sequence[CitedSpan], sources: Mapping[int, Chunk]) -> Veri
     """
     kept: list[Citation] = []
     invalid = 0
+    seen: set[int] = set()  # every number used so far, kept or dropped
     for cited in citations:
         chunk = sources.get(cited.n)
+        repeated = cited.n in seen
+        seen.add(cited.n)
         if (
             chunk is None
             or chunk.id != cited.chunk_id
-            or any(c.n == cited.n for c in kept)
+            # A number already used, even by a citation that was dropped: the model said two
+            # things about what [n] cites, and the first was wrong.
+            or repeated
             or not cited.quote  # nothing to show, and a Citation cannot hold it
         ):
             invalid += 1

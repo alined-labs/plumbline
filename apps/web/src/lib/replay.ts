@@ -1,4 +1,5 @@
 import type { AnswerSummary, Citation, Jurisdiction, TraceSummary } from "@plumbline/ts-client";
+import { queryOptions } from "@tanstack/react-query";
 
 import { DISCLAIMER } from "./copy";
 import type { PlumblineMessage } from "./messages";
@@ -99,4 +100,19 @@ export function toMessages(
       ],
     },
   ];
+}
+
+/** The stored answers as the export holds them (/replay.json), fetched only when the page is
+ * paused or an answer has failed. An export built before any run was stored holds none. */
+export function replayQuery() {
+  return queryOptions({
+    queryKey: ["replay"],
+    queryFn: async (): Promise<ReplayFile> => {
+      const response = await fetch("/replay.json");
+      if (!response.ok) throw new Error(`/replay.json answered ${response.status}`);
+      return (await response.json()) as ReplayFile;
+    },
+    staleTime: Infinity,
+    retry: false,
+  });
 }

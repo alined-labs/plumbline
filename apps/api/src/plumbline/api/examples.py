@@ -22,6 +22,8 @@ from pydantic import BaseModel
 
 from plumbline.api import stream
 from plumbline.api.chunks import ChunkArticle, PublishedArticle, SourceLink, Span
+from plumbline.api.evals import OnlineNight
+from plumbline.api.law import ClauseRequest, ClauseResult, LawHit, LawSearch
 from plumbline.api.quota import Usage
 from plumbline.api.schemas import (
     AskRequest,
@@ -100,6 +102,12 @@ PARAGRAPH: Final = (
     " notice to the tenant. For all other deposits:\n(a) Upon the vacating of the premises for"
     " termination of the rental agreement, if the landlord does not intend to impose a claim"
     f" on the security deposit, {QUOTE}."
+)
+SOURCE: Final = SourceLink(
+    id=DOCUMENT,
+    title="Florida Statutes 2026, chapter 83 (Landlord and Tenant), part II",
+    url="https://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute"
+    "&URL=0000-0099/0083/0083.html&StatuteYear=2026",
 )
 CITATION: Final = Citation(
     n=1,
@@ -267,6 +275,31 @@ EXAMPLES: Final[dict[str, Example]] = {
         "Four of today's thirty questions used",
         response=Usage(used=4, limit=30, resets_at=datetime(2026, 10, 21, tzinfo=UTC)),
     ),
+    "GET /api/evals/online": Example(
+        "Two nights of judged production answers, newest first",
+        response=[
+            OnlineNight(
+                day=date(2026, 10, 24),
+                config_name="A2-claude",
+                answered=212,
+                sampled=21,
+                judged=20,
+                faithful=19,
+                faithfulness=0.95,
+                interval_95=(0.7639, 0.9911),
+            ),
+            OnlineNight(
+                day=date(2026, 10, 23),
+                config_name="A2-claude",
+                answered=96,
+                sampled=10,
+                judged=10,
+                faithful=9,
+                faithfulness=0.9,
+                interval_95=(0.5958, 0.9821),
+            ),
+        ],
+    ),
     "GET /api/admin/jobs": Example(
         "The latest ingestion job", response=[JOB], parameters={"status": "succeeded", "limit": 20}
     ),
@@ -311,6 +344,8 @@ EXAMPLES: Final[dict[str, Example]] = {
             k=1,
             jurisdictions=[Jurisdiction.FLORIDA],
             as_of=date(2026, 10, 20),
+            as_of_filter=True,
+            law_date=date(2026, 10, 20),
             candidates=20,
             timings_ms={"search": 84.0},
             hits=[HIT],
@@ -322,6 +357,47 @@ EXAMPLES: Final[dict[str, Example]] = {
             "as_of": "2026-10-20",
             "config": "A2",
         },
+    ),
+    "GET /api/law/search": Example(
+        "The Florida provision on returning a deposit, found without asking for an answer",
+        response=LawSearch(
+            query=QUESTION,
+            jurisdiction=Jurisdiction.FLORIDA,
+            as_of=date(2026, 10, 20),
+            config_name="A2-claude",
+            hits=[
+                LawHit(
+                    rank=1,
+                    chunk_id=CHUNK_ID,
+                    ref=REF,
+                    label="Fla. Stat. § 83.49(3)",
+                    heading=HEADING,
+                    text=PARAGRAPH,
+                    language=Language.EN,
+                    status=ProvisionStatus.IN_FORCE,
+                    effective_from=None,
+                    effective_to=None,
+                    source=SOURCE,
+                    restricted=False,
+                )
+            ],
+        ),
+        parameters={"q": QUESTION, "jurisdiction": "florida", "as_of": "2026-10-20", "k": 1},
+    ),
+    "POST /api/law/check-clause": Example(
+        "A deposit clause that gives the landlord longer than Florida law allows",
+        request=ClauseRequest(
+            clause=FINDING.clause_text,
+            jurisdiction=Jurisdiction.FLORIDA,
+            as_of=date(2026, 3, 1),
+        ),
+        response=ClauseResult(
+            jurisdiction=Jurisdiction.FLORIDA,
+            as_of=date(2026, 3, 1),
+            finding=FINDING.model_copy(update={"clause_number": "1"}),
+            # The route sends data/leases/disclaimer.txt; the schema must build without data/.
+            disclaimer="The lease checker's disclaimer (data/leases/disclaimer.txt).",
+        ),
     ),
     "GET /api/chunks/{chunk_id}": Example(
         "The article a citation quotes, with the quote's span",
@@ -340,12 +416,7 @@ EXAMPLES: Final[dict[str, Example]] = {
                 effective_to=None,
             ),
             span=Span(start=ARTICLE_TEXT.index(QUOTE), end=ARTICLE_TEXT.index(QUOTE) + len(QUOTE)),
-            source=SourceLink(
-                id=DOCUMENT,
-                title="Florida Statutes 2026, chapter 83 (Landlord and Tenant), part II",
-                url="https://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute"
-                "&URL=0000-0099/0083/0083.html&StatuteYear=2026",
-            ),
+            source=SOURCE,
             restricted=False,
         ),
         parameters={"chunk_id": CHUNK_ID, "quote": QUOTE},

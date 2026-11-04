@@ -8,7 +8,7 @@ import pytest
 from plumbline.cache import ResponseCache
 from plumbline.core.config import load_configs
 from plumbline.core.types import CacheMode
-from plumbline.retrieval.embed import DIMENSIONS, TeiEmbedder, query_text
+from plumbline.retrieval.embed import DIMENSIONS, TeiEmbedder, batches, query_text
 from plumbline.retrieval.index import variant_key
 from plumbline.settings import ROOT
 
@@ -87,3 +87,12 @@ def test_configurations_share_a_variant_when_only_search_differs() -> None:
     assert keys["A5"] == keys["A6"]  # both headers; the rewrite is search
     distinct = {keys[n] for n in ("A0", "A2", "A4", "A5", "E1")}
     assert len(distinct) == 5  # fixed chunks, headers and the embedding model all change rows
+
+
+def test_a_request_stops_at_the_token_budget_as_well_as_the_count() -> None:
+    long = "palabra " * 1_500  # 1,500 tokens
+    assert [len(b) for b in batches([long] * 5)] == [2, 2, 1]  # 3,000 tokens a request
+    assert [len(b) for b in batches(["corto"] * 70)] == [32, 32, 6]
+    huge = "palabra " * 9_000
+    assert [len(b) for b in batches(["corto", huge, "corto"])] == [1, 1, 1]  # alone
+    assert batches([]) == []

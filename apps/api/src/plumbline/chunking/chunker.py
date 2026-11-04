@@ -9,7 +9,7 @@ from __future__ import annotations
 from bisect import bisect_right
 from collections import Counter
 from collections.abc import Iterator, Sequence
-from itertools import accumulate
+from itertools import accumulate, groupby
 
 from plumbline.chunking.articles import Article, Paragraph, paragraph_tree, parse_articles
 from plumbline.chunking.profiles import PROFILES
@@ -60,10 +60,12 @@ def _article(
         return []
     header = context_header(doc.jurisdiction, law_name, article.name, article.heading)
     path = [*article.divisions, article.name]
+    # Unchanged paragraphs repeat in every BOE version: the version keeps their ids apart.
+    version = [f"version {article.version.block} {article.version.norm}"] if article.version else []
 
     def chunk(markers: tuple[str, ...], body: str, parent_id: str | None) -> Chunk:
         return Chunk(
-            id=chunk_id(doc.source_id, [*path, *markers], body),
+            id=chunk_id(doc.source_id, [*path, *markers, *version], body),
             document_id=doc.source_id,
             parent_id=parent_id,
             jurisdiction=doc.jurisdiction,
@@ -78,10 +80,12 @@ def _article(
             text_for_search=search_text(body, header, None, headers),
             context_header=header,
             effective_from=article.effective_from,
+            effective_to=article.effective_to,
             status=article.status,
             validity_note=validity,
             history="\n".join(article.notes) or None,
             page=article.page,
+            metadata=_version_metadata(article),
         )
 
     parent = chunk((), text, None)
@@ -95,6 +99,16 @@ def _article(
         # One part is the parent again (a single line over the budget): no children.
         pieces = [((), part) for part in parts] if len(parts) > 1 else []
     return [parent, *(chunk(markers, body, parent.id) for markers, body in pieces)]
+
+
+def _version_metadata(article: Article) -> dict[str, MetadataValue]:
+    if article.version is None:
+        return {}
+    return {
+        "version_block": article.version.block,
+        "version_norm": article.version.norm,
+        "effective_dated_by": article.version.dated_by,
+    }
 
 
 def _pieces(node: Paragraph, budget: int) -> Iterator[Piece]:
@@ -134,24 +148,44 @@ def _fixed(
     """Windows of `max_tokens` tokens, `overlap_tokens` shared between neighbours, over
     the articles' text joined in order. A window spans articles, but a chunk names one:
     the article most of its tokens come from (the earlier one on a tie), whose label,
-    status and dates it takes. metadata["articles"] lists every article it touches."""
-    step = config.max_tokens - config.overlap_tokens
-    if step <= 0:
+    status and dates it takes. metadata["articles"] lists every article it touches.
+    A window never spans two validity periods: the windows restart wherever the dates
+    change, so a window of the LAU never mixes its 1994 and its 2026 wording."""
+    if config.max_tokens - config.overlap_tokens <= 0:
         raise ValueError("overlap_tokens must be smaller than max_tokens")
+    chunks: list[Chunk] = []
+    for _, run in groupby(articles, key=lambda a: (a.effective_from, a.effective_to)):
+        chunks += _windows(doc, list(run), config, law_name, headers, first_window=len(chunks))
+    return chunks
+
+
+def _windows(
+    doc: ParsedDocument,
+    articles: Sequence[Article],
+    config: ChunkerConfig,
+    law_name: str,
+    headers: Headers,
+    first_window: int,
+) -> list[Chunk]:
+    step = config.max_tokens - config.overlap_tokens
     texts = ["\n".join([article.opening, *article.body]) for article in articles]
     full = "\n\n".join(texts)
     starts = list(accumulate((len(text) + 2 for text in texts[:-1]), initial=0))
     spans = [match.span() for match in TOKEN.finditer(full)]
     owners = [bisect_right(starts, start) - 1 for start, _ in spans]
     chunks: list[Chunk] = []
-    for window, first in enumerate(range(0, len(spans), step)):
+    for window, first in enumerate(range(0, len(spans), step), start=first_window):
         last = min(first + config.max_tokens, len(spans)) - 1
         text = full[spans[first][0] : spans[last][1]]
         owner = articles[Counter(owners[first : last + 1]).most_common(1)[0][0]]
         touched = dict.fromkeys(articles[i].article for i in owners[first : last + 1])
         header = context_header(doc.jurisdiction, law_name, owner.name, owner.heading)
         path = [*owner.divisions, owner.name]
-        metadata: dict[str, MetadataValue] = {"articles": ",".join(touched), "window": window}
+        metadata: dict[str, MetadataValue] = {
+            "articles": ",".join(touched),
+            "window": window,
+            **_version_metadata(owner),
+        }
         chunks.append(
             Chunk(
                 id=chunk_id(doc.source_id, [*path, f"window {window}"], text),
@@ -168,6 +202,7 @@ def _fixed(
                 text_for_search=search_text(text, header, None, headers),
                 context_header=header,
                 effective_from=owner.effective_from,
+                effective_to=owner.effective_to,
                 status=owner.status,
                 page=owner.page,
                 metadata=metadata,

@@ -43,7 +43,7 @@ x-api: &api
     # Daily spend caps in US dollars (docs/cost-model.md, section 5): past one, the router
     # drops to the next model down, and the kill switch takes the tier down after them.
     GEMINI_DAILY_CAP_USD: "0.30"
-    ANTHROPIC_DAILY_CAP_USD: "1.00"
+    ANTHROPIC_DAILY_CAP_USD: "5.00"
     COHERE_DAILY_CAP_USD: "0"
   volumes:
     # The settings read /app/.env (PLUMBLINE_ROOT=/app): the provider keys, the admin
@@ -79,7 +79,7 @@ services:
   # silently drop a counter when memory runs out.
   redis:
     <<: *service
-    image: redis:8.10.2-alpine@sha256:3811787313eba226a2ef38658c6ccb91cd5e110edc89c37767de373120a0e5a0
+    image: redis:8.10.2-alpine@sha256:9f8d2d789b9a1d1e3f283f979aa9cbf393373806472e1ccd460e2f9c869b833b
     command: ["redis-server", "--appendonly", "yes", "--maxmemory", "192mb",
               "--maxmemory-policy", "noeviction", "--save", ""]
     volumes: [redisdata:/data]
@@ -129,6 +129,19 @@ services:
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
       embed: { condition: service_healthy }
+
+  # The kill switch (plumbline.security.killswitch): every 30 s it reads the day's spend
+  # counters and lowers the tier, full to free to static, as they near the caps.
+  killswitch:
+    <<: *api
+    command: ["python", "-m", "plumbline.security.killswitch"]
+    networks: [backend]
+    mem_limit: 256m
+    healthcheck:
+      disable: true  # it serves nothing; its log says each change, and restarts keep it up
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
 
   # A locally managed tunnel (cloudflared tunnel create): every request it carries goes to
   # the API, and DNS routes only the API's hostname to it (the web app is on Pages).

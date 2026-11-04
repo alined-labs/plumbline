@@ -1,7 +1,7 @@
 import type { Schemas } from "@plumbline/ts-client";
 import { queryOptions } from "@tanstack/react-query";
 
-import { api, ApiError, type ApiClient } from "./api";
+import { api, ApiError, WITH_COOKIE, type ApiClient } from "./api";
 
 export type ChunkArticle = Schemas["ChunkArticle"];
 export type PublishedArticle = Schemas["PublishedArticle"];
@@ -15,6 +15,7 @@ export function articleQuery(chunkId: string, quote: string, client: ApiClient =
       const { data, response } = await client.GET("/api/chunks/{chunk_id}", {
         params: { path: { chunk_id: chunkId }, query: { quote } },
         signal,
+        ...WITH_COOKIE,
       });
       if (!data) throw new ApiError("/api/chunks", response.status);
       return data;

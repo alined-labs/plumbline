@@ -42,6 +42,24 @@ The fetch-only sources (the Dubai Legislation Portal's laws and the Dubai Land D
 
 A browser gets a random visitor id in a signed, `HttpOnly`, `SameSite=Lax` cookie (`plumbline_visitor`, path `/api`, a year) the first time it asks a question or starts a lease check. The signing secret lives in the settings table, so every worker accepts the same cookies. Each question counts against two daily counters in Redis, the visitor's and the address's (an HMAC of it, never the address), which expire at 00:00 UTC; past `DAILY_QUESTIONS_PER_IP` on either, the answer is a 429. Lease checks have counters of their own at a tenth of that, at least one. If Redis cannot count, questions go through and the failure is logged: the spend caps and the kill switch stop runaway cost, and this only rations a fair share.
 
+## What answers, and what it spends
+
+With `ENVIRONMENT=prod` the API answers for real, and refuses to start on a stand-in; in dev and test the stand-ins answer instantly and spend nothing (`api/answering.py`).
+
+- **The model.** Every live answer and lease check runs on Claude Sonnet 5.5 (the premium route), whatever route a configuration names. That was the human's call on 20 October: Gemini's few remaining dollars are kept for the golden cross-check. The Anthropic key has a US$25 spend limit, and up to US$100 may be spent on Claude in all.
+- **The configuration.** The API serves the Claude twin of `ANSWER_CONFIG` from `evals/configs` (`A2-claude` by default), so an answer's trace carries the same `config_hash` as the row on `/evals`. Production refuses to start on a configuration with no twin on the premium route. A server with no retrieval answers with `LC-claude` (the whole law) and pauses lease checks.
+- **The size guard.** On the whole-law path, a question whose jurisdictions' law is over 150k tokens ends with an error before any model call. Claude counts about 3 characters a token: Florida is 208,467 characters and 69,257 tokens.
+- **The daily cap.** Before every live answer and lease check, the API reads the day's Anthropic spend from the Redis counters (`spend:anthropic:<day>`, which every metered call adds to). At `ANTHROPIC_DAILY_CAP_USD` or above, an answer ends with a non-retryable error saying answers resume at 00:00 UTC, and a lease check answers 503 `lease_checks_paused`. The kill switch (P5) reads the same counters and lowers the tier for the whole site. The check runs before each call, so every answer already running when the cap is crossed still finishes: a day can end over the cap by those answers, about US$0.05 each for `A2-claude`. Answers have no concurrency limit of their own (lease checks have four), so the overshoot is bounded by how many are in flight, not by one.
+- **The tier.** `static` stops every model call, `free` stops lease checks, and `full` runs both (tested on the served path in `tests/api/test_tier.py`).
+
+Measured on MX1 on 20 October, the Florida security-deposit question (`docs/cost-model.md`, section 4):
+
+| Path | Input tokens | Output tokens | Cost | Generation |
+| --- | --- | --- | --- | --- |
+| `A2-claude`, SQL retrieval | 24,418 | 425 | US$0.054 | 4.2 s |
+| `LC-claude`, the whole law, uncached | 69,257 | 508 | US$0.144 | 7.9 s |
+| `LC-claude`, a repeat question with the cached law (Lane C, C14) | | | US$0.011 | |
+
 ## Streams
 
 `/api/ask` is an AI SDK UI message stream (`x-vercel-ai-ui-message-stream: v1`): text deltas, plus `data-status`, `data-citation`, `data-answer` and `data-trace` parts, typed from the schema. Whatever happens, the stream ends, with an error part if it has to.
@@ -67,12 +85,12 @@ What happens to the file:
 - It is never written to disk, never logged and not kept. The check keeps its events (the stages, and the findings, which quote clauses after redaction) in memory for half an hour, for the visitor who started it, so a page can reload; then they are gone. The only things logged are a check's id and the type of an unexpected error, because an error's message can quote the text it choked on.
 - At most four checks run at once, and one for a visitor.
 
-Until retrieval and the redactor are wired in, the server answers with a stand-in that finds one clause of each severity in any lease, citing an invented "Stub Act", and says that nothing in its findings is legal information.
+In dev and test the server checks with a stand-in that finds one clause of each severity in any lease, citing an invented "Stub Act", and says that nothing in its findings is legal information. In production, Lane C's checker runs on Claude over the index. Until Presidio's redactor is wired in, it accepts only the ten invented leases in `data/leases` and their scans, matched byte for byte by SHA-256. Every other file is refused before any model call.
 
 ## Run it
 
 ```bash
 make up        # Postgres and Redis
-make api       # http://localhost:8000, on the stub pipeline until the real one is wired in
+make api       # http://localhost:8000, on the stand-ins (ENVIRONMENT=prod answers for real)
 make openapi   # the schema, the stream fixture and the TypeScript client
 ```

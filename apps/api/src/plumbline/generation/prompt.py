@@ -86,14 +86,21 @@ class AnswerPrompt:
     system: str
     user: str
     sources: dict[int, str]  # what an [n] marker refers to: source number -> chunk id
+    prefix: str = ""  # the sources, when they go first as a cacheable block (LLMRequest.prefix)
 
 
 def build_prompt(
     question: Question,
     retrieved: Sequence[Retrieved],
     jurisdictions: Sequence[Jurisdiction] = (),  # the ones asked about, or detected
+    *,
+    sources_first: bool = False,
 ) -> AnswerPrompt:
-    """The prompt for one question over its sources, numbered from 1 in the order given."""
+    """The prompt for one question over its sources, numbered from 1 in the order given.
+
+    With `sources_first` (long context: the whole law, the same for every question on the
+    same jurisdictions and date), the sources come first, as the prefix a provider caches,
+    and the question after them, outside the cached part; otherwise the question leads."""
     asked = ", ".join(NAMES[j] for j in jurisdictions) or "not stated"
     as_of = (
         f"{long_date(question.as_of)} ({question.as_of.isoformat()})"
@@ -101,22 +108,23 @@ def build_prompt(
         else "not given (the sources are the provisions in force now)"
     )
     blocks = [render_source(n, r.chunk) for n, r in enumerate(retrieved, start=1)]
-    user = "\n".join(
-        [
-            "<question>",
-            defuse(question.text),
-            "</question>",
-            f"Jurisdictions asked about: {asked}",
-            f"Law as of: {as_of}",
-            "",
-            "<sources>",
-            "\n\n".join(blocks),
-            "</sources>",
-            "",
-            "Answer the question from these sources alone, in the required JSON format.",
-        ]
-    )
+    law = "\n".join(["<sources>", "\n\n".join(blocks), "</sources>"])
+    asking = [
+        "<question>",
+        defuse(question.text),
+        "</question>",
+        f"Jurisdictions asked about: {asked}",
+        f"Law as of: {as_of}",
+    ]
     sources = {n: r.chunk.id for n, r in enumerate(retrieved, start=1)}
+    if sources_first:
+        instruction = (
+            "Answer the question from the sources above alone, in the required JSON format."
+        )
+        user = "\n".join([*asking, "", instruction])
+        return AnswerPrompt(system=SYSTEM, user=user, sources=sources, prefix=law)
+    instruction = "Answer the question from these sources alone, in the required JSON format."
+    user = "\n".join([*asking, "", law, "", instruction])
     return AnswerPrompt(system=SYSTEM, user=user, sources=sources)
 
 

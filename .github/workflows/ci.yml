@@ -134,13 +134,33 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Check the production Compose stack
+        # Compose itself must accept the file (the guard tests read it as YAML only),
+        # every pinned digest must still resolve in its registry, and the wrapper must
+        # refuse to start a stack whose secrets do not exist.
+        run: |
+          docker compose -f deploy/compose.prod.yaml --env-file deploy/prod.env config --quiet
+          docker compose -f deploy/compose.prod.yaml --env-file deploy/prod.env config --images |
+            grep '@sha256:' | sort -u | while read -r image; do
+              docker manifest inspect "$image" > /dev/null && echo "resolves: $image"
+            done
+          if bash deploy/prod up -d 2> "$RUNNER_TEMP/up.err"; then
+            echo "deploy/prod started a stack with no secrets" && exit 1
+          fi
+          grep -q 'secrets-init.sh' "$RUNNER_TEMP/up.err"
       - name: Lint the Dockerfile
         run: docker run --rm -i hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d hadolint - < deploy/api/Dockerfile
       - name: Lint the shell scripts
         run: |
-          git ls-files -z 'deploy/*.sh' | xargs -0 -r docker run --rm -v "$PWD:/mnt:ro" -w /mnt \
+          git ls-files -z 'deploy/*.sh' deploy/prod infra/cloudflare/tf | xargs -0 -r docker run --rm -v "$PWD:/mnt:ro" -w /mnt \
             koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d \
             --severity=style
+      - name: Check the Terraform for Cloudflare
+        run: >-
+          docker run --rm --user "$(id -u):$(id -g)" -v "$PWD/infra/cloudflare:/work" -w /work
+          -e TF_DATA_DIR=/tmp/tf --entrypoint sh
+          hashicorp/terraform:1.16.6@sha256:bfffc1ded5fbf0a17beaaf22eb4793980abdb19d0761ff6a3a0efb2ab4d9b316
+          -c 'terraform fmt -check -diff && terraform init -backend=false -input=false -lockfile=readonly >/dev/null && terraform validate'
       - name: Build the API image
         run: |
           docker build -f deploy/api/Dockerfile -t plumbline-api:ci .

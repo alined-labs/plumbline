@@ -14,6 +14,7 @@ folded character remembers where in the lease it came from.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Final, Literal
 
@@ -25,6 +26,7 @@ from plumbline.generation.prompt import defuse
 from plumbline.generation.schema import portable_schema
 from plumbline.generation.verifier import normalize
 
+HEADING_MAX: Final = 120  # characters: a longer line is text, not the next clause's heading
 MIN_START_WORDS: Final = 3  # a shorter start is too common to place a clause
 # What follows the last clause is searched for only after that clause's start, where a
 # heading of one word ("SIGNATURES") cannot be mistaken for anything earlier.
@@ -112,9 +114,41 @@ def cut(text: str, marks: ClauseMarks) -> tuple[list[Clause], int]:
     language = Language(marks.language)
     clauses = []
     for i, (mark, _, start) in enumerate(starts):
-        stop = starts[i + 1][2] if i + 1 < len(starts) else end
-        clauses.append(Clause(mark.number, mark.heading, text[start:stop].strip(), language))
+        following = starts[i + 1][0] if i + 1 < len(starts) else None
+        stop = starts[i + 1][2] if following is not None else end
+        body = _without_next_heading(text[start:stop], following)
+        clauses.append(Clause(mark.number, mark.heading, body, language))
     return clauses, dropped
+
+
+def _without_next_heading(body: str, following: ClauseMark | None) -> str:
+    """The clause without the heading lines of whatever follows it. A start is a clause's
+    first words, after its heading, so the text up to the next start ends with the next
+    clause's heading ("## Clause 8. Property tax"), which is not this clause's: a reader
+    would see it in the finding, and the search would look for its words. Trailing lines
+    go while they are Markdown headings, or short lines naming the next clause."""
+    lines = body.strip().splitlines()
+    while len(lines) > 1 and _heading_of(lines[-1], following):
+        lines.pop()
+        while len(lines) > 1 and not lines[-1].strip():
+            lines.pop()
+    return "\n".join(lines).strip()
+
+
+def _heading_of(line: str, following: ClauseMark | None) -> bool:
+    line = line.strip()
+    if line.startswith("#"):
+        return True
+    if following is None or not line or len(line) > HEADING_MAX:
+        return False
+    named = line.casefold()
+    label = (
+        rf"^(?:clause|cl[aá]usula|article|art[ií]culo|section)?\s*{re.escape(following.number)}\b"
+    )
+    heading = following.heading
+    return bool(re.match(label, named, re.IGNORECASE)) or (
+        heading is not None and named.rstrip(".:") == heading.casefold().rstrip(".:")
+    )
 
 
 def _find(folded: str, words: str, after: int, min_words: int) -> int | None:

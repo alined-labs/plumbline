@@ -70,6 +70,7 @@ def test_catches_need_the_planted_clause_and_its_article() -> None:
     ]
     score = score_lease(lease, reported)
     assert (score.planted, score.caught, score.flags, score.true_flags) == (3, 2, 4, 2)
+    assert score.on_clause == 3  # clause 10 was flagged, on the wrong article
     assert (score.lawful_flagged, score.lawful) == (1, 1)
     assert (score.precision, score.recall) == (0.5, 2 / 3)
 

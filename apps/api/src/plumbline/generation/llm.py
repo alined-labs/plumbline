@@ -22,7 +22,7 @@ from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable
 from contextlib import aclosing
 from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime
-from typing import Any, Final, Literal, Protocol
+from typing import Any, Final, Literal, Protocol, Self
 
 import anthropic
 import httpx
@@ -30,7 +30,7 @@ import openai
 from google import genai
 from google.genai import errors as genai_errors
 from google.genai import types as genai_types
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, model_validator
 
 from plumbline.cache import Cached, CacheMiss, Fresh, Json, ResponseCache, get_cache
 from plumbline.core.types import CacheMode, Frozen
@@ -58,9 +58,27 @@ class LLMRequest(Frozen):
     temperature: float | None = Field(default=0.0, ge=0, le=2)  # Claude's current models take none
     json_schema: dict[str, Any] | None = None  # structured output: the text is JSON of this schema
     cache_system: bool = True  # mark the system prompt as a cacheable prefix where that is explicit
+    # The start of the first user message, kept apart because it repeats across requests
+    # (the whole law, for long context): Claude gets it as its own block with a cache
+    # breakpoint, the others as the start of the text, where their implicit prefix caching
+    # finds it. Empty, it is not sent, so a request without it keeps the key it always had.
+    prefix: str = ""
     # How much the model may think before it answers; None leaves the model's default, and is
     # not sent, so a request without it keeps the key it always had.
     thinking: Literal["minimal", "low", "medium", "high"] | None = None
+
+    @model_validator(mode="after")
+    def _prefix_starts_a_user_message(self) -> Self:
+        if self.prefix and self.messages[0].role != "user":
+            raise ValueError("a prefix starts the first message, which must be the user's")
+        return self
+
+    def joined(self) -> list[dict[str, Json]]:
+        """The messages as role and text, the prefix at the start of the first one."""
+        messages = [m.model_dump() for m in self.messages]
+        if self.prefix:
+            messages[0]["content"] = f"{self.prefix}\n\n{messages[0]['content']}"
+        return messages
 
 
 @dataclass(frozen=True)
@@ -362,8 +380,11 @@ class GeminiClient(BaseClient):
         if request.thinking is not None:
             config["thinking_config"] = {"thinking_level": request.thinking.upper()}
         contents = [
-            {"role": "model" if m.role == "assistant" else "user", "parts": [{"text": m.content}]}
-            for m in request.messages
+            {
+                "role": "model" if m["role"] == "assistant" else "user",
+                "parts": [{"text": m["content"]}],
+            }
+            for m in request.joined()
         ]
         return {"model": request.model, "contents": contents, "config": config}
 
@@ -426,10 +447,16 @@ class AnthropicClient(BaseClient):
         self._sdk = sdk
 
     def payload(self, request: LLMRequest) -> dict[str, Json]:
+        messages: list[Json] = [m.model_dump() for m in request.messages]
+        if request.prefix:
+            cached: dict[str, Json] = {"type": "text", "text": request.prefix}
+            cached["cache_control"] = {"type": "ephemeral"}
+            first: list[Json] = [cached, {"type": "text", "text": request.messages[0].content}]
+            messages[0] = {"role": "user", "content": first}
         body: dict[str, Json] = {
             "model": request.model,
             "max_tokens": request.max_output_tokens,
-            "messages": [m.model_dump() for m in request.messages],
+            "messages": messages,
         }
         if request.system:
             block: dict[str, Json] = {"type": "text", "text": request.system}
@@ -513,7 +540,7 @@ class OpenAICompatibleClient(BaseClient):
         system = [{"role": "system", "content": request.system}] if request.system else []
         body: dict[str, Json] = {
             "model": request.model,
-            "messages": system + [m.model_dump() for m in request.messages],
+            "messages": system + request.joined(),
             "max_tokens": request.max_output_tokens,  # the field compatible servers all accept
         }
         if request.temperature is not None:

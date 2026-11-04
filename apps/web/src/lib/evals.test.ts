@@ -1,8 +1,13 @@
 import a2 from "@/test/fixtures/evals/results/A2/dev.json";
 
 import {
+  baseConfig,
   byConfigOrder,
+  chartPoints,
   estimate,
+  headlineRun,
+  secondJudge,
+  takeaway,
   evalRunSchema,
   formatInterval,
   formatLatency,
@@ -130,7 +135,44 @@ describe("groupMeans", () => {
   });
 });
 
+describe("headlineRun", () => {
+  it("leads with the configuration the site serves, then A2, then any judged run", () => {
+    const named = (config_name: string, judged = true) => ({ ...run, config_name, judged });
+    expect(headlineRun([named("A2"), named("A2-claude")])?.config_name).toBe("A2-claude");
+    expect(headlineRun([named("A0", false), named("A2")])?.config_name).toBe("A2");
+    expect(headlineRun([named("A0", false), named("LC")])?.config_name).toBe("LC");
+    expect(headlineRun([named("A0", false)])).toBeUndefined();
+  });
+});
+
+describe("secondJudge", () => {
+  it("reads the second judge's agreement per criterion", () => {
+    expect(secondJudge(run)).toEqual([
+      { criterion: "faithfulness", agreement: { value: 0.9, low: 0.699, high: 0.9721, n: 20 } },
+      { criterion: "correctness", agreement: { value: 0.85, low: 0.6396, high: 0.9476, n: 20 } },
+    ]);
+    expect(secondJudge({ ...run, summary: {} })).toEqual([]);
+  });
+});
+
 describe("byConfigOrder", () => {
+  it("puts each Claude twin right after its configuration, and a top_k variant after it", () => {
+    const names = ["LC-claude", "A2-claude-k16", "A2-claude", "LC", "A0", "A2"].map(
+      (config_name) => ({
+        ...run,
+        config_name,
+      }),
+    );
+    expect(names.sort(byConfigOrder).map((r) => r.config_name)).toEqual([
+      "A0",
+      "A2",
+      "A2-claude",
+      "A2-claude-k16",
+      "LC",
+      "LC-claude",
+    ]);
+  });
+
   it("follows the ablation plan, then names it does not know", () => {
     const names = ["LC", "Z9", "A2", "A0", "B1"].map((config_name) => ({ ...run, config_name }));
     expect(names.sort(byConfigOrder).map((r) => r.config_name)).toEqual([
@@ -140,5 +182,49 @@ describe("byConfigOrder", () => {
       "B1",
       "Z9",
     ]);
+  });
+});
+
+describe("chartPoints and takeaway", () => {
+  const point = (label: string, value: number, low: number, high: number) => ({
+    label,
+    value,
+    low,
+    high,
+    n: 20,
+  });
+
+  it("takes each run that measured the metric, in the runs' order", () => {
+    const retrievalOnly = { ...run, config_name: "LC", summary: {} };
+    expect(chartPoints([run, retrievalOnly], "recall@5").map((p) => p.label)).toEqual(["A2"]);
+  });
+
+  it("names the best and says when its interval clears the next one's", () => {
+    expect(takeaway([point("A0", 0.45, 0.33, 0.55), point("A2", 0.8, 0.7, 0.9)], "recall@5")).toBe(
+      "A2 scores highest, 0.80 (95% CI 0.70–0.90). Its interval clears A0's, the next best.",
+    );
+  });
+
+  it("says two overlapping intervals are not measurably apart", () => {
+    expect(
+      takeaway([point("A2", 0.8, 0.7, 0.9), point("LC", 0.75, 0.6, 0.85)], "correctness"),
+    ).toBe(
+      "A2 scores highest, 0.80 (95% CI 0.70–0.90). Its interval overlaps LC's, so the two are not measurably apart.",
+    );
+  });
+
+  it("ranks a metric where lower is better from the bottom", () => {
+    expect(
+      takeaway([point("A2", 0.2, 0.1, 0.3), point("LC", 0.05, 0.01, 0.15)], "false_abstention"),
+    ).toMatch(/^LC scores lowest, 0.05/);
+  });
+});
+
+describe("baseConfig", () => {
+  it("reads a configuration's base, its Claude twin and its top_k from the name", () => {
+    expect(baseConfig("A2")).toEqual({ base: "A2", claude: false, topK: null });
+    expect(baseConfig("A2-claude")).toEqual({ base: "A2", claude: true, topK: null });
+    expect(baseConfig("A2-claude-k16")).toEqual({ base: "A2", claude: true, topK: 16 });
+    expect(baseConfig("A2-llm")).toEqual({ base: "A2-llm", claude: false, topK: null });
   });
 });

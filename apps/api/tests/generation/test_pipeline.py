@@ -4,8 +4,11 @@ and late abstention, verification, errors, and the collected answer and trace.""
 import asyncio
 import json
 import secrets
+import threading
+import time
 from collections.abc import AsyncIterator, Sequence
 from datetime import date
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -41,7 +44,13 @@ from plumbline.generation.llm import (
     LLMResult,
     Usage,
 )
-from plumbline.generation.pipeline import THINKING_ROOM, UNREADABLE, Pipeline, reorder
+from plumbline.generation.pipeline import (
+    THINKING_ROOM,
+    UNREADABLE,
+    Pipeline,
+    marked_sources,
+    reorder,
+)
 from plumbline.observability.tracing import Tracer
 from plumbline.settings import ROOT
 
@@ -451,7 +460,10 @@ def test_the_long_context_baseline_reads_the_whole_law() -> None:
     assert law.calls == [([FLORIDA], date(2026, 1, 15))]
     request = model.requests[0]
     assert request.model == STRONG_MODEL
-    assert request.messages[0].content.count("<source n=") == len(HITS)  # all of it
+    # All of the law, first, as the cacheable prefix; the question after it, outside it.
+    assert request.prefix.count("<source n=") == len(HITS)
+    assert "<question>" not in request.prefix
+    assert request.messages[0].content.startswith("<question>")
     # The strong model thinks: low, with room beside the answer's own budget.
     assert request.thinking == "low"
     assert request.max_output_tokens == 1024 + THINKING_ROOM
@@ -487,3 +499,132 @@ def test_a_pipeline_needs_the_source_its_configuration_reads() -> None:
             indexed={FLORIDA},
             client=Model(""),
         )
+
+
+FORFEIT_QUOTE = "forfeits the right to impose a claim upon the security deposit"
+
+
+def test_markers_counted_as_footnotes_find_their_sources_by_chunk_id() -> None:
+    # Claude, given many sources, numbers its markers [1], [2] in the order it cites them:
+    # here [1] is source 2 ("forfeit") and [2] is source 1 ("return").
+    footnoted = reply(
+        answer="The landlord forfeits the claim [1] and must return the deposit [2].",
+        citations=[
+            {"n": 1, "chunk_id": "forfeit", "quote": FORFEIT_QUOTE, "gloss": None},
+            {"n": 2, "chunk_id": "return", "quote": QUOTE, "gloss": None},
+        ],
+    )
+    p = Pipeline(
+        lc_config(),
+        law=Law(),
+        detect=florida,
+        reranker=None,
+        indexed={FLORIDA},
+        client=Model(footnoted),
+    )
+    evs = events(p)
+    cited = [e for e in evs if isinstance(e, Citation)]
+    assert [(c.n, c.chunk_id, c.verified) for c in cited] == [
+        (1, "forfeit", True),
+        (2, "return", True),
+    ]
+    summary = evs[-2]
+    assert isinstance(summary, AnswerSummary)
+    assert summary.status is AnswerStatus.ANSWERED
+
+
+def test_marked_sources_keep_a_markers_first_chunk() -> None:
+    numbered = {i: hit.chunk for i, hit in enumerate(HITS, 1)}
+    cited = [
+        SimpleNamespace(n=1, chunk_id="forfeit"),
+        SimpleNamespace(n=1, chunk_id="return"),  # [1] reused for another chunk
+        SimpleNamespace(n=2, chunk_id="nowhere"),  # an id no source has
+    ]
+    marked = marked_sources(cited, numbered)  # type: ignore[arg-type]
+    assert {n: c.id for n, c in marked.items()} == {1: "forfeit"}
+
+
+class Stalling(Model):
+    """One shared client, as the API has: a question containing "stall" hangs in the
+    provider until released; every other question streams at once."""
+
+    def __init__(self, text: str) -> None:
+        super().__init__(text)
+        self.release = asyncio.Event()
+
+    async def stream(self, request: LLMRequest) -> AsyncIterator[str | LLMResult]:
+        if "stall" in request.messages[0].content:
+            await self.release.wait()
+        async for item in super().stream(request):
+            yield item
+
+
+class BlockingSearch(Search):
+    """A search that blocks its thread on "stall" questions, as a slow database would."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.release = threading.Event()
+
+    def search(self, question: str, *, k: int, **filters: Any) -> list[Retrieved]:
+        if "stall" in question:
+            self.release.wait(timeout=3)
+        return super().search(question, k=k, **filters)
+
+
+@pytest.mark.parametrize("slow", ["search", "model"])
+def test_a_stalled_answer_does_not_hold_up_another_readers(slow: str) -> None:
+    search, model = BlockingSearch(), Stalling(reply())
+    p = Pipeline(
+        config(rerank="none", threshold=None),
+        search=search,
+        detect=florida,
+        reranker=None,
+        indexed={FLORIDA},
+        client=model,
+    )
+    stalled = QUESTION.model_copy(update={"text": "Please stall: my deposit?", "request_id": "s"})
+
+    async def run() -> None:
+        start = time.monotonic()
+        hanging = asyncio.create_task(p.answer(stalled))
+        await asyncio.sleep(0.05)  # the stalled answer is now waiting in the search or model
+        if slow == "model":
+            search.release.set()
+        answer, _ = await asyncio.wait_for(p.answer(QUESTION), timeout=2)
+        assert answer.status is AnswerStatus.ANSWERED
+        # Measured from the start: a stall that blocked the event loop would delay this
+        # answer by the whole stall without tripping wait_for, which starts later.
+        assert time.monotonic() - start < 1
+        assert not hanging.done()  # still waiting, and nobody else waited for it
+        search.release.set()
+        model.release.set()
+        stalled_answer, _ = await asyncio.wait_for(hanging, timeout=2)
+        assert stalled_answer.status is AnswerStatus.ANSWERED
+
+    asyncio.run(run())
+
+
+class Refusing(Model):
+    """A provider that refuses every request, as one does when its key's limit is spent."""
+
+    async def stream(self, request: LLMRequest) -> AsyncIterator[str | LLMResult]:
+        raise PermissionError("the provider refused: spend limit reached")
+        yield  # pragma: no cover
+
+
+def test_a_provider_refusal_escapes_the_pipeline() -> None:
+    """The kill switch (#218) counts answers that end in '<ExceptionType> in the pipeline',
+    which the query log writes only for an exception that escapes the pipeline. A provider
+    error must therefore never be turned into a StreamError here, which the log would
+    record as one of the API's own refusals, invisible to the switch."""
+    p = Pipeline(
+        config(rerank="none", threshold=None),
+        search=Search(),
+        detect=florida,
+        reranker=None,
+        indexed={FLORIDA},
+        client=Refusing(reply()),
+    )
+    with pytest.raises(PermissionError, match="spend limit"):
+        events(p)

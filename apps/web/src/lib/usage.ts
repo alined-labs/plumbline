@@ -1,7 +1,7 @@
 import type { Schemas } from "@plumbline/ts-client";
 import { queryOptions, useQuery } from "@tanstack/react-query";
 
-import { api, ApiError, type ApiClient } from "./api";
+import { api, ApiError, WITH_COOKIE, type ApiClient } from "./api";
 import { formatClock, untilUtcMidnight } from "./dates";
 import { useDemoMode } from "./tier";
 
@@ -14,7 +14,7 @@ export function usageQuery(client: ApiClient = api) {
   return queryOptions({
     queryKey: ["usage"],
     queryFn: async ({ signal }) => {
-      const { data, response } = await client.GET("/api/usage", { signal });
+      const { data, response } = await client.GET("/api/usage", { signal, ...WITH_COOKIE });
       if (!data) throw new ApiError("/api/usage", response.status);
       return data;
     },

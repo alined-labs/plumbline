@@ -50,10 +50,20 @@ def test_production_refuses_to_start_on_a_stand_in() -> None:
         create_app(prod, lease_checker=StubLeaseChecker(delay_ms=0))
 
 
-def test_production_without_retrieval_answers_from_the_whole_law_and_pauses_leases() -> None:
-    app = create_app(_settings(environment="prod"))
+def test_production_searches_the_index_and_checks_leases() -> None:
+    assert answering.default_retrieval(_settings()) is None  # dev and test: the stand-ins
+    app = create_app(_settings(environment="prod"))  # builds engines, connects to nothing
+    assert app.state.retrieval is not None
     assert isinstance(app.state.pipeline, ServedPipeline)
-    assert isinstance(app.state.lease_checker, PausedLeaseChecker)
+    assert isinstance(app.state.lease_checker, answering.ClaudeLeaseChecker)
+
+
+def test_a_server_without_retrieval_pauses_leases() -> None:
+    checker = answering.default_lease_checker(
+        _settings(environment="prod"), None, MemorySpendMeter()
+    )
+    assert isinstance(checker, PausedLeaseChecker)
+    app = create_app(_settings(environment="prod"), lease_checker=checker)
     with TestClient(app) as client:
         response = client.post(
             "/api/check-lease", content=b"A lease.", headers={"content-type": "text/plain"}
@@ -187,3 +197,23 @@ async def test_lease_checks_run_on_claude_and_keep_the_tier_rule() -> None:
     assert route.model.startswith("claude-")
     with pytest.raises(RouteRefused):
         await checker.route(DemoTier.FREE)
+    await meter.add("gemini", 5.0)  # another provider's spend changes nothing
+    assert (await checker.route(DemoTier.FULL)).provider == "anthropic"
+    await meter.add("anthropic", 1.0)  # the default cap, spent
+    with pytest.raises(RouteRefused, match="budget for live answers is used up"):
+        await checker.route(DemoTier.FULL)
+
+
+@pytest.mark.anyio
+async def test_no_live_answer_once_claude_has_spent_its_daily_cap() -> None:
+    fake = _Fake()
+    meter = MemorySpendMeter()
+    pipeline = ServedPipeline(lambda: fake, answering.router_for(_settings(), meter))
+    await meter.add("anthropic", 0.99)
+    assert await _collect(pipeline, DemoTier.FULL) == [TextDelta(text="answered")]
+    await meter.add("anthropic", 0.01)
+    [refused] = await _collect(pipeline, DemoTier.FULL)
+    assert isinstance(refused, StreamError)
+    assert refused.message == answering.SPENT
+    assert not refused.retryable
+    assert fake.questions == 1

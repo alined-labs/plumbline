@@ -37,10 +37,11 @@ function events(...list: [string, object][]): string {
     .join("");
 }
 
+// As the API writes them: a count it does not have is null, not missing.
 const stages = [
-  ["stage", { stage: "uploaded" }],
-  ["stage", { stage: "redacting" }],
-  ["stage", { stage: "reading" }],
+  ["stage", { stage: "uploaded", done: null, total: null }],
+  ["stage", { stage: "redacting", done: null, total: null }],
+  ["stage", { stage: "reading", done: null, total: null }],
   ["stage", { stage: "checking", done: 0, total: 4 }],
 ] satisfies [string, object][];
 const checked = (n: number): [string, object] => [

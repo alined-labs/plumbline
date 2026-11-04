@@ -7,7 +7,9 @@ finding is caught when a flag lands on its clause and cites the article it viola
 matter, as in the retrieval metrics). Precision is the share of flags that catch a planted
 finding; recall the share of planted findings caught. A flag on a lawful lookalike is a
 false positive counted apart as well, since it is the error the leases were built to
-provoke. Notes and matches are not flags. Totals are pooled over the leases and carry their
+provoke. A planted finding flagged on its clause but citing another article is counted in
+`on_clause`, which separates a missed article (often retrieval's) from a missed clause.
+Notes and matches are not flags. Totals are pooled over the leases and carry their
 95% Wilson intervals: ten leases are a small test.
 """
 
@@ -36,6 +38,7 @@ class LeaseScore:
     lease_id: str
     planted: int
     caught: int
+    on_clause: int  # planted findings with a flag on their clause, whatever it cites
     flags: int
     true_flags: int
     lawful_flagged: int  # lookalikes flagged: false positives the lease was built to provoke
@@ -58,15 +61,18 @@ def score_lease(expected: ExpectedLease, findings: Sequence[Finding]) -> LeaseSc
     ]
     planted = [(clause_key(p.clause), p.violates.key) for p in expected.findings]
     caught = sum(any(c == clause and key in keys for c, keys in flags) for clause, key in planted)
+    flagged = {c for c, _ in flags}
+    on_clause = sum(clause in flagged for clause, _ in planted)
     true_flags = sum(
         any(c == clause and key in keys for clause, key in planted) for c, keys in flags
     )
     lawful_clauses = {clause_key(lawful.clause) for lawful in expected.lawful}
-    lawful_flagged = len(lawful_clauses & {c for c, _ in flags})
+    lawful_flagged = len(lawful_clauses & flagged)
     return LeaseScore(
         lease_id=expected.lease_id,
         planted=len(planted),
         caught=caught,
+        on_clause=on_clause,
         flags=len(flags),
         true_flags=true_flags,
         lawful_flagged=lawful_flagged,
