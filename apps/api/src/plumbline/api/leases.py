@@ -61,6 +61,12 @@ from plumbline.leases.checker import LeaseCheckError, LeaseDone, LeaseEvent, Lea
 from plumbline.leases.schema import Finding
 from plumbline.settings import ROOT
 
+JURISDICTION_NAMES: Final = {
+    Jurisdiction.DUBAI: "Dubai",
+    Jurisdiction.SPAIN: "Spain",
+    Jurisdiction.COLOMBIA: "Colombia",
+    Jurisdiction.FLORIDA: "Florida",
+}
 PING_S: Final = 15.0  # a comment this often keeps a quiet stream from being closed on the way
 MEGABYTE: Final = 1024 * 1024
 FORMS: Final = ("multipart/", "application/x-www-form-urlencoded")
@@ -95,6 +101,26 @@ class LeaseChecker(Protocol):
         """One clause, redacted, checked against the law it touches; None when that law does
         not address it. RedactionRefused when the text cannot be redacted."""
         ...
+
+    async def indexed(self) -> frozenset[Jurisdiction] | None:
+        """The jurisdictions whose law the checker can search; None when it does not limit."""
+        ...
+
+
+async def refuse_unindexed(checker: LeaseChecker, jurisdiction: Jurisdiction | None) -> None:
+    """A check against law the index does not hold would search nothing and report no
+    findings, which reads as a clean lease. Refuse it before reading a byte of the file."""
+    if jurisdiction is None:
+        return
+    indexed = await checker.indexed()
+    if indexed is not None and jurisdiction not in indexed:
+        name = JURISDICTION_NAMES[jurisdiction]
+        raise ApiError(
+            503,
+            "law_not_indexed",
+            f"Plumbline has not indexed {name}'s law yet, so it cannot check a lease under it."
+            " Please try again later.",
+        )
 
 
 router = APIRouter(prefix="/api/check-lease", tags=["leases"])
@@ -156,7 +182,8 @@ REQUEST_BODY: Final = {
             headers=RETRY_AFTER,
         ),
         503: _problem(
-            "`lease_checks_paused` (the demo tier does not run them) or `busy` (too many checks"
+            "`lease_checks_paused` (the demo tier does not run them), `law_not_indexed` (the"
+            " named jurisdiction's law is not in the index yet) or `busy` (too many checks"
             " are running; Retry-After gives the seconds).",
             headers=RETRY_AFTER,
         ),
@@ -178,6 +205,7 @@ async def start(
         route = await checker.route(await tier_store(request).current())
     except RouteRefused as exc:
         raise ApiError(503, "lease_checks_paused", str(exc)) from exc
+    await refuse_unindexed(checker, jurisdiction)
     quota: Quota = state.quota
     runs: Runs = state.runs
     visitor = await quota.visitor(request)
