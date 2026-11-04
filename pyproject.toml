@@ -6,7 +6,7 @@ members = ["apps/api", "packages/rag-eval"]
 
 [tool.uv]
 # Supply-chain guard: nothing published in the week before the lock was cut.
-exclude-newer = "2026-10-12T00:00:00Z"
+exclude-newer = "2026-10-28T00:00:00Z"
 required-version = ">=0.9"
 
 [dependency-groups]
