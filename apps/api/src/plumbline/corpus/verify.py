@@ -113,16 +113,29 @@ def quote_in(quote: str, text: str) -> bool:
 
 def _whole(piece: str, haystack: str, start: int) -> int:
     """Where `piece` first occurs in `haystack` from `start` with no letter or digit running
-    on at either end, or -1. An end of the piece that is not a word character needs no edge."""
+    on at either end, or -1. An end of the piece that is not a word character needs no edge.
+    A number runs on through a separator between two digits, so "1.000" is not found inside
+    "1.000.000", nor "artículo 9" inside "artículo 9.3"."""
     found = haystack.find(piece, start)
     while found >= 0:
         end = found + len(piece)
-        before = found == 0 or not (piece[0].isalnum() and haystack[found - 1].isalnum())
-        after = end == len(haystack) or not (piece[-1].isalnum() and haystack[end].isalnum())
-        if before and after:
+        if _edge(piece[0], haystack[found - 2 : found][::-1]) and _edge(
+            piece[-1], haystack[end : end + 2]
+        ):
             return found
         found = haystack.find(piece, found + 1)
     return -1
+
+
+def _edge(inner: str, outside: str) -> bool:
+    """Whether a match ends cleanly: `inner` is the piece's character at that end, `outside` the
+    next one or two characters of the haystack beyond it, nearest first."""
+    if not outside or not inner.isalnum():
+        return True
+    if outside[0].isalnum():
+        return False
+    # "9" then ".3": the separator joins two digits, so the number goes on.
+    return not (inner.isdigit() and outside[0] in ".,/" and outside[1:2].isdigit())
 
 
 def _source(item: GoldenItem, ref: ArticleRef, manifest: Manifest) -> Source:
