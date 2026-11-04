@@ -55,7 +55,7 @@ x-api: &api
 services:
   db:
     <<: *service
-    image: paradedb/paradedb:v0.26.2-pg18@sha256:c552094b6b68dcb0a4e7a3969963d801eaec02490db4d2dd032dcb096bc86cf8
+    image: paradedb/paradedb:v0.26.3-pg18@sha256:9b15fc383bcd771f1e32e222bd1603c4c29856c481f6bd06f1960e89608c02f0
     environment:
       POSTGRES_USER: plumbline
       POSTGRES_DB: plumbline
