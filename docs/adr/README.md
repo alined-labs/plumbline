@@ -11,7 +11,8 @@ One file per decision, numbered, never rewritten: a reversal is a new record tha
 | [0005](0005-the-reranker.md) | Rerank offline only with bge-reranker-v2-m3, at 10 candidates; nothing reranks online | proposed |
 | [0006](0006-thin-orchestration.md) | Thin orchestration over the provider SDKs, with no LangChain in the core path | proposed |
 | [0007](0007-routing-and-spend-caps.md) | Route each request by a rule, under the demo tier and daily spend caps | proposed |
+| [0009](0009-a-binary-judge-validated-on-constructed-labels.md) | A binary judge, validated on constructed labels before any person labels | proposed |
 | [0011](0011-security-controls.md) | Bound exposure and spend with a tunnel, root-only secrets, redaction and a spend-driven kill switch | proposed |
 | [0013](0013-serve-on-claude.md) | Serve every live answer and lease check on Claude Sonnet, through the evaluated configuration (replaces part of 0007) | proposed |
 
-Planned, written when their evidence exists: 0008 the CI evaluation gate; 0009 the judge and its calibration; 0010 the retrieval configuration; 0012 what was not built, and why.
+Planned, written when their evidence exists: 0008 the CI evaluation gate; 0010 the retrieval configuration; 0012 what was not built, and why.
