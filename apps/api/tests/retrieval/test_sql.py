@@ -196,6 +196,8 @@ def test_hybrid_is_rrf_of_its_two_legs_in_one_statement(sessions: sessionmaker[S
     ("day", "expected"),
     [
         (date(1999, 6, 1), ["plazo original"]),
+        (date(2001, 1, 7), ["plazo original"]),  # its last day
+        (date(2001, 1, 8), []),  # effective_to is exclusive: the repeal applies
         (date(2010, 1, 1), []),  # repealed: nothing answers
         (date(2026, 10, 1), ["plazo reformado"]),
         (None, ["plazo reformado"]),  # no date: the law as it stands today
@@ -266,3 +268,23 @@ def test_a_configuration_that_retrieves_nothing_is_refused(
         Retriever(lc, sessions, Embedder())
     with pytest.raises(ValueError, match="embedder"):
         Retriever(A2, sessions, None)
+
+
+@pytest.mark.parametrize("mode", ["dense", "bm25", "hybrid"])
+def test_row_level_security_holds_through_every_search(
+    sessions: sessionmaker[Session], mode: str
+) -> None:
+    # The fixture's rows belong to TENANT; searched as the public tenant, none comes back.
+    config = A2.model_copy(update={"retrieval": A2.retrieval.model_copy(update={"mode": mode})})
+    public = Retriever(config, sessions, Embedder(), today=lambda: TODAY)
+    assert public.search("landlord deposit rent", k=5, jurisdictions=None, as_of=None) == []
+    own = Retriever(config, sessions, Embedder(), tenant_id=TENANT, today=lambda: TODAY)
+    assert own.search("landlord deposit rent", k=5, jurisdictions=None, as_of=None)
+
+
+def test_a_configuration_that_rewrites_needs_the_rewrite(sessions: sessionmaker[Session]) -> None:
+    retrieval = A2.retrieval.model_copy(update={"cross_lingual_rewrite": True})
+    config = A2.model_copy(update={"retrieval": retrieval})
+    with pytest.raises(ValueError, match="spanish="):
+        Retriever(config, sessions, Embedder())
+    Retriever(config, sessions, Embedder(), spanish=lambda q: q)
