@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from collections import Counter
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from datetime import date
@@ -28,7 +27,8 @@ from plumbline.core.types import ParsedDocument, ProvisionStatus
 # genders, then the cardinals the LPH uses from ten on.
 _ORDINALS = (
     "primer", "segund", "tercer", "cuart", "quint", "sext", "séptim", "octav", "noven",
-    "décim", "undécim", "duodécim",
+    "décim", "undécim", "duodécim", "decimotercer", "decimocuart", "decimoquint",
+    "decimosext", "decimoséptim", "decimoctav", "decimonoven", "vigésim",
 )  # fmt: skip
 _CARDINALS = (
     "diez", "once", "doce", "trece", "catorce", "quince", "dieciséis", "diecisiete",
@@ -53,7 +53,15 @@ MONTHS = (
     "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
     "septiembre", "octubre", "noviembre", "diciembre",
 )  # fmt: skip
-WITH_EFFECT = re.compile(r"con efectos de (\d{1,2}) de (" + "|".join(MONTHS) + r") de (\d{4})")
+_DAY = r"(\d{1,2}) de (" + "|".join(MONTHS) + r") de (\d{4})"
+WITH_EFFECT = re.compile(r"con efectos de " + _DAY)
+# A later wording the BOE quotes but has not consolidated yet: the current one ends then.
+FUTURE = re.compile(r"^Téngase en cuenta que, con efectos de " + _DAY + r", se modifica")
+# A renumbered disposición: "Anteriormente era la disposición adicional."
+FORMERLY = re.compile(
+    r"^Anteriormente era la disposición (?P<kind>adicional|transitoria|derogatoria|final)"
+    r"(?: (?P<ord>\w+))?\.?$"
+)
 # Dubai: the title line of a law or decree that a source reproduces ("Decree No. (43) of
 # 2013", "Law No. (33) of 2008 Amending").
 LAW_TITLE = re.compile(r"^(Law|Decree) No\. ?\((\d+)\) of (\d{4})\b")
@@ -74,17 +82,21 @@ class Version:
     effective: date | None = None
     dated_by: str = "boe"  # "boe", "note" or "published": where `effective` came from
 
-    def date_from(self, notes: Sequence[str]) -> None:
+    def date_from(self, own_notes: Sequence[str]) -> None:
+        """Date an undated version from the notes it adds (the BOE repeats every older
+        note under each newer version, so an old "con efectos de" would date it years
+        early), and never before it was published."""
+        published = date.fromisoformat(self.published)
         found = [
-            date(int(year), MONTHS.index(month) + 1, int(day))
-            for note in notes
+            _day(*groups)
+            for note in own_notes
             if note.startswith("Se ")
-            for day, month, year in WITH_EFFECT.findall(note)
+            for groups in WITH_EFFECT.findall(note)
         ]
         if found:
-            self.effective, self.dated_by = min(found), "note"
+            self.effective, self.dated_by = max(min(found), published), "note"
         else:
-            self.effective, self.dated_by = date.fromisoformat(self.published), "published"
+            self.effective, self.dated_by = published, "published"
 
 
 @dataclass
@@ -181,6 +193,10 @@ def parse_articles(doc: ParsedDocument) -> list[Article]:
     for page in doc.pages:
         for raw in page.markdown.splitlines():
             if marker := VERSION.match(raw.strip()):
+                if version is not None:
+                    raise ValueError(
+                        f"{doc.source_id}: version of {version.block} opens no article"
+                    )
                 version = Version(marker["block"], marker["norm"], marker["published"])
                 version.effective = _iso(marker["effective"])
                 continue
@@ -203,6 +219,11 @@ def parse_articles(doc: ParsedDocument) -> list[Article]:
             match = None
             if version is not None or not profile.versioned:
                 match = next((m for p in profile.articles if (m := p.match(line))), None)
+            if match is None and raw.lstrip().startswith("#"):
+                # Dubai: docling sometimes writes the heading and the article on one
+                # heading line ("## Lease Contract Article (4)"). Only a Markdown heading
+                # may: a body sentence ending "... in Article (9)" opens nothing.
+                match = next((m for p in profile.heading_articles if (m := p.match(line))), None)
             if match is None:
                 if version is not None:
                     raise ValueError(
@@ -221,16 +242,22 @@ def parse_articles(doc: ParsedDocument) -> list[Article]:
             article = _open(match, profile, divisions, page.number)
             article.version, version = version, None
             above = current.body if current else loose
+            fresh = False  # the article has a heading of its own, not one carried over
             if profile.heading_before:
-                if above and _looks_like_heading(above[-1], profile):
-                    heading = above.pop()
+                if match.groupdict().get("heading"):
+                    heading, fresh = match["heading"], True
+                elif above and _looks_like_heading(above[-1], profile):
+                    heading, fresh = above.pop(), True
                     article.opening = f"{heading}\n{article.opening}"
                 article.heading = heading
             if profile.reproduces_laws:
                 number = int(article.article)
                 # The first article, or the numbering restarts: maybe another law begins.
                 if not articles or number <= last:
-                    law = _next_law(above, doc.law, law)
+                    before, law = law, _next_law(above, doc.law, law)
+                    if law != before and not fresh:
+                        # A heading never carries from one law into the next.
+                        heading = article.heading = None
                 last = number
                 if law:
                     article.article, article.name = f"{law} art. {number}", f"{law}, {article.name}"
@@ -272,30 +299,76 @@ def _next_law(lines: list[str], own_law: str, law: str | None) -> str | None:
 def _number_repeats(articles: Sequence[Article]) -> None:
     """Dubai: a number the same law uses twice keeps it the first time and carries its
     occurrence after: Law No. (33) of 2008 restates the old Article (2) and closes with
-    an Article (2) of its own, which becomes "2 #2"."""
-    seen: Counter[str] = Counter()
+    an Article (2) of its own, which becomes "2 #2". A repeat with the same text as an
+    earlier occurrence is a page parsed twice, not a second article: it keeps its number,
+    so the chunker's duplicate guard refuses it."""
+    seen: dict[str, list[list[str]]] = {}
     for article in articles:
-        seen[article.article] += 1
-        if (n := seen[article.article]) > 1:
+        bodies = seen.setdefault(article.article, [])
+        if bodies and article.body not in bodies:
+            n = len(bodies) + 1
+            bodies.append(article.body)
             article.article, article.name = f"{article.article} #{n}", f"{article.name} #{n}"
+        elif not bodies:
+            bodies.append(article.body)
 
 
 def _close_versions(articles: list[Article]) -> list[Article]:
     """Spain: date each version, and end it when the next version of its block takes
-    effect (versions arrive oldest first). A version that the next one replaced on the
-    day it took effect never applied, and is dropped."""
+    effect (versions arrive oldest first). The last version of a block ends early in two
+    cases the notes state: a later wording the BOE quotes but has not consolidated yet
+    ("Téngase en cuenta que, con efectos de 15 de noviembre de 2026, se modifica"), and a
+    disposición renumbered into a new block ("Anteriormente era la disposición
+    adicional"), which ends the old block's text where the new one begins."""
+    before: dict[str, set[str]] = {}  # the notes each block's previous version carried
     for article in articles:
-        if article.version and article.version.effective is None:
-            article.version.date_from(article.notes)
+        if not article.version:
+            continue
+        older = before.get(article.version.block, set())
+        if article.version.effective is None:
+            article.version.date_from([n for n in article.notes if n not in older])
+        before[article.version.block] = set(article.notes)
     kept: list[Article] = []
     for article, after in zip(articles, [*articles[1:], None], strict=True):
         this, following = article.version, after.version if after else None
         if this and following and following.block == this.block:
-            if this.effective and following.effective and following.effective <= this.effective:
+            start, end = this.effective, following.effective  # both dated above
+            if start and end and end <= start:
+                # Replaced the day it took effect: it never applied. Only the BOE's own
+                # dates may say so; a date read from a note that lands here is wrong.
+                if not this.dated_by == following.dated_by == "boe":
+                    raise ValueError(f"version {this.norm} of {this.block} ends before it began")
                 continue
             article.effective_to = following.effective
+        elif this and this.effective:
+            future = [_day(*m.groups()) for n in article.notes if (m := FUTURE.match(n))]
+            if ends := [d for d in future if d > this.effective]:
+                article.effective_to = min(ends)
         kept.append(article)
+    _close_renumbered(kept)
     return kept
+
+
+def _close_renumbered(articles: Sequence[Article]) -> None:
+    for article in articles:
+        found = next((m for n in article.notes if (m := FORMERLY.match(n))), None)
+        if found is None or article.effective_from is None:
+            continue
+        ordinal = (found["ord"] or "única").lower()
+        old = f"D{found['kind'][0].upper()} {NUMBER_WORDS.get(ordinal, ordinal)}"
+        for earlier in articles:
+            start = earlier.effective_from
+            if (
+                earlier.article == old
+                and earlier.effective_to is None
+                and start is not None
+                and start < article.effective_from
+            ):
+                earlier.effective_to = article.effective_from
+
+
+def _day(day: str, month: str, year: str) -> date:
+    return date(int(year), MONTHS.index(month) + 1, int(day))
 
 
 def numbering(line: str, levels: Sequence[re.Pattern[str]]) -> list[tuple[int, str]]:

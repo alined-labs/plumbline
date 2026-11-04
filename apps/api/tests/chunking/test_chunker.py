@@ -11,7 +11,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from plumbline.chunking.articles import numbering, parse_articles
-from plumbline.chunking.chunker import chunk_document
+from plumbline.chunking.chunker import as_it_stands, chunk_document
 from plumbline.chunking.profiles import PROFILES
 from plumbline.chunking.text import TOKEN, Headers, clean_line, count_tokens, search_text
 from plumbline.core.config import ChunkerConfig
@@ -131,7 +131,9 @@ def test_spain_dates_a_version_the_boe_left_undated_from_its_note() -> None:
     # The BOE gives art. 10's current version no date; its note says "Se modifica, con
     # efectos de 8 de octubre de 2026, ..., y se modifica, con efectos de 15 de noviembre".
     article = parent(chunks("spain"), "10")
-    assert (article.effective_from, article.effective_to) == (date(2026, 10, 8), None)
+    # It ends where the wording RDL 28/2026 sets from 15 November begins: that wording is
+    # only quoted in a note, so from that day nothing is served rather than old law.
+    assert (article.effective_from, article.effective_to) == (date(2026, 10, 8), date(2026, 11, 15))
     assert article.metadata["effective_dated_by"] == "note"
     # RDL 28/2026's wording, quoted in a note for 15 November, is not law text yet.
     assert "incluidas las voluntarias" not in article.text
@@ -338,7 +340,7 @@ def test_fixed_windows_cover_the_same_text_without_loss(name: str) -> None:
     windows = chunks(name, ChunkerConfig(kind="fixed", max_tokens=300, merge_parent=False))
     assert all(count_tokens(w.text) <= 300 for w in windows)
     # Without overlap, every token of the articles' openings and bodies is in one window.
-    articles = parse_articles(document(name))
+    _, articles = as_it_stands(parse_articles(document(name)))
     total = sum(count_tokens("\n".join([a.opening, *a.body])) for a in articles)
     assert sum(count_tokens(w.text) for w in windows) == total
     for window in windows:
@@ -353,14 +355,16 @@ def test_fixed_windows_overlap_and_name_their_majority_article() -> None:
     assert TOKEN.findall(windows[0].text)[-100:] == TOKEN.findall(windows[1].text)[:100]
 
 
-def test_fixed_windows_never_span_two_validity_periods() -> None:
+def test_fixed_windows_read_the_law_as_it_stands() -> None:
+    # A0 knows one text: each article's version in force on the source's latest date
+    # (2026-10-08 in the excerpt), in undated windows of the full size.
     config = ChunkerConfig(kind="fixed", max_tokens=800, merge_parent=False)
     windows = chunks("spain", config)
-    by_article = [w for w in windows if w.metadata["articles"] == "9"]
-    assert [w.effective_from for w in by_article][:2] == [date(2019, 3, 6), date(2026, 10, 1)]
+    assert {w.metadata["as_it_stands_on"] for w in windows} == {"2026-10-08"}
+    assert all(w.effective_from is None and w.effective_to is None for w in windows)
+    assert {w.metadata["version_norm"] for w in windows if w.article == "9"} == {"BOE-A-2026-20823"}
+    assert all(count_tokens(w.text) == 800 for w in windows[:-1])
     assert len({w.id for w in windows}) == len(windows)
-    for window in windows:
-        assert window.metadata["version_block"] in {"a9", "a9-2", "a10", "a38", "dtprimera"}
 
 
 def test_ids_are_stable_and_follow_the_text() -> None:
@@ -404,3 +408,66 @@ def test_tokens_lines_and_markers() -> None:
     florida = PROFILES[Jurisdiction.FLORIDA].levels
     assert numbering("(1)(a) In an action", florida) == [(0, "(1)"), (1, "(a)")]
     assert numbering("1.5 percent of the rent", florida) == []
+
+
+def test_dubai_a_heading_and_its_article_on_one_heading_line() -> None:
+    # Docling writes some headings with their article: "## Lease Contract Article (4)".
+    markdown = """## Title Article (1)
+An invented title article.
+## Lease Contract Article (4)
+1. An invented clause that cites the rule in Article (9)
+## Article (5)
+An invented article under the same heading."""
+    found = parse_articles(dubai(markdown, "dubai-law-26-2007"))
+    assert [(a.article, a.heading) for a in found] == [
+        ("1", "Title"),
+        ("4", "Lease Contract"),
+        ("5", "Lease Contract"),
+    ]
+    assert found[1].body == ["1. An invented clause that cites the rule in Article (9)"]
+
+
+def test_dubai_a_page_parsed_twice_is_still_an_error() -> None:
+    doc = dubai(GUIDE, "dubai-dld-tenancy-guide")
+    twice = doc.model_copy(
+        update={"pages": [doc.pages[0], doc.pages[0].model_copy(update={"number": 2})]}
+    )
+    with pytest.raises(ValueError, match="share an id"):
+        chunk_document(twice, ARTICLE, law_name="DLD Tenancy Guide")
+
+
+def test_spain_a_version_is_dated_by_the_notes_it_adds_never_before_publication() -> None:
+    # The second version repeats the first one's note (the BOE's notes are cumulative):
+    # that old "con efectos de" must not date it to 2019.
+    markdown = """<!-- plumbline:version block=a90 norm=A published=2019-03-01 effective= -->
+##### Artículo 90. Invented.
+Invented first wording.
+> Se modifica, con efectos de 6 de marzo de 2019, por una norma inventada.
+<!-- plumbline:version block=a90 norm=B published=2026-10-07 effective= -->
+##### Artículo 90. Invented.
+Invented second wording.
+> Se modifica por otra norma inventada.
+> Se modifica, con efectos de 6 de marzo de 2019, por una norma inventada.
+<!-- plumbline:version block=da-2 norm=C published=2025-01-03 effective=2025-04-03 -->
+##### Disposición adicional decimotercera.
+Invented renumbered text.
+> Anteriormente era la disposición adicional.
+<!-- plumbline:version block=da norm=D published=2013-06-27 effective=2013-06-28 -->
+##### Disposición adicional.
+Invented old text."""
+    found = parse_articles(spanish(markdown))
+    assert [(a.article, a.effective_from, a.effective_to) for a in found] == [
+        ("90", date(2019, 3, 6), date(2026, 10, 7)),
+        ("90", date(2026, 10, 7), None),  # its own note has no date: its publication
+        ("DA 13", date(2025, 4, 3), None),
+        ("DA única", date(2013, 6, 28), date(2025, 4, 3)),  # renumbered as DA 13
+    ]
+
+
+def test_spain_a_marker_with_no_article_after_it_is_an_error() -> None:
+    markdown = """<!-- plumbline:version block=a1 norm=A published=1960-07-23 effective=1960-08-12 -->
+<!-- plumbline:version block=a1 norm=B published=1999-04-08 effective=1999-04-28 -->
+##### Artículo primero.
+Invented body."""
+    with pytest.raises(ValueError, match="opens no article"):
+        parse_articles(spanish(markdown))
