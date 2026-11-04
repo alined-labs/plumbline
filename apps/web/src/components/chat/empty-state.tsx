@@ -1,6 +1,7 @@
 import type { Jurisdiction } from "@plumbline/ts-client";
 
 import { CodeBadge } from "@/components/ui/badge";
+import { isIndexed, UNINDEXED } from "@/lib/coverage";
 import { jurisdictionInfo } from "@/lib/jurisdictions";
 
 const EXAMPLES: { jurisdiction: Jurisdiction; question: string }[] = [
@@ -23,18 +24,25 @@ const EXAMPLES: { jurisdiction: Jurisdiction; question: string }[] = [
  * sentence, and one example per jurisdiction; choosing one asks it in that jurisdiction. */
 export function EmptyState({
   onExample,
+  unindexed = UNINDEXED,
 }: {
   onExample: (question: string, jurisdiction: Jurisdiction) => void;
+  /** Jurisdictions the live site has not indexed yet: no example is offered for them. */
+  unindexed?: readonly Jurisdiction[];
 }) {
+  const examples = EXAMPLES.filter(({ jurisdiction }) => isIndexed(jurisdiction, unindexed));
+  const pending = unindexed.map((id) => jurisdictionInfo(id).name);
   return (
     <div className="flex flex-col items-center gap-4 text-center">
       <h2 className="text-heading-1">What do you want to know about your lease?</h2>
       <p className="text-body text-fg-muted">
         Plumbline answers from the tenancy statutes of Dubai, Spain, Colombia and Florida, and cites
         the passage behind every claim.
+        {pending.length > 0 &&
+          ` ${pending.join(" and ")}'s statutes join shortly; until then Plumbline declines questions on ${pending.length > 1 ? "them" : "it"}.`}
       </p>
       <ul aria-label="Example questions" className="grid w-full gap-2 text-left sm:grid-cols-2">
-        {EXAMPLES.map(({ jurisdiction, question }) => (
+        {examples.map(({ jurisdiction, question }) => (
           <li key={jurisdiction}>
             <button
               type="button"
