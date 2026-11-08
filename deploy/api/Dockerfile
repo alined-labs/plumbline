@@ -30,11 +30,15 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     --mount=type=bind,source=apps/api/pyproject.toml,target=apps/api/pyproject.toml \
     --mount=type=bind,source=packages/rag-eval/pyproject.toml,target=packages/rag-eval/pyproject.toml \
+    --mount=type=bind,source=packages/mcp-server/pyproject.toml,target=packages/mcp-server/pyproject.toml \
     uv sync --frozen --no-dev --no-install-workspace --package plumbline
 COPY pyproject.toml uv.lock ./
 COPY apps/api/pyproject.toml apps/api/
 COPY apps/api/src apps/api/src
 COPY packages/rag-eval packages/rag-eval
+# The MCP server is a workspace member the lock lists, so uv must see its pyproject; the
+# image installs none of it.
+COPY packages/mcp-server/pyproject.toml packages/mcp-server/
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-dev --no-editable --package plumbline
 

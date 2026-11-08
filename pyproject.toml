@@ -1,8 +1,9 @@
-# The uv workspace: the API and pipeline (apps/api, package "plumbline") and the evaluation
-# harness (packages/rag-eval, published as "rag-eval"). Frozen: change it after a brain block.
+# The uv workspace: the API and pipeline (apps/api, package "plumbline"), the evaluation
+# harness (packages/rag-eval, published as "rag-eval") and the MCP server (packages/mcp-server,
+# published as "plumbline-mcp"). Frozen: change it after a brain block.
 
 [tool.uv.workspace]
-members = ["apps/api", "packages/rag-eval"]
+members = ["apps/api", "packages/rag-eval", "packages/mcp-server"]
 
 [tool.uv]
 # Supply-chain guard: nothing published in the week before the lock was cut.
@@ -32,14 +33,14 @@ ignore = ["E501", "N818", "RUF001", "RUF002", "RUF003"]
 "apps/api/migrations/**" = ["N999"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["plumbline", "rag_eval"]
+known-first-party = ["plumbline", "rag_eval", "plumbline_mcp"]
 
 [tool.mypy]
 strict = true
 python_version = "3.12"
 plugins = ["pydantic.mypy"]
-mypy_path = ["apps/api/src", "packages/rag-eval/src"]
-packages = ["plumbline", "rag_eval"]
+mypy_path = ["apps/api/src", "packages/rag-eval/src", "packages/mcp-server/src"]
+packages = ["plumbline", "rag_eval", "plumbline_mcp"]
 warn_unreachable = true
 
 [[tool.mypy.overrides]]
@@ -52,7 +53,7 @@ init_typed = true
 warn_required_dynamic_aliases = true
 
 [tool.pytest.ini_options]
-testpaths = ["apps/api/tests", "packages/rag-eval/tests"]
+testpaths = ["apps/api/tests", "packages/rag-eval/tests", "packages/mcp-server/tests"]
 addopts = ["-q", "--import-mode=importlib", "-m", "not live", "--strict-markers", "-p", "no:deepeval"]
 markers = [
   "db: needs the local Postgres; skipped when unreachable unless PLUMBLINE_REQUIRE_DB=1",

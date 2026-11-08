@@ -12,6 +12,7 @@
 !packages/rag-eval/README.md
 !packages/rag-eval/LICENSE
 !packages/rag-eval/src/
+!packages/mcp-server/pyproject.toml
 !evals/configs/
 **/__pycache__/
 **/*.py[cod]
