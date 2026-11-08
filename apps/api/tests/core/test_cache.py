@@ -100,3 +100,36 @@ async def test_acall_records_and_replays(tmp_path: Path) -> None:
         await ResponseCache(CacheMode.RECORD, tmp_path).acall("llm", REQUEST, fn)
     ).response == "async"
     assert (await ResponseCache(CacheMode.REPLAY, tmp_path).acall("llm", REQUEST, fn)).cached
+
+
+def _ask(n: int) -> dict[str, Any]:
+    return {"model": "m-1", "prompt": f"question {n}"}
+
+
+def test_memory_keeps_only_the_most_recently_used(tmp_path: Path) -> None:
+    calls: list[int] = []
+    cache = ResponseCache(CacheMode.LIVE, tmp_path, memory_entries=2)
+
+    def answer(n: int) -> Fresh:
+        calls.append(n)
+        return Fresh(response=f"answer {n}")
+
+    for n in (1, 2):
+        cache.call("llm", _ask(n), lambda n=n: answer(n))
+    assert cache.call("llm", _ask(1), lambda: answer(99)).cached  # 1 is now the most recent
+    cache.call("llm", _ask(3), lambda: answer(3))  # evicts 2, the least recently used
+    assert cache.call("llm", _ask(1), lambda: answer(99)).cached
+    again = cache.call("llm", _ask(2), lambda: answer(2))
+    assert not again.cached  # live mode keeps nothing on disk: an evicted request calls again
+    assert calls == [1, 2, 3, 2]
+
+
+def test_an_evicted_recording_is_read_from_disk_again(tmp_path: Path) -> None:
+    recorder = ResponseCache(CacheMode.RECORD, tmp_path, memory_entries=1)
+    for n in (1, 2):
+        recorder.call("llm", _ask(n), lambda n=n: Fresh(response=f"answer {n}"))
+    replay = ResponseCache(CacheMode.REPLAY, tmp_path, memory_entries=1)
+    for n in (1, 2, 1):  # each read evicts the other; both still replay from disk
+        assert replay.call("llm", _ask(n), lambda: Fresh(response="never")).response == (
+            f"answer {n}"
+        )
