@@ -11,12 +11,14 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 ConfigName = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$")]
+# The retrieval score an abstention threshold reads (core.types.RetrievalScores).
+AbstainScore = Literal["rerank", "dense"]
 
 
 class _Frozen(BaseModel):
@@ -50,7 +52,12 @@ class GenerationConfig(_Frozen):
     long_context: bool = False  # the whole relevant law in one call, no retrieval
     temperature: float = Field(default=0.0, ge=0, le=2)
     max_output_tokens: int = Field(default=1024, ge=64, le=8192)
-    abstain_threshold: float | None = None  # top rerank score below which the answer abstains
+    abstain_threshold: float | None = None  # the top score below which the answer abstains
+    # Which score the threshold reads: the reranker's where a configuration reranks (offline
+    # only, ADR-0005), else the top dense similarity. Not RRF: it is a function of ranks
+    # alone (2/61 whenever a passage leads both lists, relevant or not), so it cannot say
+    # that nothing is close enough. Nor BM25, whose scores do not compare across queries.
+    abstain_score: AbstainScore = "rerank"
 
 
 class EvalConfig(_Frozen):
@@ -60,6 +67,25 @@ class EvalConfig(_Frozen):
     retrieval: RetrievalConfig
     generation: GenerationConfig = Field(default_factory=GenerationConfig)
     judged: bool = False  # run the judge on generation (costs money); retrieval metrics always run
+
+    @model_validator(mode="after")
+    def _threshold_has_its_score(self) -> Self:
+        """A threshold on a score the configuration never produces would never fire."""
+        generation, retrieval = self.generation, self.retrieval
+        if generation.abstain_threshold is None:
+            return self
+        if generation.abstain_score == "rerank" and retrieval.rerank == "none":
+            raise ValueError(
+                f"{self.name}: abstain_threshold reads the rerank score, but nothing reranks; "
+                "name the score it reads with abstain_score"
+            )
+        dense = retrieval.mode in ("dense", "hybrid") and not generation.long_context
+        if generation.abstain_score == "dense" and not dense:
+            raise ValueError(
+                f"{self.name}: abstain_threshold reads the dense score, but this "
+                "configuration searches no dense index"
+            )
+        return self
 
     def config_hash(self) -> str:
         behaviour = self.model_dump(mode="json", exclude={"name", "description", "judged"})
