@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { LeaseCheck } from "@/components/lease/lease-check";
+import { isIndexed } from "@/lib/coverage";
 import { LEASE_UPLOADS } from "@/lib/sample-leases";
 import { loadSampleLeases } from "@/lib/sample-leases-files";
 
@@ -11,7 +12,11 @@ export const metadata: Metadata = {
 };
 
 export default function CheckLeasePage() {
-  const samples = LEASE_UPLOADS ? undefined : loadSampleLeases();
+  // Only the invented leases whose law the live site has indexed: a check against a law it has
+  // not would come back with no findings, wrongly.
+  const samples = LEASE_UPLOADS
+    ? undefined
+    : loadSampleLeases().filter((lease) => isIndexed(lease.jurisdiction.id));
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-2">

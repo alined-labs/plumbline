@@ -492,7 +492,8 @@ function CostTable({ runs }: { runs: EvalRun[] }) {
 
 /** The evaluation page: the headline configuration's numbers, every configuration with its
  * intervals, the jurisdictions (descriptive), the judge's own accuracy, the CI gate and what
- * it all costs. Each section waits quietly for its file. */
+ * it all costs. Each section waits quietly for its file: with no run published yet (the judge's
+ * calibration alone, evals/calibration/agreement.json), the run-based sections say so. */
 export function EvalsView({ data }: { data: EvalsData }) {
   const { runs, agreement, thresholds } = data;
   const headline = headlineRun(runs);
@@ -508,13 +509,20 @@ export function EvalsView({ data }: { data: EvalsData }) {
           How often Plumbline finds the right article, cites it, answers correctly and declines when
           it should, measured on a public set of tenancy questions.
         </p>
-        <p className="text-fg-muted">
-          These are results on the development split
-          {questions > 0 && <> of {questions} questions</>}
-          {latest && <>, run on {formatDate(latest)}</>}. The held-out test split is run once, for
-          the release. Every score carries its 95% interval: a Wilson interval for a share of
-          questions, a bootstrap over questions for a mean.
-        </p>
+        {runs.length === 0 ? (
+          <p className="text-fg-muted">
+            No run is published yet. The results on the development split appear here after the
+            first one; until then this page reports how far the judge can be trusted.
+          </p>
+        ) : (
+          <p className="text-fg-muted">
+            These are results on the development split
+            {questions > 0 && <> of {questions} questions</>}
+            {latest && <>, run on {formatDate(latest)}</>}. The held-out test split is run once, for
+            the release. Every score carries its 95% interval: a Wilson interval for a share of
+            questions, a bootstrap over questions for a mean.
+          </p>
+        )}
       </header>
 
       {headline && (
@@ -527,30 +535,40 @@ export function EvalsView({ data }: { data: EvalsData }) {
       )}
 
       <Section id="configurations" title="Every configuration">
-        <p className="text-fg-muted">
-          From A0 to A6 each configuration adds one thing to the one before it, so the difference
-          between two neighbouring rows is that change&apos;s effect, within the intervals shown. LC
-          is the long-context baseline: no search, the whole law in one prompt.
-        </p>
-        <h3 className="text-heading-3">Finding the right article</h3>
-        <MetricChart runs={runs} metric="recall@5" threshold={thresholds["recall@5"]} />
-        <MetricsTable label="Retrieval" runs={runs} metrics={RETRIEVAL_METRICS} />
-        <h3 className="text-heading-3">Answering</h3>
-        <MetricChart
-          runs={runs.filter((run) => run.judged)}
-          metric="correctness"
-          threshold={thresholds.correctness}
-        />
-        <MetricsTable
-          label="Answers"
-          runs={runs.filter((run) => run.judged)}
-          metrics={ANSWER_METRICS}
-        />
-        {runs
-          .filter((run) => run.judged)
-          .map((run) => (
-            <SecondJudge key={run.run_id} run={run} />
-          ))}
+        {runs.length === 0 ? (
+          <p className="text-fg-muted">
+            Each configuration&apos;s scores, with their intervals, appear here after the first
+            published run.
+          </p>
+        ) : (
+          <>
+            <p className="text-fg-muted">
+              From A0 to A6 each configuration adds one thing to the one before it, so the
+              difference between two neighbouring rows is that change&apos;s effect, within the
+              intervals shown. LC is the long-context baseline: no search, the whole law in one
+              prompt.
+            </p>
+            <h3 className="text-heading-3">Finding the right article</h3>
+            <MetricChart runs={runs} metric="recall@5" threshold={thresholds["recall@5"]} />
+            <MetricsTable label="Retrieval" runs={runs} metrics={RETRIEVAL_METRICS} />
+            <h3 className="text-heading-3">Answering</h3>
+            <MetricChart
+              runs={runs.filter((run) => run.judged)}
+              metric="correctness"
+              threshold={thresholds.correctness}
+            />
+            <MetricsTable
+              label="Answers"
+              runs={runs.filter((run) => run.judged)}
+              metrics={ANSWER_METRICS}
+            />
+            {runs
+              .filter((run) => run.judged)
+              .map((run) => (
+                <SecondJudge key={run.run_id} run={run} />
+              ))}
+          </>
+        )}
       </Section>
 
       {headline && (
@@ -577,13 +595,15 @@ export function EvalsView({ data }: { data: EvalsData }) {
         <Gate run={headline} thresholds={thresholds} />
       </Section>
 
-      <Section id="cost" title="Latency and cost">
-        <p className="text-fg-muted">
-          Per question over the whole run, as each results file records them: the model calls&apos;
-          own time and their price per token.
-        </p>
-        <CostTable runs={runs} />
-      </Section>
+      {runs.length > 0 && (
+        <Section id="cost" title="Latency and cost">
+          <p className="text-fg-muted">
+            Per question over the whole run, as each results file records them: the model
+            calls&apos; own time and their price per token.
+          </p>
+          <CostTable runs={runs} />
+        </Section>
+      )}
 
       <p className="text-small text-fg-muted">
         Every number here is rebuilt from the files in{" "}

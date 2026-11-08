@@ -44,6 +44,9 @@ EXPECTED = {
     "fl-stat-718-2026": (3, 3),
     "co-ley-820-senado-2026-10-15": (43, 43),
     "co-ley-675-senado-2026-10-15": (87, 87),
+    "dubai-law-26-2007-dlp-2024-12-20": (37, 37),
+    "dubai-law-33-2008-dlp-2023-08-07": (13, 13),  # 11 restated, its own 1, and "2 #2"
+    "dubai-dld-tenancy-guide-2020-02-07": (54, 54),  # Decree 43/2013, Law 33/2008, Law 26/2007
 }
 
 
@@ -143,3 +146,11 @@ def test_lane_bs_as_of_cases_find_the_version_in_force(case: dict[str, Any]) -> 
     assert str(article.effective_from) == case["effective_from"]
     assert case["present"] in article.text
     assert not [phrase for phrase in case["absent"] if phrase in article.text]
+
+
+def test_dubai_the_guide_keys_each_law_it_reproduces_and_keeps_its_headings_apart() -> None:
+    articles = parse_articles(parse("dubai-dld-tenancy-guide-2020-02-07"))
+    laws = Counter(a.article.split(" art. ")[0] for a in articles)
+    assert laws == {"Decree 43/2013": 4, "Law 33/2008": 13, "Law 26/2007": 37}
+    decree = {a.heading for a in articles if a.article.startswith("Decree")}
+    assert not any(a.heading in decree for a in articles if a.article.startswith("Law 33"))

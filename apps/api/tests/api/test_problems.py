@@ -109,4 +109,5 @@ def test_the_schema_lists_the_codes(client: TestClient) -> None:
         "lease_checks_paused",
         "busy",
         "redaction_refused",
+        "law_not_indexed",
     }

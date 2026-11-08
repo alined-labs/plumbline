@@ -39,13 +39,16 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: true
       - run: make check-py
       - name: Audit Python dependencies
         run: |
-          uv export --locked --all-extras --no-hashes --no-emit-workspace --format requirements.txt > "$RUNNER_TEMP/requirements.txt"
+          # spaCy's two models are wheels of weights from explosion's GitHub releases,
+          # pinned by hash in uv.lock; PyPI has no record of them to audit (spaCy is audited).
+          uv export --locked --all-extras --no-hashes --no-emit-workspace --format requirements.txt |
+            grep -vE '^(en-core-web-md|es-core-news-md) @ https://github\.com/explosion/spacy-models/' > "$RUNNER_TEMP/requirements.txt"
           uvx --from pip-audit==2.9.0 pip-audit --strict -r "$RUNNER_TEMP/requirements.txt"
 
   web:

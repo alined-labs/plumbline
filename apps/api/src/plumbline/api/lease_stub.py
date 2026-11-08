@@ -80,6 +80,9 @@ class StubLeaseChecker:
             yield LeaseStage("checking", done=n, total=total)
         yield LeaseDone(findings=total, language=Language.EN)
 
+    async def indexed(self) -> frozenset[Jurisdiction] | None:
+        return None  # the stand-in cites an invented act for any jurisdiction
+
     async def clause(
         self,
         text: str,

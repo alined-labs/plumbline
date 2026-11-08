@@ -1,0 +1,38 @@
+# Code owners: the paths that wait for Daniel's review on every pull request, since the
+# restart of 4 November 2026 (plumbline-brain, decisions/20261104T210000Z-restart-two-weeks-
+# without-mx3.md). The ruleset on main requires a code-owner review, so a pull request that
+# touches one of these lines merges only after he approves it on GitHub; everything else
+# merges on green CI. The list is AGENTS.md rules 13 (frozen paths) and 14 (core modules).
+
+# Core modules, read line by line before they merge (rule 14).
+/apps/api/src/plumbline/chunking/            @alinedmooner
+/apps/api/src/plumbline/retrieval/fusion.py  @alinedmooner
+/apps/api/src/plumbline/retrieval/sql.py     @alinedmooner
+/apps/api/src/plumbline/generation/verifier.py @alinedmooner
+/apps/api/src/plumbline/generation/abstain.py  @alinedmooner
+/apps/api/src/plumbline/judge/calibration.py @alinedmooner
+/apps/api/src/plumbline/eval/runner.py       @alinedmooner
+/packages/rag-eval/src/rag_eval/metrics.py   @alinedmooner
+/packages/rag-eval/src/rag_eval/stats.py     @alinedmooner
+/data/golden/golden_v*.jsonl                 @alinedmooner
+/evals/baseline.json                         @alinedmooner
+
+# Frozen contracts and tooling (rule 13).
+/apps/api/src/plumbline/core/                @alinedmooner
+/apps/api/src/plumbline/*.py                 @alinedmooner
+/apps/api/tests/core/                        @alinedmooner
+/apps/api/tests/conftest.py                  @alinedmooner
+/packages/rag-eval/src/rag_eval/schema.py    @alinedmooner
+pyproject.toml                               @alinedmooner
+package.json                                 @alinedmooner
+/uv.lock                                     @alinedmooner
+/pnpm-workspace.yaml                         @alinedmooner
+/Makefile                                    @alinedmooner
+/compose.yaml                                @alinedmooner
+/scripts/                                    @alinedmooner
+/AGENTS.md                                   @alinedmooner
+/.claude/                                    @alinedmooner
+/.env.example                                @alinedmooner
+/.gitignore                                  @alinedmooner
+/docs/architecture.md                        @alinedmooner
+/.github/                                    @alinedmooner

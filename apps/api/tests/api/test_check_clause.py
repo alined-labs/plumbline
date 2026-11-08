@@ -167,3 +167,15 @@ async def test_a_paused_server_pauses_clauses_too() -> None:
 def test_the_stub_is_a_lease_checker() -> None:
     checker: LeaseChecker = StubLeaseChecker()
     assert callable(checker.clause)
+
+
+async def test_a_clause_under_law_the_index_lacks_is_refused() -> None:
+    checker = _claude(SyntheticOnlyRedactor())
+    checker._indexed = lambda: frozenset({Jurisdiction.FLORIDA, Jurisdiction.SPAIN})
+    assert await checker.indexed() == {Jurisdiction.FLORIDA, Jurisdiction.SPAIN}
+    [response] = await _post(_app(checker), {"clause": CLAUSE, "jurisdiction": "dubai"})
+    assert response.status_code == 503
+    assert response.json()["code"] == "law_not_indexed"
+    # Indexed law goes on to redaction, which refuses a reader's text until P2.
+    [indexed] = await _post(_app(checker), {"clause": CLAUSE, "jurisdiction": "spain"})
+    assert indexed.json()["code"] == "redaction_refused"

@@ -24,10 +24,11 @@ import struct
 import tempfile
 import threading
 import time
+from collections import OrderedDict
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Final, Literal
 
 from plumbline.core.types import CacheMode
 
@@ -83,11 +84,21 @@ class Cached:
     cached: bool  # True when this came from a recording
 
 
+# How many results a process keeps in memory, the most recently used. An embedding held in
+# memory is about 33 KB, so 2,000 entries is about 70 MB, well inside the production API's
+# 2 GB (Lane P, 2026-10-20). An evicted result is read from disk again in record and replay
+# mode; in live mode nothing is on disk, so a repeat of an evicted request calls the model.
+MEMORY_ENTRIES: Final = 2000
+
+
 class ResponseCache:
-    def __init__(self, mode: CacheMode, directory: Path) -> None:
+    def __init__(
+        self, mode: CacheMode, directory: Path, *, memory_entries: int = MEMORY_ENTRIES
+    ) -> None:
         self.mode = CacheMode(mode)
         self.directory = directory
-        self._memory: dict[str, Cached] = {}
+        self._memory: OrderedDict[str, Cached] = OrderedDict()
+        self._memory_entries = memory_entries
         self._lock = threading.Lock()
 
     def path(self, kind: Kind, key: str) -> Path:
@@ -160,6 +171,8 @@ class ResponseCache:
     def _get(self, kind: Kind, key: str) -> Cached | None:
         with self._lock:
             hit = self._memory.get(key)
+            if hit is not None:
+                self._memory.move_to_end(key)  # the most recently used is evicted last
         if hit is not None:
             return hit
         try:
@@ -207,6 +220,9 @@ class ResponseCache:
     def _remember(self, result: Cached) -> None:
         with self._lock:
             self._memory[result.key] = replace(result, cached=True)
+            self._memory.move_to_end(result.key)
+            while len(self._memory) > self._memory_entries:
+                self._memory.popitem(last=False)
 
     def _write(self, kind: Kind, key: str, request: Mapping[str, Json], result: Cached) -> None:
         body = {

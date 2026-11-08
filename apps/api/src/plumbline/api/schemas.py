@@ -143,6 +143,7 @@ class LeaseDoneEvent(BaseModel):
 LeaseFailureCode = Literal[
     "redaction_refused",  # the lease cannot be redacted yet, so it is not sent to a model
     "jurisdiction_unknown",  # the lease names no jurisdiction, or several, and none was given
+    "law_not_indexed",  # the law the lease names is not in the index yet (no model was called)
     "no_clauses",  # no numbered clauses were found in the lease
     "timed_out",  # the check took too long and was stopped
     "interrupted",  # the server stopped while the check was running

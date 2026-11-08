@@ -30,7 +30,7 @@ from pydantic import BaseModel, Field
 
 from plumbline.api import answering
 from plumbline.api.chunks import SourceLink, _sources
-from plumbline.api.leases import LeaseChecker
+from plumbline.api.leases import LeaseChecker, refuse_unindexed
 from plumbline.api.problems import MEDIA_TYPE, ApiError
 from plumbline.api.quota import Quota, set_visitor_cookie
 from plumbline.api.restricted import is_restricted
@@ -165,7 +165,8 @@ class ClauseResult(BaseModel):
             "`quota_reached`: today's lease checks are used up (a clause counts as one)."
         ),
         503: _problem(
-            "`lease_checks_paused` (the demo tier or today's budget does not run them) or"
+            "`lease_checks_paused` (the demo tier or today's budget does not run them),"
+            " `law_not_indexed` (the jurisdiction's law is not in the index yet) or"
             " `redaction_refused` (the clause cannot be redacted, so no model may read it)."
         ),
     },
@@ -177,6 +178,7 @@ async def check_clause(request: Request, response: Response, body: ClauseRequest
         route = await checker.route(await tier_store(request).current())
     except RouteRefused as exc:
         raise ApiError(503, "lease_checks_paused", str(exc)) from exc
+    await refuse_unindexed(checker, body.jurisdiction)
     quota: Quota = state.quota
     visitor = await quota.admit(request, "lease")
     try:

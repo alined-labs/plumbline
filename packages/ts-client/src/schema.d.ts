@@ -716,7 +716,7 @@ export interface components {
              * Code
              * @enum {string}
              */
-            code: "redaction_refused" | "jurisdiction_unknown" | "no_clauses" | "timed_out" | "interrupted" | "internal";
+            code: "redaction_refused" | "jurisdiction_unknown" | "law_not_indexed" | "no_clauses" | "timed_out" | "interrupted" | "internal";
             /** Message */
             message: string;
         };
@@ -812,7 +812,7 @@ export interface components {
              * Code
              * @default null
              */
-            code: ("unsupported_type" | "too_large" | "unreadable" | "quota_reached" | "not_found" | "lease_checks_paused" | "busy" | "redaction_refused") | null;
+            code: ("unsupported_type" | "too_large" | "unreadable" | "quota_reached" | "not_found" | "lease_checks_paused" | "busy" | "redaction_refused" | "law_not_indexed") | null;
             /**
              * Detail
              * @default null
@@ -1375,7 +1375,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `lease_checks_paused` (the demo tier does not run them) or `busy` (too many checks are running; Retry-After gives the seconds). */
+            /** @description `lease_checks_paused` (the demo tier does not run them), `law_not_indexed` (the named jurisdiction's law is not in the index yet) or `busy` (too many checks are running; Retry-After gives the seconds). */
             503: {
                 headers: {
                     "Retry-After"?: number;
@@ -1690,7 +1690,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `lease_checks_paused` (the demo tier or today's budget does not run them) or `redaction_refused` (the clause cannot be redacted, so no model may read it). */
+            /** @description `lease_checks_paused` (the demo tier or today's budget does not run them), `law_not_indexed` (the jurisdiction's law is not in the index yet) or `redaction_refused` (the clause cannot be redacted, so no model may read it). */
             503: {
                 headers: {
                     [name: string]: unknown;

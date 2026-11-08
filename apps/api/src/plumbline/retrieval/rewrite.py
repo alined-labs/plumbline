@@ -13,8 +13,11 @@ call data, defused like every other block.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Final
 
 from plumbline.generation.llm import JUDGE_MODEL, LLMClient, LLMRequest, Message
@@ -62,3 +65,17 @@ async def rewrite_to_spanish(
     if not query:
         raise ValueError("the model returned an empty query")
     return query
+
+
+def spanish_rewriter(client: LLMClient, *, model: str = REWRITE_MODEL) -> Callable[[str], str]:
+    """retriever.Retriever's `spanish=`: the rewrite as a plain call. The retriever runs
+    synchronously, sometimes inside a running event loop (the evaluation runner), so each
+    rewrite runs its coroutine on a thread of its own. The request holds only the
+    question, so its recording belongs in the committed cache."""
+
+    def rewrite(question: str) -> str:
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(asyncio.run, rewrite_to_spanish(question, client, model=model))
+            return future.result()
+
+    return rewrite
