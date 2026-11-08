@@ -134,6 +134,16 @@ describe("EvalsView", () => {
     expect(screen.getByText(/Its measured accuracy appears here once/)).toBeInTheDocument();
   });
 
+  it("shows the judge alone, and says no run is published, before the first results file", () => {
+    renderView({ ...data, runs: [] });
+    expect(screen.getByText(/No run is published yet/)).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "The judge's accuracy" })).toBeInTheDocument();
+    expect(screen.getByText(/appear here after the first published run/)).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Retrieval" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Latency and cost" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/The default configuration/)).not.toBeInTheDocument();
+  });
+
   it("links the gate's runs and sets each threshold beside the score", () => {
     renderView();
     expect(screen.getByRole("link", { name: "See the gate's runs" })).toHaveAttribute(
