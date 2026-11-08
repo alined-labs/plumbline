@@ -45,7 +45,10 @@ jobs:
       - run: make check-py
       - name: Audit Python dependencies
         run: |
-          uv export --locked --all-extras --no-hashes --no-emit-workspace --format requirements.txt > "$RUNNER_TEMP/requirements.txt"
+          # spaCy's two models are wheels of weights from explosion's GitHub releases,
+          # pinned by hash in uv.lock; PyPI has no record of them to audit (spaCy is audited).
+          uv export --locked --all-extras --no-hashes --no-emit-workspace --format requirements.txt |
+            grep -vE '^(en-core-web-md|es-core-news-md) @ https://github\.com/explosion/spacy-models/' > "$RUNNER_TEMP/requirements.txt"
           uvx --from pip-audit==2.9.0 pip-audit --strict -r "$RUNNER_TEMP/requirements.txt"
 
   web:
